@@ -24,7 +24,7 @@ export default function AppShell() {
 
       <main className="mx-auto max-w-6xl px-4 py-6">
         <nav className="mb-4 text-sm">
-          <Crumb to="/">Dashboard</Crumb>
+          {/* <Crumb to="/">Dashboard</Crumb> */}
         </nav>
         <Outlet />
       </main>

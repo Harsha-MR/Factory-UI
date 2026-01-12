@@ -60,15 +60,17 @@ export default function Dashboard() {
 
   const [deptResult, setDeptResult] = useState(null)
 
+  const activeDeptId = deptResult?.department?.id || ''
+
   // Auto-refresh the selected department every 2 seconds (after Get)
   useEffect(() => {
-    if (!deptResult || !departmentId) return
+    if (!activeDeptId) return
 
     let cancelled = false
 
     const intervalId = setInterval(async () => {
       try {
-        const result = await getDepartmentLayout(departmentId)
+        const result = await getDepartmentLayout(activeDeptId)
         if (!cancelled) setDeptResult(result)
       } catch {
         // Keep last known data if refresh fails
@@ -79,7 +81,7 @@ export default function Dashboard() {
       cancelled = true
       clearInterval(intervalId)
     }
-  }, [deptResult, departmentId])
+  }, [activeDeptId])
 
   useEffect(() => {
     startLiveSimulation({ tickMs: 2000 })
@@ -273,15 +275,9 @@ export default function Dashboard() {
                   {z.machines.map((m) => (
                     <div
                       key={m.id}
-                      className="flex items-center gap-2 rounded border px-2 py-1 text-xs"
+                      className={`h-5 w-5 rounded-full ${statusColor(m.status)} ring-1 ring-black/10`}
                       title={m.updatedAt ? `updatedAt: ${m.updatedAt}` : ''}
-                    >
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${statusColor(m.status)}`}
-                      />
-                      <span className="font-medium">{m.name}</span>
-                      <span className="text-gray-500">({m.status})</span>
-                    </div>
+                    />
                   ))}
                 </div>
               </div>

@@ -8,6 +8,20 @@ let simStarted = false
 
 const STATUSES = ['RUNNING', 'WARNING', 'DOWN', 'OFFLINE', 'MAINTENANCE']
 
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+function nextStatus(current) {
+  const idx = STATUSES.indexOf(current)
+  if (idx < 0) return STATUSES[0]
+  return STATUSES[(idx + 1) % STATUSES.length]
+}
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -52,14 +66,16 @@ function mutateSomeMachineStatuses() {
   const machines = getAllMachines()
   if (machines.length === 0) return
 
-  // Change 1..3 machines per tick
-  const changes = Math.min(3, Math.max(1, Math.floor(Math.random() * 3) + 1))
+  // Change enough machines per tick so it is clearly visible to humans.
+  // ~15% of all machines, but bounded.
+  const changes = Math.min(60, Math.max(12, Math.floor(machines.length * 0.15)))
+  shuffleInPlace(machines)
 
-  for (let i = 0; i < changes; i++) {
-    const m = machines[Math.floor(Math.random() * machines.length)]
-    const next = STATUSES[Math.floor(Math.random() * STATUSES.length)]
-    m.status = next
-    m.updatedAt = new Date().toISOString()
+  const now = new Date().toISOString()
+  for (let i = 0; i < Math.min(changes, machines.length); i++) {
+    const m = machines[i]
+    m.status = nextStatus(m.status)
+    m.updatedAt = now
   }
 }
 
