@@ -12,7 +12,7 @@ function Crumb({ children, to }) {
 
 export default function AppShell() {
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="flex min-h-screen flex-col bg-gray-50 text-gray-900">
       <header className="border-b bg-white">
         <div className="app-container flex items-center justify-between py-3">
           <div className="font-semibold">Factory Name</div>
@@ -20,12 +20,18 @@ export default function AppShell() {
         </div>
       </header>
 
-      <main className="app-container py-4 sm:py-6">
+      <main className="app-container flex-1 py-4 sm:py-6">
         <nav className="mb-4 text-sm">
           {/* <Crumb to="/">Dashboard</Crumb> */}
         </nav>
         <Outlet />
       </main>
+
+      <footer className="mt-auto border-t bg-white">
+        <div className="app-container py-3 text-xs text-gray-500">
+          © {new Date().getFullYear()} Factory UI
+        </div>
+      </footer>
     </div>
   )
 }
