@@ -62,6 +62,142 @@ function Select({ label, value, onChange, options, disabled }) {
   )
 }
 
+function MachineDot({ machine }) {
+  const buttonRef = useRef(null)
+  const [align, setAlign] = useState('center') // 'left' | 'center' | 'right'
+
+  const updatedAtText = machine.updatedAt
+    ? new Date(machine.updatedAt).toLocaleString()
+    : '—'
+
+  function updateAlign() {
+    const el = buttonRef.current
+    if (!el) return
+
+    const rect = el.getBoundingClientRect()
+    const vw = window.innerWidth || 0
+    const edgeThreshold = 220
+
+    if (rect.left < edgeThreshold) setAlign('left')
+    else if (vw - rect.right < edgeThreshold) setAlign('right')
+    else setAlign('center')
+  }
+
+  const tooltipAlignClass =
+    align === 'left'
+      ? 'left-0 translate-x-0'
+      : align === 'right'
+        ? 'right-0 translate-x-0'
+        : 'left-1/2 -translate-x-1/2'
+
+  return (
+    <div className="group relative">
+      <button
+        type="button"
+        ref={buttonRef}
+        className={`h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 rounded-full ${statusColor(machine.status)} ring-1 ring-black/10 focus:outline-none focus:ring-2 focus:ring-black/20`}
+        aria-label={`Machine ${machine.name || machine.id} status ${machine.status}`}
+        onMouseEnter={updateAlign}
+        onFocus={updateAlign}
+      />
+
+      <div
+        className={`pointer-events-none absolute top-full z-20 mt-2 w-max rounded-md bg-gray-900 px-2.5 py-2 text-[11px] leading-4 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipAlignClass}`}
+        style={{ maxWidth: 'min(18rem, calc(100vw - 1.5rem))' }}
+      >
+        <div className="flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${statusColor(machine.status)}`} />
+          <div className="font-semibold">{machine.name || machine.id}</div>
+        </div>
+        <div className="mt-1 text-white/90">Status: {machine.status}</div>
+        <div className="text-white/70">Updated: {updatedAtText}</div>
+      </div>
+    </div>
+  )
+}
+
+function ZoneModal({ zone, onClose }) {
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === 'Escape') onClose()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  if (!zone) return null
+
+  return (
+    <div className="fixed inset-0 z-40">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40"
+        aria-label="Close"
+        onClick={onClose}
+      />
+
+      <div className="relative mx-auto mt-6 h-[80vh] w-[calc(100%-1.5rem)]  overflow-hidden rounded-lg bg-white shadow-xl sm:mt-10 sm:w-[80vw] sm:max-w-none">
+        <div className="flex items-start justify-between gap-3 border-b p-4">
+          <div>
+            <div className="text-lg font-semibold">{zone.name}</div>
+            <div className="text-xs text-gray-500">Machines: {zone.machines.length}</div>
+          </div>
+
+          <button
+            type="button"
+            className="rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="h-[calc(83vh-73px)] overflow-auto p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {zone.machines.map((m) => {
+              const updatedAtText = m.updatedAt
+                ? new Date(m.updatedAt).toLocaleString()
+                : '—'
+
+              return (
+                <div
+                  key={m.id}
+                  className={`rounded-lg border p-3 ${statusSoftBg(m.status)}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-gray-900">
+                        {m.name || m.id}
+                      </div>
+                      <div className="text-xs text-gray-600">ID: {m.id}</div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`h-3 w-3 rounded-full ${statusColor(m.status)}`}
+                        aria-hidden="true"
+                      />
+                      <span className="text-xs font-medium text-gray-800">
+                        {m.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 text-xs text-gray-600">
+                    Updated: {updatedAtText}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [factories, setFactories] = useState([])
   const [plants, setPlants] = useState([])
