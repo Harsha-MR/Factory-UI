@@ -24,6 +24,23 @@ function statusColor(status) {
   }
 }
 
+function statusSoftBg(status) {
+  switch (status) {
+    case 'RUNNING':
+      return 'bg-green-500/10'
+    case 'WARNING':
+      return 'bg-yellow-500/10'
+    case 'DOWN':
+      return 'bg-red-500/10'
+    case 'OFFLINE':
+      return 'bg-gray-500/10'
+    case 'MAINTENANCE':
+      return 'bg-blue-500/10'
+    default:
+      return 'bg-slate-500/10'
+  }
+}
+
 function Select({ label, value, onChange, options, disabled }) {
   return (
     <label className="block">
@@ -45,64 +62,6 @@ function Select({ label, value, onChange, options, disabled }) {
   )
 }
 
-function MachineDot({ machine }) {
-  const buttonRef = useRef(null)
-  const [align, setAlign] = useState('center') // 'left' | 'center' | 'right'
-
-  const updatedAtText = machine.updatedAt
-    ? new Date(machine.updatedAt).toLocaleString()
-    : '—'
-
-  function updateAlign() {
-    const el = buttonRef.current
-    if (!el) return
-
-    const rect = el.getBoundingClientRect()
-    const vw = window.innerWidth || 0
-    const edgeThreshold = 220
-
-    if (rect.left < edgeThreshold) setAlign('left')
-    else if (vw - rect.right < edgeThreshold) setAlign('right')
-    else setAlign('center')
-  }
-
-  const tooltipAlignClass =
-    align === 'left'
-      ? 'left-0 translate-x-0'
-      : align === 'right'
-        ? 'right-0 translate-x-0'
-        : 'left-1/2 -translate-x-1/2'
-
-  return (
-    <div className="group relative">
-      <button
-        type="button"
-        ref={buttonRef}
-        className={`h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 rounded-full ${statusColor(machine.status)} ring-1 ring-black/10 focus:outline-none focus:ring-2 focus:ring-black/20`}
-        aria-label={`Machine ${machine.name || machine.id} status ${machine.status}`}
-        onMouseEnter={updateAlign}
-        onFocus={updateAlign}
-      />
-
-      <div
-        className={`pointer-events-none absolute top-full z-20 mt-2 w-max rounded-md bg-gray-900 px-2.5 py-2 text-[11px] leading-4 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipAlignClass}`}
-        style={{ maxWidth: 'min(18rem, calc(100vw - 1.5rem))' }}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className={`h-2 w-2 rounded-full ${statusColor(machine.status)}`}
-          />
-          <div className="font-semibold">
-            {machine.name || machine.id}
-          </div>
-        </div>
-        <div className="mt-1 text-white/90">Status: {machine.status}</div>
-        <div className="text-white/70">Updated: {updatedAtText}</div>
-      </div>
-    </div>
-  )
-}
-
 export default function Dashboard() {
   const [factories, setFactories] = useState([])
   const [plants, setPlants] = useState([])
@@ -117,8 +76,14 @@ export default function Dashboard() {
   const [error, setError] = useState('')
 
   const [deptResult, setDeptResult] = useState(null)
+  const [selectedZoneId, setSelectedZoneId] = useState('')
 
   const activeDeptId = deptResult?.department?.id || ''
+
+  const activeZone = useMemo(() => {
+    if (!deptResult || !selectedZoneId) return null
+    return deptResult.layout.zones.find((z) => z.id === selectedZoneId) || null
+  }, [deptResult, selectedZoneId])
 
   // Auto-refresh the selected department every 2 seconds (after Get)
   useEffect(() => {
@@ -175,6 +140,7 @@ export default function Dashboard() {
     setPlants([])
     setDepartments([])
     setDeptResult(null)
+    setSelectedZoneId('')
 
     if (!factoryId) return
 
@@ -202,6 +168,7 @@ export default function Dashboard() {
     setDepartmentId('')
     setDepartments([])
     setDeptResult(null)
+    setSelectedZoneId('')
 
     if (!plantId) return
 
@@ -235,9 +202,11 @@ export default function Dashboard() {
       setLoadingDept(true)
       const result = await getDepartmentLayout(departmentId)
       setDeptResult(result)
+      setSelectedZoneId('')
     } catch (e) {
       setError(e?.message || 'Failed to load department layout')
       setDeptResult(null)
+      setSelectedZoneId('')
     } finally {
       setLoadingDept(false)
     }
@@ -287,11 +256,7 @@ export default function Dashboard() {
             {loadingDept ? 'Getting...' : 'Get'}
           </button>
 
-          {selectedDeptName ? (
-            <div className="text-sm text-gray-600">
-              Selected: <span className="font-medium">{selectedDeptName}</span>
-            </div>
-          ) : null}
+
 
           {error ? <div className="text-sm text-red-600">{error}</div> : null}
         </div>
@@ -329,7 +294,19 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
             {deptResult.layout.zones.map((z) => (
-              <div key={z.id} className="rounded border p-3 sm:p-4">
+              <div
+                key={z.id}
+                className="cursor-pointer rounded border p-3 transition hover:bg-gray-50 sm:p-4"
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedZoneId(z.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setSelectedZoneId(z.id)
+                  }
+                }}
+              >
                 <div className="mb-2 text-sm font-semibold sm:text-base">
                   {z.name}
                 </div>
@@ -347,6 +324,10 @@ export default function Dashboard() {
             Auto-refresh is enabled (updates every 2 seconds).
           </div>
         </div>
+      ) : null}
+
+      {selectedZoneId ? (
+        <ZoneModal zone={activeZone} onClose={() => setSelectedZoneId('')} />
       ) : null}
     </div>
   )
