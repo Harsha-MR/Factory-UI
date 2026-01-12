@@ -1,0 +1,106 @@
+{
+  "factories": [
+    {
+      "id": "f1",
+      "name": "Northwind Automotive Components - Detroit",
+      "plants": [
+        {
+          "id": "p1",
+          "name": "Plant A - Machining & Assembly",
+          "departments": [
+            {
+              "id": "d1",
+              "name": "Powertrain Assembly",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z1",
+                    "name": "Line A - Sub-Assembly",
+                    "machines": [
+                      { "id": "m1", "name": "Laser Cutting Station", "status": "RUNNING" },
+                      { "id": "m2", "name": "Robotic MIG Welding Cell", "status": "WARNING" }
+                    ]
+                  },
+                  {
+                    "id": "z2",
+                    "name": "Line B - Final Fit",
+                    "machines": [
+                      { "id": "m3", "name": "Pallet Conveyor", "status": "RUNNING" },
+                      { "id": "m4", "name": "200T Hydraulic Press", "status": "DOWN" }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d2",
+              "name": "Packaging & Dispatch",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z3",
+                    "name": "Packing & Shipping",
+                    "machines": [
+                      { "id": "m5", "name": "Shrink Wrap Machine", "status": "MAINTENANCE" },
+                      { "id": "m6", "name": "Print & Apply Labeler", "status": "RUNNING" }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "p2",
+          "name": "Plant B - Surface Treatment & Coating",
+          "departments": [
+            {
+              "id": "d3",
+              "name": "Surface Finishing",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z4",
+                    "name": "Paint Booth #1",
+                    "machines": [
+                      { "id": "m7", "name": "Powder Coating Sprayer", "status": "OFFLINE" },
+                      { "id": "m8", "name": "Tunnel Curing Oven", "status": "RUNNING" }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f2",
+      "name": "Contoso Precision Manufacturing - Austin",
+      "plants": [
+        {
+          "id": "p3",
+          "name": "Plant C - CNC & Quality",
+          "departments": [
+            {
+              "id": "d4",
+              "name": "CNC Machining Cell",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z5",
+                    "name": "CNC Bay 3",
+                    "machines": [
+                      { "id": "m9", "name": "Turning Center TC-01", "status": "RUNNING" },
+                      { "id": "m10", "name": "Vertical Mill VM-02", "status": "WARNING" }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
