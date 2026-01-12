@@ -196,7 +196,7 @@ export default function Dashboard() {
       </div>
 
       <div className="rounded border bg-white p-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
           <Select
             label="Factory"
             value={factoryId}
@@ -252,10 +252,13 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-gray-700">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-gray-700">
               {['RUNNING', 'WARNING', 'DOWN', 'OFFLINE', 'MAINTENANCE'].map(
                 (s) => (
-                  <div key={s} className="flex items-center gap-2">
+                  <div
+                    key={s}
+                    className="flex items-center gap-2 whitespace-nowrap"
+                  >
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${statusColor(s)}`}
                     />
@@ -266,16 +269,18 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
             {deptResult.layout.zones.map((z) => (
-              <div key={z.id} className="rounded border p-3">
-                <div className="mb-2 text-sm font-semibold">{z.name}</div>
+              <div key={z.id} className="rounded border p-3 sm:p-4">
+                <div className="mb-2 text-sm font-semibold sm:text-base">
+                  {z.name}
+                </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {z.machines.map((m) => (
                     <div
                       key={m.id}
-                      className={`h-5 w-5 rounded-full ${statusColor(m.status)} ring-1 ring-black/10`}
+                      className={`h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 rounded-full ${statusColor(m.status)} ring-1 ring-black/10`}
                       title={m.updatedAt ? `updatedAt: ${m.updatedAt}` : ''}
                     />
                   ))}

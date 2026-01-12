@@ -5,3 +5,29 @@
 :root {
   color-scheme: light;
 }
+
+@layer components {
+  .app-container {
+    @apply mx-auto w-full px-3 sm:px-4 lg:px-6;
+    max-width: 72rem;
+  }
+}
+
+/* Explicit media queries for wide-screen optimization */
+@media (min-width: 1280px) {
+  .app-container {
+    max-width: 80rem;
+  }
+}
+
+@media (min-width: 1536px) {
+  .app-container {
+    max-width: 96rem;
+  }
+}
+
+@media (min-width: 1920px) {
+  .app-container {
+    max-width: 110rem;
+  }
+}
