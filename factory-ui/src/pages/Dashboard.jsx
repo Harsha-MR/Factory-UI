@@ -116,6 +116,9 @@ function MachineDot({ machine }) {
   )
 }
 
+function ZoneModal({ zone, zones, selectedZoneId, onSelectZone, onClose }) {
+  const activeZoneButtonRef = useRef(null)
+
 function ZoneModal({ zone, onClose }) {
   useEffect(() => {
     function onKeyDown(e) {
@@ -128,6 +131,19 @@ function ZoneModal({ zone, onClose }) {
 
   if (!zone) return null
 
+  const safeZones = Array.isArray(zones) ? zones : []
+
+  useEffect(() => {
+    const el = activeZoneButtonRef.current
+    if (!el) return
+
+    // Ensure the selected zone card is visible in the horizontal scroller.
+    // Using rAF avoids occasional layout timing issues on first open.
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    })
+  }, [selectedZoneId, safeZones.length])
+
   return (
     <div className="fixed inset-0 z-40">
       <button
@@ -137,6 +153,73 @@ function ZoneModal({ zone, onClose }) {
         onClick={onClose}
       />
 
+      <div className="relative mx-auto mt-6 flex h-[90vh] w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:mt-10 sm:w-[90vw] sm:max-w-none">
+        <div className="border-b p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-lg font-semibold">{zone.name}</div>
+              <div className="text-xs text-gray-500">
+                Machines: {zone.machines.length}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              aria-label="Close"
+              onClick={onClose}
+            >
+              ✕
+            </button>
+          </div>
+
+          {safeZones.length > 1 ? (
+            <div className="mt-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-medium text-gray-600">Zones</div>
+                <div className="text-[11px] text-gray-400">Scroll to view more</div>
+              </div>
+
+              <div className="mt-2 -mx-1 overflow-x-auto px-1">
+                <div className="flex min-w-max gap-2">
+                  {safeZones.map((z) => {
+                    const isActive = z.id === selectedZoneId
+                    return (
+                      <button
+                        key={z.id}
+                        type="button"
+                        ref={isActive ? activeZoneButtonRef : undefined}
+                        onClick={() => onSelectZone?.(z.id)}
+                        className={
+                          `rounded-md border px-3 py-2 text-left text-sm transition ` +
+                          (isActive
+                            ? 'border-black bg-black text-white'
+                            : 'border-gray-200 bg-white hover:bg-gray-50')
+                        }
+                        aria-current={isActive ? 'true' : undefined}
+                        aria-label={`Select zone ${z.name}`}
+                      >
+                        <div className="max-w-[12rem] truncate font-medium">
+                          {z.name}
+                        </div>
+                        <div
+                          className={
+                            `text-[11px] ` +
+                            (isActive ? 'text-white/80' : 'text-gray-500')
+                          }
+                        >
+                          Machines: {z.machines?.length ?? 0}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex-1 overflow-auto p-4">
       <div className="relative mx-auto mt-6 h-[80vh] w-[calc(100%-1.5rem)]  overflow-hidden rounded-lg bg-white shadow-xl sm:mt-10 sm:w-[80vw] sm:max-w-none">
         <div className="flex items-start justify-between gap-3 border-b p-4">
           <div>
@@ -463,6 +546,13 @@ export default function Dashboard() {
       ) : null}
 
       {selectedZoneId ? (
+        <ZoneModal
+          zone={activeZone}
+          zones={deptResult?.layout?.zones || []}
+          selectedZoneId={selectedZoneId}
+          onSelectZone={setSelectedZoneId}
+          onClose={() => setSelectedZoneId('')}
+        />
         <ZoneModal zone={activeZone} onClose={() => setSelectedZoneId('')} />
       ) : null}
     </div>
