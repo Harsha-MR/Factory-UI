@@ -525,20 +525,20 @@ function MachineCard({ machine, context, variant = 'full', fetchedAt }) {
   const isCompact = variant === 'compact'
 
   return (
-    <div className={`rounded-2xl border bg-white shadow-sm ${isCompact ? 'p-3' : 'p-5'}`}>
-      <div className={`grid gap-4 ${isCompact ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
-        <div className={`${!isCompact ? 'pr-0 lg:pr-4 lg:border-r' : ''}`}>
+    <div className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${isCompact ? 'p-3' : 'p-5'}`}>
+      <div className={`grid gap-4 ${isCompact ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2'}`}>
+        <div className={`${!isCompact ? 'pr-0 xl:pr-4 xl:border-r' : ''}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className={`${isCompact ? 'text-lg' : 'text-2xl'} font-semibold text-slate-900`}>
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                <div className={`${isCompact ? 'text-lg' : 'text-2xl'} truncate font-semibold text-slate-900`}>
                   {name}
                 </div>
                 {machine?.id ? (
-                  <div className="text-sm text-slate-500">ID: {machine.id}</div>
+                  <div className="truncate text-sm text-slate-500">ID: {machine.id}</div>
                 ) : null}
                 {context?.department || context?.plant ? (
-                  <div className="text-sm text-slate-500">
+                  <div className="truncate text-sm text-slate-500">
                     {context?.department ? context.department : ''}
                     {context?.department && context?.plant ? '  ' : ''}
                     {context?.plant ? context.plant : ''}
@@ -645,7 +645,7 @@ function MachineCard({ machine, context, variant = 'full', fetchedAt }) {
           )}
         </div>
 
-        <div className={`${isCompact ? '' : 'flex items-center justify-between gap-4'}`}>
+        <div className={`${isCompact ? '' : 'xl:flex xl:items-center xl:justify-between xl:gap-4'}`}>
           <div className="flex-1">
             <div className="text-lg font-semibold text-slate-900">OEE</div>
             <div className="mt-3 flex items-center gap-4">
@@ -721,6 +721,7 @@ function MachineCard({ machine, context, variant = 'full', fetchedAt }) {
 
 function ZoneModal({ zone, zones, selectedZoneId, onSelectZone, onClose, fetchedAt }) {
   const activeZoneButtonRef = useRef(null)
+  const [statusFilter, setStatusFilter] = useState('ALL') // ALL | RUNNING | IDLE | DOWN
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -734,6 +735,35 @@ function ZoneModal({ zone, zones, selectedZoneId, onSelectZone, onClose, fetched
   if (!zone) return null
 
   const safeZones = Array.isArray(zones) ? zones : []
+  const machines = Array.isArray(zone.machines) ? zone.machines : []
+
+  useEffect(() => {
+    setStatusFilter('ALL')
+  }, [selectedZoneId])
+
+  const statusCounts = useMemo(() => {
+    const counts = { RUNNING: 0, IDLE: 0, DOWN: 0 }
+    for (const m of machines) {
+      if (m?.status === 'RUNNING') counts.RUNNING++
+      else if (m?.status === 'IDLE') counts.IDLE++
+      else if (m?.status === 'DOWN') counts.DOWN++
+    }
+    return counts
+  }, [machines])
+
+  const filteredMachines = useMemo(() => {
+    if (statusFilter === 'ALL') return machines
+    return machines.filter((m) => m?.status === statusFilter)
+  }, [machines, statusFilter])
+
+  function filterBtnClass(isActive) {
+    return (
+      'rounded-full border px-3 py-1 text-xs font-semibold transition ' +
+      (isActive
+        ? 'border-black bg-black text-white'
+        : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50')
+    )
+  }
 
   useEffect(() => {
     const el = activeZoneButtonRef.current
@@ -763,18 +793,42 @@ function ZoneModal({ zone, zones, selectedZoneId, onSelectZone, onClose, fetched
             <div>
               <div className="text-lg font-semibold">{zone.name}</div>
               <div className="text-xs text-gray-500">
-                Machines: {zone.machines.length}
+                Machines: {machines.length}
               </div>
             </div>
 
-            <button
-              type="button"
-              className="rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-              aria-label="Close"
-              onClick={onClose}
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className={filterBtnClass(statusFilter === 'RUNNING')}
+                onClick={() => setStatusFilter('RUNNING')}
+              >
+                RUNNING ({statusCounts.RUNNING})
+              </button>
+              <button
+                type="button"
+                className={filterBtnClass(statusFilter === 'IDLE')}
+                onClick={() => setStatusFilter('IDLE')}
+              >
+                IDLE ({statusCounts.IDLE})
+              </button>
+              <button
+                type="button"
+                className={filterBtnClass(statusFilter === 'DOWN')}
+                onClick={() => setStatusFilter('DOWN')}
+              >
+                DOWN ({statusCounts.DOWN})
+              </button>
+
+              <button
+                type="button"
+                className="ml-1 rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Close"
+                onClick={onClose}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {safeZones.length > 1 ? (
@@ -827,7 +881,7 @@ function ZoneModal({ zone, zones, selectedZoneId, onSelectZone, onClose, fetched
 
         <div className="flex-1 overflow-auto p-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {zone.machines.map((m) => (
+            {filteredMachines.map((m) => (
               <MachineCard
                 key={m.id}
                 machine={m}
@@ -858,7 +912,7 @@ export default function Dashboard() {
   const [error, setError] = useState('')
 
   const [deptResult, setDeptResult] = useState(null)
-  const [selectedZoneId, setSelectedZoneId] = useState('')
+  const [machineStatusFilter, setMachineStatusFilter] = useState('ALL') // ALL | RUNNING | IDLE | DOWN
 
   const activeDeptId = deptResult?.department?.id || ''
 
@@ -867,12 +921,52 @@ export default function Dashboard() {
     return p?.name || ''
   }, [plants, plantId])
 
-  const activeZone = useMemo(() => {
-    if (!deptResult || !selectedZoneId) return null
+  useEffect(() => {
+    setMachineStatusFilter('ALL')
+  }, [activeDeptId])
+
+  const allMachines = useMemo(() => {
+    const zones = deptResult?.department?.zones
+    if (!Array.isArray(zones)) return []
+    const list = []
+    for (const z of zones) {
+      for (const m of z?.machines || []) list.push(m)
+    }
+    return list
+  }, [deptResult])
+
+  const allMachinesCounts = useMemo(() => {
+    const counts = { RUNNING: 0, IDLE: 0, DOWN: 0 }
+    for (const m of allMachines) {
+      if (m?.status === 'RUNNING') counts.RUNNING++
+      else if (m?.status === 'IDLE') counts.IDLE++
+      else if (m?.status === 'DOWN') counts.DOWN++
+    }
+    return counts
+  }, [allMachines])
+
+  const filteredMachines = useMemo(() => {
+    if (machineStatusFilter === 'ALL') return allMachines
+    return allMachines.filter((m) => m?.status === machineStatusFilter)
+  }, [allMachines, machineStatusFilter])
+
+  const machinesHeading =
+    machineStatusFilter === 'RUNNING'
+      ? 'Running Machines'
+      : machineStatusFilter === 'IDLE'
+        ? 'Idle Machines'
+        : machineStatusFilter === 'DOWN'
+          ? 'Down Machines'
+          : 'All Machines'
+
+  function machineFilterBtnClass(isActive) {
     return (
-      deptResult.department.zones.find((z) => z.id === selectedZoneId) || null
+      'rounded-full border px-3 py-1 text-xs font-semibold transition ' +
+      (isActive
+        ? 'border-black bg-black text-white'
+        : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50')
     )
-  }, [deptResult, selectedZoneId])
+  }
 
   // Auto-refresh the selected department every 5 seconds (after Get)
   useEffect(() => {
@@ -925,7 +1019,7 @@ export default function Dashboard() {
     setDepartments([])
     setDepartmentsFetchedAt('')
     setDeptResult(null)
-    setSelectedZoneId('')
+    setMachineStatusFilter('ALL')
     setShowDepartments(false)
 
     if (!factoryId) return
@@ -954,7 +1048,7 @@ export default function Dashboard() {
     setDepartments([])
     setDepartmentsFetchedAt('')
     setDeptResult(null)
-    setSelectedZoneId('')
+    setMachineStatusFilter('ALL')
     setShowDepartments(false)
 
     if (!plantId) return
@@ -985,7 +1079,7 @@ export default function Dashboard() {
     if (!factoryId || !plantId) return
     setError('')
     setDeptResult(null)
-    setSelectedZoneId('')
+    setMachineStatusFilter('ALL')
     setShowDepartments(true)
   }
 
@@ -995,11 +1089,11 @@ export default function Dashboard() {
       setLoadingDept(true)
       const result = await getDepartmentLayout(dept.id)
       setDeptResult(result)
-      setSelectedZoneId('')
+      setMachineStatusFilter('ALL')
     } catch (e) {
       setError(e?.message || 'Failed to load department layout')
       setDeptResult(null)
-      setSelectedZoneId('')
+      setMachineStatusFilter('ALL')
     } finally {
       setLoadingDept(false)
     }
@@ -1089,7 +1183,7 @@ export default function Dashboard() {
             updatedAt={deptResult.meta?.fetchedAt}
             onBack={() => {
               setDeptResult(null)
-              setSelectedZoneId('')
+              setMachineStatusFilter('ALL')
               setShowDepartments(true)
             }}
           />
@@ -1101,72 +1195,73 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-            {deptResult.department.zones.map((z) => {
-              const zoneCount = deptResult.department.zones.length
-              const spanClass =
-                zoneCount === 1 ? 'sm:col-span-2 lg:col-span-3' : ''
-
-              return (
-              <div
-                key={z.id}
-                className={`cursor-pointer rounded border p-3 transition hover:bg-gray-50 sm:p-4 ${spanClass}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedZoneId(z.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    setSelectedZoneId(z.id)
-                  }
-                }}
-              >
-                <div className="mb-2 text-sm font-semibold sm:text-base">
-                  {z.name}
-                </div>
-
-                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {z.machines.map((m) => (
-                    <div
-                      key={m.id}
-                      onClick={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      role="presentation"
-                    >
-                      <MachineCard
-                        machine={m}
-                        context={{
-                          department: deptResult.department.name,
-                          plant: selectedPlantName,
-                        }}
-                        fetchedAt={deptResult.meta?.fetchedAt}
-                        variant="compact"
-                      />
-                    </div>
-                  ))}
+          <div className="rounded border bg-white p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold">{machinesHeading}</div>
+                <div className="text-xs text-gray-500">
+                  Total: {allMachines.length} | Running: {allMachinesCounts.RUNNING} | Idle: {allMachinesCounts.IDLE} | Down: {allMachinesCounts.DOWN}
                 </div>
               </div>
-              )
-            })}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className={machineFilterBtnClass(machineStatusFilter === 'ALL')}
+                  onClick={() => setMachineStatusFilter('ALL')}
+                >
+                  ALL
+                </button>
+                <button
+                  type="button"
+                  className={machineFilterBtnClass(machineStatusFilter === 'RUNNING')}
+                  onClick={() => setMachineStatusFilter('RUNNING')}
+                >
+                  RUNNING
+                </button>
+                <button
+                  type="button"
+                  className={machineFilterBtnClass(machineStatusFilter === 'IDLE')}
+                  onClick={() => setMachineStatusFilter('IDLE')}
+                >
+                  IDLE
+                </button>
+                <button
+                  type="button"
+                  className={machineFilterBtnClass(machineStatusFilter === 'DOWN')}
+                  onClick={() => setMachineStatusFilter('DOWN')}
+                >
+                  DOWN
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {filteredMachines.map((m) => (
+                <MachineCard
+                  key={m.id}
+                  machine={m}
+                  context={{
+                    department: deptResult.department.name,
+                    plant: selectedPlantName,
+                  }}
+                  fetchedAt={deptResult.meta?.fetchedAt}
+                  variant="compact"
+                />
+              ))}
+            </div>
+
+            {filteredMachines.length === 0 ? (
+              <div className="mt-3 rounded border bg-gray-50 p-3 text-sm text-gray-600">
+                No machines found for this filter.
+              </div>
+            ) : null}
           </div>
 
           <div className="text-xs text-gray-500">
             Auto-refresh is enabled (updates every 5 seconds).
           </div>
         </div>
-      ) : null}
-
-      {selectedZoneId ? (
-        <ZoneModal
-          zone={activeZone}
-          zones={deptResult?.department?.zones || []}
-          selectedZoneId={selectedZoneId}
-          onSelectZone={setSelectedZoneId}
-          fetchedAt={deptResult?.meta?.fetchedAt}
-          onClose={() => setSelectedZoneId('')}
-        />
       ) : null}
     </div>
   )
