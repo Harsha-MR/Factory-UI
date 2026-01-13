@@ -1,15 +1,187 @@
 const NETWORK_MS = 350
 
+// const SEED_URL = '/mock/factoryHierarchy.json'
 const SEED_URL = '/mock/factory_efficiency_data.json'
 
 let seedCache = null
 let seedPromise = null
 
+const IS_DEV = !!import.meta?.env?.DEV
+
 // In-memory "live" copy (this mimics real-world changing state)
 let live = null
 let simStarted = false
 
-const STATUSES = ['RUNNING', 'WARNING', 'DOWN', 'OFFLINE', 'MAINTENANCE']
+const STATUSES = ['RUNNING', 'IDLE', 'WARNING', 'DOWN', 'OFFLINE', 'MAINTENANCE']
+
+function clamp01(n) {
+  if (!Number.isFinite(n)) return 0
+  return Math.min(1, Math.max(0, n))
+}
+
+function getDepartmentMachines(department) {
+  const machines = []
+  for (const z of department?.zones || []) {
+    for (const m of z?.machines || []) machines.push(m)
+  }
+  return machines
+}
+
+function computeDepartmentSummary(department) {
+  const machines = getDepartmentMachines(department)
+
+  const counts = {
+    total: machines.length,
+    running: 0,
+    down: 0,
+    idle: 0,
+    warning: 0,
+    offline: 0,
+    maintenance: 0,
+    critical: 0,
+  }
+
+  let plannedProductionTime = 0
+  let runTime = 0
+  let idealTimeForOutput = 0
+
+  let totalParts = 0
+  let goodParts = 0
+
+  let latestUpdatedAtMs = 0
+  for (const m of machines) {
+    switch (m.status) {
+      case 'RUNNING':
+        counts.running++
+        break
+      case 'DOWN':
+        counts.down++
+        counts.critical++
+        break
+      case 'IDLE':
+        counts.idle++
+        break
+      case 'WARNING':
+        counts.warning++
+        break
+      case 'OFFLINE':
+        counts.offline++
+        counts.critical++
+        break
+      case 'MAINTENANCE':
+        counts.maintenance++
+        counts.critical++
+        break
+      default:
+        break
+    }
+
+    const tm = m.timeMetrics
+    const pm = m.productionMetrics
+
+    const mPlanned = Number(tm?.plannedProductionTime || 0)
+    const mRun = Number(tm?.runTime || 0)
+    plannedProductionTime += mPlanned
+    runTime += mRun
+
+    const idealCycleTime = Number(pm?.idealCycleTime || 0)
+    const parts = Number(pm?.totalPartsProduced || 0)
+    const good = Number(pm?.goodParts || 0)
+    totalParts += parts
+    goodParts += good
+
+    // Used for performance numerator
+    idealTimeForOutput += idealCycleTime * parts
+
+    if (m.updatedAt) {
+      const t = new Date(m.updatedAt).getTime()
+      if (Number.isFinite(t)) latestUpdatedAtMs = Math.max(latestUpdatedAtMs, t)
+    }
+  }
+
+  const availability = plannedProductionTime > 0 ? runTime / plannedProductionTime : 0
+  const performance = runTime > 0 ? idealTimeForOutput / runTime : 0
+  const quality = totalParts > 0 ? goodParts / totalParts : 0
+  const oee = clamp01(availability) * clamp01(performance) * clamp01(quality)
+
+  const severity = counts.critical > 0 ? 'CRITICAL' : counts.warning > 0 ? 'WARNING' : 'OK'
+
+  return {
+    severity,
+    oeePct: clamp01(oee) * 100,
+    availabilityPct: clamp01(availability) * 100,
+    performancePct: clamp01(performance) * 100,
+    qualityPct: clamp01(quality) * 100,
+    machines: counts,
+    production: {
+      goodParts,
+      totalParts,
+      delta: goodParts - totalParts,
+    },
+    updatedAt: latestUpdatedAtMs ? new Date(latestUpdatedAtMs).toISOString() : null,
+  }
+}
+
+function coerceSeedToHierarchyShape(seed) {
+  if (!seed?.factories) return { factories: [] }
+
+  // Support both schemas:
+  // - hierarchy: factories[].id/name/plants[].id/name/departments[].id/name/layout.zones
+  // - efficiency: factories[].factoryId/factoryName/plants[].plantId/plantName/departments[].departmentId/departmentName/machines[]
+  const firstFactory = seed.factories[0]
+  const looksLikeEfficiency =
+    !!firstFactory &&
+    ('factoryId' in firstFactory ||
+      'factoryName' in firstFactory ||
+      'plants' in firstFactory)
+
+  if (!looksLikeEfficiency) return seed
+
+  const generatedAt = seed.generatedAt || new Date().toISOString()
+
+  return {
+    ...seed,
+    generatedAt,
+    factories: (seed.factories || []).map((f) => ({
+      id: f.factoryId ?? f.id,
+      name: f.factoryName ?? f.name,
+      plants: (f.plants || []).map((p) => ({
+        id: p.plantId ?? p.id,
+        name: p.plantName ?? p.name,
+        departments: (p.departments || []).map((d) => {
+          const departmentId = d.departmentId ?? d.id
+          const machines = (d.machines || []).map((m) => ({
+            ...m,
+            id: m.machineId ?? m.id,
+            name: m.machineName ?? m.name,
+            status: m.status ?? 'RUNNING',
+            updatedAt: m.updatedAt ?? generatedAt,
+          }))
+
+          // If the data doesn't include zones/layout, group machines into one zone.
+          const zones =
+            d.zones ||
+            d.layout?.zones ||
+            (machines.length
+              ? [
+                  {
+                    id: `${departmentId}-z-all`,
+                    name: 'All Machines',
+                    machines,
+                  },
+                ]
+              : [])
+
+          return {
+            id: departmentId,
+            name: d.departmentName ?? d.name,
+            zones,
+          }
+        }),
+      })),
+    })),
+  }
+}
 
 function shuffleInPlace(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -42,22 +214,24 @@ function normalizeHierarchy(root) {
 }
 
 async function loadSeed() {
-  if (seedCache) return seedCache
+  // In dev, the JSON file changes frequently; avoid serving stale cached data.
+  if (seedCache && !IS_DEV) return seedCache
   if (seedPromise) return seedPromise
 
   seedPromise = (async () => {
     const res = await fetch(SEED_URL, {
       headers: { Accept: 'application/json' },
+      cache: IS_DEV ? 'no-store' : 'default',
     })
 
     if (!res.ok) {
       throw new Error(
-        `Failed to load factoryHierarchy (${res.status} ${res.statusText})`,
+        `Failed to load seed data (${res.status} ${res.statusText})`,
       )
     }
 
     const json = await res.json()
-    seedCache = json
+    seedCache = coerceSeedToHierarchyShape(json)
     return seedCache
   })()
 
@@ -71,26 +245,26 @@ async function loadSeed() {
 async function ensureLive() {
   if (live) return
   const seed = await loadSeed()
-  live = structuredClone(seed)
+  live = coerceSeedToHierarchyShape(structuredClone(seed))
   normalizeHierarchy(live)
 }
 
 function findFactory(factoryId) {
-  return live.factories.find((f) => f.id === factoryId) || null
+  return (live?.factories || []).find((f) => f.id === factoryId) || null
 }
 
 function findPlant(plantId) {
-  for (const f of live.factories) {
-    const p = f.plants.find((x) => x.id === plantId)
+  for (const f of live?.factories || []) {
+    const p = (f.plants || []).find((x) => x.id === plantId)
     if (p) return { factory: f, plant: p }
   }
   return null
 }
 
 function findDepartment(departmentId) {
-  for (const f of live.factories) {
-    for (const p of f.plants) {
-      const d = p.departments.find((x) => x.id === departmentId)
+  for (const f of live?.factories || []) {
+    for (const p of f.plants || []) {
+      const d = (p.departments || []).find((x) => x.id === departmentId)
       if (d) return { factory: f, plant: p, department: d }
     }
   }
@@ -99,9 +273,9 @@ function findDepartment(departmentId) {
 
 function getAllMachines() {
   const machines = []
-  for (const f of live.factories) {
-    for (const p of f.plants) {
-      for (const d of p.departments) {
+  for (const f of live?.factories || []) {
+    for (const p of f.plants || []) {
+      for (const d of p.departments || []) {
         for (const z of d.zones || []) {
           for (const m of z.machines) machines.push(m)
         }
@@ -143,7 +317,7 @@ export function startLiveSimulation({ tickMs = 2000 } = {}) {
 export async function getFactories() {
   await ensureLive()
   await delay(NETWORK_MS)
-  return live.factories.map(({ id, name }) => ({ id, name }))
+  return (live?.factories || []).map(({ id, name }) => ({ id, name }))
 }
 
 export async function getPlantsByFactory(factoryId) {
@@ -159,7 +333,11 @@ export async function getDepartmentsByPlant(plantId) {
   await delay(NETWORK_MS)
   const found = findPlant(plantId)
   if (!found) return []
-  return found.plant.departments.map(({ id, name }) => ({ id, name }))
+  return found.plant.departments.map((d) => ({
+    id: d.id,
+    name: d.name,
+    summary: computeDepartmentSummary(d),
+  }))
 }
 
 export async function getDepartmentLayout(departmentId) {
@@ -168,6 +346,8 @@ export async function getDepartmentLayout(departmentId) {
   const found = findDepartment(departmentId)
   if (!found) throw new Error(`Department not found: ${departmentId}`)
 
+  const summary = computeDepartmentSummary(found.department)
+
   // Return a copy to avoid UI accidentally mutating live state
   return {
     department: {
@@ -175,6 +355,7 @@ export async function getDepartmentLayout(departmentId) {
       name: found.department.name,
       zones: structuredClone(found.department.zones || []),
     },
+    summary,
     meta: { simulated: true, fetchedAt: new Date().toISOString() },
   }
 }
