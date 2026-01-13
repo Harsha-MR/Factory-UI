@@ -4,7 +4,6 @@ import {
   getDepartmentLayout,
   getFactories,
   getPlantsByFactory,
-  startLiveSimulation,
 } from '../services/mockApi'
 
 function statusColor(status) {
@@ -88,6 +87,13 @@ function formatRelativeTime(isoString) {
 
   const diffDay = Math.floor(diffHr / 24)
   return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`
+}
+
+function formatTimestamp(isoString) {
+  if (!isoString) return '—'
+  const d = new Date(isoString)
+  if (!Number.isFinite(d.getTime())) return '—'
+  return d.toLocaleString()
 }
 
 function DepartmentCard({ name, id, summary, updatedAt, onClick, onBack }) {
@@ -348,7 +354,7 @@ function DepartmentCard({ name, id, summary, updatedAt, onClick, onBack }) {
       </div>
 
       <div className="mt-4 text-sm text-slate-500">
-        Updated: {formatRelativeTime(updatedAt || summary?.updatedAt)}
+        Updated: {formatTimestamp(updatedAt || summary?.updatedAt)}
       </div>
     </div>
   )
@@ -584,7 +590,7 @@ export default function Dashboard() {
     )
   }, [deptResult, selectedZoneId])
 
-  // Auto-refresh the selected department every 2 seconds (after Get)
+  // Auto-refresh the selected department every 5 seconds (after Get)
   useEffect(() => {
     if (!activeDeptId) return
 
@@ -597,17 +603,13 @@ export default function Dashboard() {
       } catch {
         // Keep last known data if refresh fails
       }
-    }, 2000)
+    }, 5000)
 
     return () => {
       cancelled = true
       clearInterval(intervalId)
     }
   }, [activeDeptId])
-
-  useEffect(() => {
-    startLiveSimulation({ tickMs: 2000 })
-  }, [])
 
   useEffect(() => {
     let cancelled = false
