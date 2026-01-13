@@ -119,6 +119,7 @@ function MachineDot({ machine }) {
 function ZoneModal({ zone, zones, selectedZoneId, onSelectZone, onClose }) {
   const activeZoneButtonRef = useRef(null)
 
+function ZoneModal({ zone, onClose }) {
   useEffect(() => {
     function onKeyDown(e) {
       if (e.key === 'Escape') onClose()
@@ -219,6 +220,24 @@ function ZoneModal({ zone, zones, selectedZoneId, onSelectZone, onClose }) {
         </div>
 
         <div className="flex-1 overflow-auto p-4">
+      <div className="relative mx-auto mt-6 h-[80vh] w-[calc(100%-1.5rem)]  overflow-hidden rounded-lg bg-white shadow-xl sm:mt-10 sm:w-[80vw] sm:max-w-none">
+        <div className="flex items-start justify-between gap-3 border-b p-4">
+          <div>
+            <div className="text-lg font-semibold">{zone.name}</div>
+            <div className="text-xs text-gray-500">Machines: {zone.machines.length}</div>
+          </div>
+
+          <button
+            type="button"
+            className="rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="h-[calc(83vh-73px)] overflow-auto p-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {zone.machines.map((m) => {
               const updatedAtText = m.updatedAt
@@ -534,6 +553,7 @@ export default function Dashboard() {
           onSelectZone={setSelectedZoneId}
           onClose={() => setSelectedZoneId('')}
         />
+        <ZoneModal zone={activeZone} onClose={() => setSelectedZoneId('')} />
       ) : null}
     </div>
   )
