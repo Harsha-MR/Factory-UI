@@ -90,7 +90,7 @@ function formatRelativeTime(isoString) {
   return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`
 }
 
-function DepartmentCard({ name, id, summary, onClick, onBack }) {
+function DepartmentCard({ name, id, summary, updatedAt, onClick, onBack }) {
   const severity = summary?.severity || 'OK'
   const oee = clampPct(summary?.oeePct)
   const availability = clampPct(summary?.availabilityPct)
@@ -112,20 +112,27 @@ function DepartmentCard({ name, id, summary, onClick, onBack }) {
   const badgeClass =
     severity === 'CRITICAL'
       ? 'bg-red-600 text-white'
-      : severity === 'WARNING'
+      : severity === 'ACTION_REQUIRED'
         ? 'bg-yellow-500 text-white'
         : 'bg-emerald-600 text-white'
+
+  const badgeText =
+    severity === 'CRITICAL'
+      ? 'CRITICAL'
+      : severity === 'ACTION_REQUIRED'
+        ? 'ACTION REQUIRED'
+        : 'OK'
 
   const oeeBg =
     severity === 'CRITICAL'
       ? 'bg-red-50'
-      : severity === 'WARNING'
+      : severity === 'ACTION_REQUIRED'
         ? 'bg-yellow-50'
         : 'bg-emerald-50'
   const oeeText =
     severity === 'CRITICAL'
       ? 'text-red-700'
-      : severity === 'WARNING'
+      : severity === 'ACTION_REQUIRED'
         ? 'text-yellow-700'
         : 'text-emerald-700'
 
@@ -174,7 +181,7 @@ function DepartmentCard({ name, id, summary, onClick, onBack }) {
             className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold ${badgeClass}`}
           >
             <span className="inline-block h-2 w-2 rounded-full bg-white/80" />
-            <span>{severity}</span>
+            <span>{badgeText}</span>
           </div>
         </div>
       </div>
@@ -221,7 +228,8 @@ function DepartmentCard({ name, id, summary, onClick, onBack }) {
       </div>
 
       <div className="mt-4 border-t pt-4">
-        <div className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+        <div className="flex items-center justify-between gap-3 text-lg font-semibold text-slate-900">
+          <div className="flex items-center gap-2">
           <svg
             viewBox="0 0 24 24"
             width="18"
@@ -234,6 +242,11 @@ function DepartmentCard({ name, id, summary, onClick, onBack }) {
             <path d="M19.4 15a7.96 7.96 0 0 0 .1-1 7.96 7.96 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a8 8 0 0 0-1.7-1l-.4-2.6H9.1L8.7 7a8 8 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a8 8 0 0 0-.1 1c0 .34.03.67.1 1l-2 1.5 2 3.5 2.4-1c.52.4 1.09.74 1.7 1l.4 2.6h5.8l.4-2.6c.61-.26 1.18-.6 1.7-1l2.4 1 2-3.5-2-1.5Z" />
           </svg>
           <span>Machines</span>
+          </div>
+
+          <div className="text-sm font-semibold text-slate-700">
+            <span className="text-slate-500">Active:</span> {running}/{totalMachines}
+          </div>
         </div>
 
         <div className="mt-1 flex flex-wrap items-center gap-5 text-slate-600">
@@ -335,7 +348,7 @@ function DepartmentCard({ name, id, summary, onClick, onBack }) {
       </div>
 
       <div className="mt-4 text-sm text-slate-500">
-        Updated: {formatRelativeTime(summary?.updatedAt)}
+        Updated: {formatRelativeTime(updatedAt || summary?.updatedAt)}
       </div>
     </div>
   )
@@ -549,6 +562,7 @@ export default function Dashboard() {
   const [factories, setFactories] = useState([])
   const [plants, setPlants] = useState([])
   const [departments, setDepartments] = useState([])
+  const [departmentsFetchedAt, setDepartmentsFetchedAt] = useState('')
 
   const [factoryId, setFactoryId] = useState('')
   const [plantId, setPlantId] = useState('')
@@ -623,6 +637,7 @@ export default function Dashboard() {
     setPlantId('')
     setPlants([])
     setDepartments([])
+    setDepartmentsFetchedAt('')
     setDeptResult(null)
     setSelectedZoneId('')
     setShowDepartments(false)
@@ -651,6 +666,7 @@ export default function Dashboard() {
     let cancelled = false
 
     setDepartments([])
+    setDepartmentsFetchedAt('')
     setDeptResult(null)
     setSelectedZoneId('')
     setShowDepartments(false)
@@ -662,7 +678,10 @@ export default function Dashboard() {
         setError('')
         setLoadingLists(true)
         const data = await getDepartmentsByPlant(plantId)
-        if (!cancelled) setDepartments(data)
+        if (!cancelled) {
+          setDepartments(data)
+          setDepartmentsFetchedAt(new Date().toISOString())
+        }
       } catch (e) {
         if (!cancelled)
           setError(e?.message || 'Failed to load departments')
@@ -759,13 +778,14 @@ export default function Dashboard() {
               No departments found for the selected plant.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {departments.map((d) => (
                 <DepartmentCard
                   key={d.id}
                   id={d.id}
                   name={d.name}
                   summary={d.summary}
+                  updatedAt={departmentsFetchedAt}
                   onClick={() => onSelectDepartment(d)}
                 />
               ))}
@@ -780,6 +800,7 @@ export default function Dashboard() {
             id={deptResult.department.id}
             name={deptResult.department.name}
             summary={deptResult.summary}
+            updatedAt={deptResult.meta?.fetchedAt}
             onBack={() => {
               setDeptResult(null)
               setSelectedZoneId('')
@@ -794,7 +815,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
             {deptResult.department.zones.map((z) => (
               <div
                 key={z.id}

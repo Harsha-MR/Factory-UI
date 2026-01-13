@@ -104,11 +104,16 @@ function computeDepartmentSummary(department) {
   const quality = totalParts > 0 ? goodParts / totalParts : 0
   const oee = clamp01(availability) * clamp01(performance) * clamp01(quality)
 
-  const severity = counts.critical > 0 ? 'CRITICAL' : counts.warning > 0 ? 'WARNING' : 'OK'
+  const oeePct = clamp01(oee) * 100
+  // Thresholds:
+  // - OK (green): > 80
+  // - ACTION REQUIRED (amber): 60..80
+  // - CRITICAL (red): < 60
+  const severity = oeePct < 60 ? 'CRITICAL' : oeePct <= 80 ? 'ACTION_REQUIRED' : 'OK'
 
   return {
     severity,
-    oeePct: clamp01(oee) * 100,
+    oeePct,
     availabilityPct: clamp01(availability) * 100,
     performancePct: clamp01(performance) * 100,
     qualityPct: clamp01(quality) * 100,
