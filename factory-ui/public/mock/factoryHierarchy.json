@@ -1,0 +1,3278 @@
+{
+  "factories": [
+    {
+      "id": "f1",
+      "name": "Northwind Automotive Components - Detroit",
+      "plants": [
+        {
+          "id": "p1",
+          "name": "Plant A - Machining & Assembly",
+          "departments": [
+            {
+              "id": "d1",
+              "name": "Machining",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z1",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m1",
+                        "name": "Press-002",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z2",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m2",
+                        "name": "Conveyor-003",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m3",
+                        "name": "Oven-004",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m4",
+                        "name": "Pump-005",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z3",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m5",
+                        "name": "Compressor-006",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m6",
+                        "name": "Welder-007",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m7",
+                        "name": "Laser-008",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z4",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m8",
+                        "name": "TestRig-009",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m9",
+                        "name": "CNC-010",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z5",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m10",
+                        "name": "Robot-011",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m11",
+                        "name": "Press-012",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m12",
+                        "name": "Conveyor-013",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z6",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m13",
+                        "name": "Oven-014",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m14",
+                        "name": "Pump-015",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m15",
+                        "name": "Compressor-016",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m16",
+                        "name": "Welder-017",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d2",
+              "name": "Assembly",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z7",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m17",
+                        "name": "Laser-018",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m18",
+                        "name": "TestRig-019",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m19",
+                        "name": "CNC-020",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m20",
+                        "name": "Robot-021",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z8",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m21",
+                        "name": "Press-022",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m22",
+                        "name": "Conveyor-023",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m23",
+                        "name": "Oven-024",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z9",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m24",
+                        "name": "Pump-025",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m25",
+                        "name": "Compressor-026",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z10",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m26",
+                        "name": "Welder-027",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m27",
+                        "name": "Laser-028",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z11",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m28",
+                        "name": "TestRig-029",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m29",
+                        "name": "CNC-030",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m30",
+                        "name": "Robot-031",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m31",
+                        "name": "Press-032",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m32",
+                        "name": "Conveyor-033",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z12",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m33",
+                        "name": "Oven-034",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m34",
+                        "name": "Pump-035",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m35",
+                        "name": "Compressor-036",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m36",
+                        "name": "Welder-037",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m37",
+                        "name": "Laser-038",
+                        "status": "DOWN"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d3",
+              "name": "Quality",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z13",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m38",
+                        "name": "TestRig-039",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m39",
+                        "name": "CNC-040",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m40",
+                        "name": "Robot-041",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z14",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m41",
+                        "name": "Press-042",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z15",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m42",
+                        "name": "Conveyor-043",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m43",
+                        "name": "Oven-044",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m44",
+                        "name": "Pump-045",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z16",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m45",
+                        "name": "Compressor-046",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m46",
+                        "name": "Welder-047",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m47",
+                        "name": "Laser-048",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z17",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m48",
+                        "name": "TestRig-049",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m49",
+                        "name": "CNC-050",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z18",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m50",
+                        "name": "Robot-051",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m51",
+                        "name": "Press-052",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m52",
+                        "name": "Conveyor-053",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m53",
+                        "name": "Oven-054",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d4",
+              "name": "Packaging & Dispatch",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z19",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m54",
+                        "name": "Pump-055",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z20",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m55",
+                        "name": "Compressor-056",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m56",
+                        "name": "Welder-057",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m57",
+                        "name": "Laser-058",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z21",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m58",
+                        "name": "TestRig-059",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m59",
+                        "name": "CNC-060",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m60",
+                        "name": "Robot-061",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m61",
+                        "name": "Press-062",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m62",
+                        "name": "Conveyor-063",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z22",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m63",
+                        "name": "Oven-064",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z23",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m64",
+                        "name": "Pump-065",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z24",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m65",
+                        "name": "Compressor-066",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m66",
+                        "name": "Welder-067",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m67",
+                        "name": "Laser-068",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "p2",
+          "name": "Plant B - Surface Treatment & Coating",
+          "departments": [
+            {
+              "id": "d5",
+              "name": "Machining",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z25",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m68",
+                        "name": "TestRig-069",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z26",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m69",
+                        "name": "CNC-070",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m70",
+                        "name": "Robot-071",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m71",
+                        "name": "Press-072",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m72",
+                        "name": "Conveyor-073",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m73",
+                        "name": "Oven-074",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z27",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m74",
+                        "name": "Pump-075",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m75",
+                        "name": "Compressor-076",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m76",
+                        "name": "Welder-077",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m77",
+                        "name": "Laser-078",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m78",
+                        "name": "TestRig-079",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z28",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m79",
+                        "name": "CNC-080",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m80",
+                        "name": "Robot-081",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z29",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m81",
+                        "name": "Press-082",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z30",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m82",
+                        "name": "Conveyor-083",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m83",
+                        "name": "Oven-084",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m84",
+                        "name": "Pump-085",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m85",
+                        "name": "Compressor-086",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m86",
+                        "name": "Welder-087",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d6",
+              "name": "Assembly",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z31",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m87",
+                        "name": "Laser-088",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m88",
+                        "name": "TestRig-089",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m89",
+                        "name": "CNC-090",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z32",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m90",
+                        "name": "Robot-091",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m91",
+                        "name": "Press-092",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m92",
+                        "name": "Conveyor-093",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z33",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m93",
+                        "name": "Oven-094",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m94",
+                        "name": "Pump-095",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m95",
+                        "name": "Compressor-096",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z34",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m96",
+                        "name": "Welder-097",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m97",
+                        "name": "Laser-098",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m98",
+                        "name": "TestRig-099",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m99",
+                        "name": "CNC-100",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m100",
+                        "name": "Robot-101",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z35",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m101",
+                        "name": "Press-102",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m102",
+                        "name": "Conveyor-103",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m103",
+                        "name": "Oven-104",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m104",
+                        "name": "Pump-105",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m105",
+                        "name": "Compressor-106",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z36",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m106",
+                        "name": "Welder-107",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m107",
+                        "name": "Laser-108",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m108",
+                        "name": "TestRig-109",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m109",
+                        "name": "CNC-110",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d7",
+              "name": "Quality",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z37",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m110",
+                        "name": "Robot-111",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z38",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m111",
+                        "name": "Press-112",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m112",
+                        "name": "Conveyor-113",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z39",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m113",
+                        "name": "Oven-114",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m114",
+                        "name": "Pump-115",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m115",
+                        "name": "Compressor-116",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m116",
+                        "name": "Welder-117",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m117",
+                        "name": "Laser-118",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z40",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m118",
+                        "name": "TestRig-119",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z41",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m119",
+                        "name": "CNC-120",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z42",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m120",
+                        "name": "Robot-121",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m121",
+                        "name": "Press-122",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m122",
+                        "name": "Conveyor-123",
+                        "status": "WARNING"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d8",
+              "name": "Packaging & Dispatch",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z43",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m123",
+                        "name": "Oven-124",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m124",
+                        "name": "Pump-125",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z44",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m125",
+                        "name": "Compressor-126",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m126",
+                        "name": "Welder-127",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m127",
+                        "name": "Laser-128",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m128",
+                        "name": "TestRig-129",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m129",
+                        "name": "CNC-130",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z45",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m130",
+                        "name": "Robot-131",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z46",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m131",
+                        "name": "Press-132",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m132",
+                        "name": "Conveyor-133",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m133",
+                        "name": "Oven-134",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z47",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m134",
+                        "name": "Pump-135",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z48",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m135",
+                        "name": "Compressor-136",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m136",
+                        "name": "Welder-137",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "p3",
+          "name": "Plant C - Final Assembly & Test",
+          "departments": [
+            {
+              "id": "d9",
+              "name": "Machining",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z49",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m137",
+                        "name": "Laser-138",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m138",
+                        "name": "TestRig-139",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m139",
+                        "name": "CNC-140",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m140",
+                        "name": "Robot-141",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m141",
+                        "name": "Press-142",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z50",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m142",
+                        "name": "Conveyor-143",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m143",
+                        "name": "Oven-144",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m144",
+                        "name": "Pump-145",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m145",
+                        "name": "Compressor-146",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z51",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m146",
+                        "name": "Welder-147",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m147",
+                        "name": "Laser-148",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m148",
+                        "name": "TestRig-149",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z52",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m149",
+                        "name": "CNC-150",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m150",
+                        "name": "Robot-151",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z53",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m151",
+                        "name": "Press-152",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m152",
+                        "name": "Conveyor-153",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m153",
+                        "name": "Oven-154",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m154",
+                        "name": "Pump-155",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m155",
+                        "name": "Compressor-156",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z54",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m156",
+                        "name": "Welder-157",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m157",
+                        "name": "Laser-158",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m158",
+                        "name": "TestRig-159",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m159",
+                        "name": "CNC-160",
+                        "status": "DOWN"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d10",
+              "name": "Assembly",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z55",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m160",
+                        "name": "Robot-161",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m161",
+                        "name": "Press-162",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m162",
+                        "name": "Conveyor-163",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m163",
+                        "name": "Oven-164",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m164",
+                        "name": "Pump-165",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z56",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m165",
+                        "name": "Compressor-166",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m166",
+                        "name": "Welder-167",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m167",
+                        "name": "Laser-168",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m168",
+                        "name": "TestRig-169",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z57",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m169",
+                        "name": "CNC-170",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m170",
+                        "name": "Robot-171",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m171",
+                        "name": "Press-172",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m172",
+                        "name": "Conveyor-173",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z58",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m173",
+                        "name": "Oven-174",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z59",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m174",
+                        "name": "Pump-175",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z60",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m175",
+                        "name": "Compressor-176",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m176",
+                        "name": "Welder-177",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m177",
+                        "name": "Laser-178",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m178",
+                        "name": "TestRig-179",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m179",
+                        "name": "CNC-180",
+                        "status": "DOWN"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d11",
+              "name": "Quality",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z61",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m180",
+                        "name": "Robot-181",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m181",
+                        "name": "Press-182",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m182",
+                        "name": "Conveyor-183",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m183",
+                        "name": "Oven-184",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z62",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m184",
+                        "name": "Pump-185",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m185",
+                        "name": "Compressor-186",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m186",
+                        "name": "Welder-187",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z63",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m187",
+                        "name": "Laser-188",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z64",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m188",
+                        "name": "TestRig-189",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m189",
+                        "name": "CNC-190",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z65",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m190",
+                        "name": "Robot-191",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m191",
+                        "name": "Press-192",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m192",
+                        "name": "Conveyor-193",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m193",
+                        "name": "Oven-194",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m194",
+                        "name": "Pump-195",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z66",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m195",
+                        "name": "Compressor-196",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m196",
+                        "name": "Welder-197",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m197",
+                        "name": "Laser-198",
+                        "status": "DOWN"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d12",
+              "name": "Packaging & Dispatch",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z67",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m198",
+                        "name": "TestRig-199",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m199",
+                        "name": "CNC-200",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m200",
+                        "name": "Robot-201",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m201",
+                        "name": "Press-202",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z68",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m202",
+                        "name": "Conveyor-203",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m203",
+                        "name": "Oven-204",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m204",
+                        "name": "Pump-205",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m205",
+                        "name": "Compressor-206",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m206",
+                        "name": "Welder-207",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z69",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m207",
+                        "name": "Laser-208",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z70",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m208",
+                        "name": "TestRig-209",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m209",
+                        "name": "CNC-210",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m210",
+                        "name": "Robot-211",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m211",
+                        "name": "Press-212",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z71",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m212",
+                        "name": "Conveyor-213",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m213",
+                        "name": "Oven-214",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m214",
+                        "name": "Pump-215",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m215",
+                        "name": "Compressor-216",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m216",
+                        "name": "Welder-217",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z72",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m217",
+                        "name": "Laser-218",
+                        "status": "WARNING"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f2",
+      "name": "Contoso Precision Manufacturing - Austin",
+      "plants": [
+        {
+          "id": "p4",
+          "name": "Plant A - Machining & Assembly",
+          "departments": [
+            {
+              "id": "d13",
+              "name": "Machining",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z73",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m218",
+                        "name": "TestRig-219",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m219",
+                        "name": "CNC-220",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m220",
+                        "name": "Robot-221",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m221",
+                        "name": "Press-222",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z74",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m222",
+                        "name": "Conveyor-223",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m223",
+                        "name": "Oven-224",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m224",
+                        "name": "Pump-225",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m225",
+                        "name": "Compressor-226",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z75",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m226",
+                        "name": "Welder-227",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z76",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m227",
+                        "name": "Laser-228",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z77",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m228",
+                        "name": "TestRig-229",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z78",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m229",
+                        "name": "CNC-230",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d14",
+              "name": "Assembly",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z79",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m230",
+                        "name": "Robot-231",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m231",
+                        "name": "Press-232",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z80",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m232",
+                        "name": "Conveyor-233",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m233",
+                        "name": "Oven-234",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m234",
+                        "name": "Pump-235",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m235",
+                        "name": "Compressor-236",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z81",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m236",
+                        "name": "Welder-237",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m237",
+                        "name": "Laser-238",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z82",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m238",
+                        "name": "TestRig-239",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m239",
+                        "name": "CNC-240",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m240",
+                        "name": "Robot-241",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m241",
+                        "name": "Press-242",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m242",
+                        "name": "Conveyor-243",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z83",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m243",
+                        "name": "Oven-244",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m244",
+                        "name": "Pump-245",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z84",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m245",
+                        "name": "Compressor-246",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m246",
+                        "name": "Welder-247",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m247",
+                        "name": "Laser-248",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m248",
+                        "name": "TestRig-249",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d15",
+              "name": "Quality",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z85",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m249",
+                        "name": "CNC-250",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m250",
+                        "name": "Robot-251",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m251",
+                        "name": "Press-252",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m252",
+                        "name": "Conveyor-253",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z86",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m253",
+                        "name": "Oven-254",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m254",
+                        "name": "Pump-255",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z87",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m255",
+                        "name": "Compressor-256",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m256",
+                        "name": "Welder-257",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m257",
+                        "name": "Laser-258",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m258",
+                        "name": "TestRig-259",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m259",
+                        "name": "CNC-260",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z88",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m260",
+                        "name": "Robot-261",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m261",
+                        "name": "Press-262",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m262",
+                        "name": "Conveyor-263",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m263",
+                        "name": "Oven-264",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m264",
+                        "name": "Pump-265",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z89",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m265",
+                        "name": "Compressor-266",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m266",
+                        "name": "Welder-267",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m267",
+                        "name": "Laser-268",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m268",
+                        "name": "TestRig-269",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z90",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m269",
+                        "name": "CNC-270",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m270",
+                        "name": "Robot-271",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m271",
+                        "name": "Press-272",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d16",
+              "name": "Packaging & Dispatch",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z91",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m272",
+                        "name": "Conveyor-273",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m273",
+                        "name": "Oven-274",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z92",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m274",
+                        "name": "Pump-275",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m275",
+                        "name": "Compressor-276",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m276",
+                        "name": "Welder-277",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z93",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m277",
+                        "name": "Laser-278",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m278",
+                        "name": "TestRig-279",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m279",
+                        "name": "CNC-280",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m280",
+                        "name": "Robot-281",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m281",
+                        "name": "Press-282",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z94",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m282",
+                        "name": "Conveyor-283",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m283",
+                        "name": "Oven-284",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m284",
+                        "name": "Pump-285",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z95",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m285",
+                        "name": "Compressor-286",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z96",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m286",
+                        "name": "Welder-287",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m287",
+                        "name": "Laser-288",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m288",
+                        "name": "TestRig-289",
+                        "status": "DOWN"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "p5",
+          "name": "Plant B - Surface Treatment & Coating",
+          "departments": [
+            {
+              "id": "d17",
+              "name": "Machining",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z97",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m289",
+                        "name": "CNC-290",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m290",
+                        "name": "Robot-291",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m291",
+                        "name": "Press-292",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m292",
+                        "name": "Conveyor-293",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z98",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m293",
+                        "name": "Oven-294",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z99",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m294",
+                        "name": "Pump-295",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m295",
+                        "name": "Compressor-296",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z100",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m296",
+                        "name": "Welder-297",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z101",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m297",
+                        "name": "Laser-298",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m298",
+                        "name": "TestRig-299",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m299",
+                        "name": "CNC-300",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z102",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m300",
+                        "name": "Robot-301",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m301",
+                        "name": "Press-302",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m302",
+                        "name": "Conveyor-303",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m303",
+                        "name": "Oven-304",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m304",
+                        "name": "Pump-305",
+                        "status": "WARNING"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d18",
+              "name": "Assembly",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z103",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m305",
+                        "name": "Compressor-306",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m306",
+                        "name": "Welder-307",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m307",
+                        "name": "Laser-308",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m308",
+                        "name": "TestRig-309",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m309",
+                        "name": "CNC-310",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z104",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m310",
+                        "name": "Robot-311",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m311",
+                        "name": "Press-312",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m312",
+                        "name": "Conveyor-313",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m313",
+                        "name": "Oven-314",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m314",
+                        "name": "Pump-315",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z105",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m315",
+                        "name": "Compressor-316",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m316",
+                        "name": "Welder-317",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m317",
+                        "name": "Laser-318",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m318",
+                        "name": "TestRig-319",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m319",
+                        "name": "CNC-320",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z106",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m320",
+                        "name": "Robot-321",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m321",
+                        "name": "Press-322",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m322",
+                        "name": "Conveyor-323",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m323",
+                        "name": "Oven-324",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z107",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m324",
+                        "name": "Pump-325",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m325",
+                        "name": "Compressor-326",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z108",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m326",
+                        "name": "Welder-327",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m327",
+                        "name": "Laser-328",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m328",
+                        "name": "TestRig-329",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d19",
+              "name": "Quality",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z109",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m329",
+                        "name": "CNC-330",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m330",
+                        "name": "Robot-331",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m331",
+                        "name": "Press-332",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m332",
+                        "name": "Conveyor-333",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z110",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m333",
+                        "name": "Oven-334",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m334",
+                        "name": "Pump-335",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z111",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m335",
+                        "name": "Compressor-336",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m336",
+                        "name": "Welder-337",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z112",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m337",
+                        "name": "Laser-338",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m338",
+                        "name": "TestRig-339",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m339",
+                        "name": "CNC-340",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m340",
+                        "name": "Robot-341",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z113",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m341",
+                        "name": "Press-342",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m342",
+                        "name": "Conveyor-343",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m343",
+                        "name": "Oven-344",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m344",
+                        "name": "Pump-345",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z114",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m345",
+                        "name": "Compressor-346",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m346",
+                        "name": "Welder-347",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m347",
+                        "name": "Laser-348",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m348",
+                        "name": "TestRig-349",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d20",
+              "name": "Packaging & Dispatch",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z115",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m349",
+                        "name": "CNC-350",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m350",
+                        "name": "Robot-351",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m351",
+                        "name": "Press-352",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m352",
+                        "name": "Conveyor-353",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z116",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m353",
+                        "name": "Oven-354",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m354",
+                        "name": "Pump-355",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z117",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m355",
+                        "name": "Compressor-356",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z118",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m356",
+                        "name": "Welder-357",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m357",
+                        "name": "Laser-358",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m358",
+                        "name": "TestRig-359",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m359",
+                        "name": "CNC-360",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m360",
+                        "name": "Robot-361",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z119",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m361",
+                        "name": "Press-362",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z120",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m362",
+                        "name": "Conveyor-363",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "p6",
+          "name": "Plant C - Final Assembly & Test",
+          "departments": [
+            {
+              "id": "d21",
+              "name": "Machining",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z121",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m363",
+                        "name": "Oven-364",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m364",
+                        "name": "Pump-365",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z122",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m365",
+                        "name": "Compressor-366",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m366",
+                        "name": "Welder-367",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m367",
+                        "name": "Laser-368",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m368",
+                        "name": "TestRig-369",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m369",
+                        "name": "CNC-370",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z123",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m370",
+                        "name": "Robot-371",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m371",
+                        "name": "Press-372",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m372",
+                        "name": "Conveyor-373",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m373",
+                        "name": "Oven-374",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z124",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m374",
+                        "name": "Pump-375",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m375",
+                        "name": "Compressor-376",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m376",
+                        "name": "Welder-377",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z125",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m377",
+                        "name": "Laser-378",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m378",
+                        "name": "TestRig-379",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m379",
+                        "name": "CNC-380",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m380",
+                        "name": "Robot-381",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z126",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m381",
+                        "name": "Press-382",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d22",
+              "name": "Assembly",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z127",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m382",
+                        "name": "Conveyor-383",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m383",
+                        "name": "Oven-384",
+                        "status": "DOWN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z128",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m384",
+                        "name": "Pump-385",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m385",
+                        "name": "Compressor-386",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m386",
+                        "name": "Welder-387",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z129",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m387",
+                        "name": "Laser-388",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m388",
+                        "name": "TestRig-389",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z130",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m389",
+                        "name": "CNC-390",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m390",
+                        "name": "Robot-391",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m391",
+                        "name": "Press-392",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m392",
+                        "name": "Conveyor-393",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z131",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m393",
+                        "name": "Oven-394",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z132",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m394",
+                        "name": "Pump-395",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m395",
+                        "name": "Compressor-396",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m396",
+                        "name": "Welder-397",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m397",
+                        "name": "Laser-398",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m398",
+                        "name": "TestRig-399",
+                        "status": "DOWN"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d23",
+              "name": "Quality",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z133",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m399",
+                        "name": "CNC-400",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m400",
+                        "name": "Robot-401",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z134",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m401",
+                        "name": "Press-402",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z135",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m402",
+                        "name": "Conveyor-403",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m403",
+                        "name": "Oven-404",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z136",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m404",
+                        "name": "Pump-405",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z137",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m405",
+                        "name": "Compressor-406",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m406",
+                        "name": "Welder-407",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m407",
+                        "name": "Laser-408",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m408",
+                        "name": "TestRig-409",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z138",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m409",
+                        "name": "CNC-410",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m410",
+                        "name": "Robot-411",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m411",
+                        "name": "Press-412",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m412",
+                        "name": "Conveyor-413",
+                        "status": "WARNING"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d24",
+              "name": "Packaging & Dispatch",
+              "layout": {
+                "zones": [
+                  {
+                    "id": "z139",
+                    "name": "Line 1",
+                    "machines": [
+                      {
+                        "id": "m413",
+                        "name": "Oven-414",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m414",
+                        "name": "Pump-415",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m415",
+                        "name": "Compressor-416",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m416",
+                        "name": "Welder-417",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z140",
+                    "name": "Cell 2",
+                    "machines": [
+                      {
+                        "id": "m417",
+                        "name": "Laser-418",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m418",
+                        "name": "TestRig-419",
+                        "status": "RUNNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z141",
+                    "name": "Station 3",
+                    "machines": [
+                      {
+                        "id": "m419",
+                        "name": "CNC-420",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m420",
+                        "name": "Robot-421",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m421",
+                        "name": "Press-422",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m422",
+                        "name": "Conveyor-423",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m423",
+                        "name": "Oven-424",
+                        "status": "MAINTENANCE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z142",
+                    "name": "Bay 4",
+                    "machines": [
+                      {
+                        "id": "m424",
+                        "name": "Pump-425",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m425",
+                        "name": "Compressor-426",
+                        "status": "WARNING"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z143",
+                    "name": "Area 5",
+                    "machines": [
+                      {
+                        "id": "m426",
+                        "name": "Welder-427",
+                        "status": "DOWN"
+                      },
+                      {
+                        "id": "m427",
+                        "name": "Laser-428",
+                        "status": "WARNING"
+                      },
+                      {
+                        "id": "m428",
+                        "name": "TestRig-429",
+                        "status": "RUNNING"
+                      },
+                      {
+                        "id": "m429",
+                        "name": "CNC-430",
+                        "status": "OFFLINE"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "z144",
+                    "name": "Buffer 6",
+                    "machines": [
+                      {
+                        "id": "m430",
+                        "name": "Robot-431",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m431",
+                        "name": "Press-432",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m432",
+                        "name": "Conveyor-433",
+                        "status": "OFFLINE"
+                      },
+                      {
+                        "id": "m433",
+                        "name": "Oven-434",
+                        "status": "MAINTENANCE"
+                      },
+                      {
+                        "id": "m434",
+                        "name": "Pump-435",
+                        "status": "WARNING"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

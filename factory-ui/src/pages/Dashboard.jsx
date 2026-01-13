@@ -273,7 +273,7 @@ export default function Dashboard() {
 
   const [factoryId, setFactoryId] = useState('')
   const [plantId, setPlantId] = useState('')
-  const [departmentId, setDepartmentId] = useState('')
+  const [showDepartments, setShowDepartments] = useState(false)
 
   const [loadingLists, setLoadingLists] = useState(false)
   const [loadingDept, setLoadingDept] = useState(false)
@@ -286,7 +286,9 @@ export default function Dashboard() {
 
   const activeZone = useMemo(() => {
     if (!deptResult || !selectedZoneId) return null
-    return deptResult.layout.zones.find((z) => z.id === selectedZoneId) || null
+    return (
+      deptResult.department.zones.find((z) => z.id === selectedZoneId) || null
+    )
   }, [deptResult, selectedZoneId])
 
   // Auto-refresh the selected department every 2 seconds (after Get)
@@ -340,11 +342,11 @@ export default function Dashboard() {
     let cancelled = false
 
     setPlantId('')
-    setDepartmentId('')
     setPlants([])
     setDepartments([])
     setDeptResult(null)
     setSelectedZoneId('')
+    setShowDepartments(false)
 
     if (!factoryId) return
 
@@ -369,10 +371,10 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false
 
-    setDepartmentId('')
     setDepartments([])
     setDeptResult(null)
     setSelectedZoneId('')
+    setShowDepartments(false)
 
     if (!plantId) return
 
@@ -395,16 +397,19 @@ export default function Dashboard() {
     }
   }, [plantId])
 
-  const selectedDeptName = useMemo(() => {
-    return departments.find((d) => d.id === departmentId)?.name || ''
-  }, [departments, departmentId])
-
   async function onGet() {
-    if (!departmentId) return
+    if (!factoryId || !plantId) return
+    setError('')
+    setDeptResult(null)
+    setSelectedZoneId('')
+    setShowDepartments(true)
+  }
+
+  async function onSelectDepartment(dept) {
     try {
       setError('')
       setLoadingDept(true)
-      const result = await getDepartmentLayout(departmentId)
+      const result = await getDepartmentLayout(dept.id)
       setDeptResult(result)
       setSelectedZoneId('')
     } catch (e) {
@@ -427,7 +432,7 @@ export default function Dashboard() {
       </div>
 
       <div className="rounded border bg-white p-4">
-        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
           <Select
             label="Factory"
             value={factoryId}
@@ -442,22 +447,15 @@ export default function Dashboard() {
             options={plants}
             disabled={!factoryId || loadingLists}
           />
-          <Select
-            label="Department"
-            value={departmentId}
-            onChange={setDepartmentId}
-            options={departments}
-            disabled={!plantId || loadingLists}
-          />
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             onClick={onGet}
-            disabled={!departmentId || loadingDept}
+            disabled={!plantId || loadingLists}
           >
-            {loadingDept ? 'Getting...' : 'Get'}
+            Get
           </button>
 
 
@@ -466,12 +464,69 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {showDepartments && !deptResult ? (
+        <div className="space-y-3 rounded border bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-lg font-semibold">Departments</div>
+              <div className="text-xs text-gray-500">
+                Select a department to view zones.
+              </div>
+            </div>
+
+            {loadingDept ? (
+              <div className="text-xs text-gray-600">Loading...</div>
+            ) : null}
+          </div>
+
+          {departments.length === 0 ? (
+            <div className="rounded border bg-gray-50 p-3 text-sm text-gray-600">
+              No departments found for the selected plant.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {departments.map((d) => (
+                <div
+                  key={d.id}
+                  className="cursor-pointer rounded border p-4 transition hover:bg-gray-50"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onSelectDepartment(d)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onSelectDepartment(d)
+                    }
+                  }}
+                >
+                  <div className="text-base font-semibold">{d.name}</div>
+                  <div className="mt-1 text-xs text-gray-500">ID: {d.id}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {deptResult ? (
         <div className="space-y-3 rounded border bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <div className="text-lg font-semibold">
-                {deptResult.department.name}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="text-lg font-semibold">
+                  {deptResult.department.name}
+                </div>
+                <button
+                  type="button"
+                  className="rounded border px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                  onClick={() => {
+                    setDeptResult(null)
+                    setSelectedZoneId('')
+                    setShowDepartments(true)
+                  }}
+                >
+                  Back to Departments
+                </button>
               </div>
               <div className="text-xs text-gray-500">
                 simulated: {String(deptResult.meta.simulated)} | fetchedAt:{' '}
@@ -497,7 +552,7 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
-            {deptResult.layout.zones.map((z) => (
+            {deptResult.department.zones.map((z) => (
               <div
                 key={z.id}
                 className="cursor-pointer rounded border p-3 transition hover:bg-gray-50 sm:p-4"
@@ -533,7 +588,7 @@ export default function Dashboard() {
       {selectedZoneId ? (
         <ZoneModal
           zone={activeZone}
-          zones={deptResult?.layout?.zones || []}
+          zones={deptResult?.department?.zones || []}
           selectedZoneId={selectedZoneId}
           onSelectZone={setSelectedZoneId}
           onClose={() => setSelectedZoneId('')}

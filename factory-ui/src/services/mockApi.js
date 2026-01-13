@@ -1,9 +1,12 @@
-import seed from '../mock/factoryHierarchy.json'
-
 const NETWORK_MS = 350
 
+const SEED_URL = '/mock/factory_efficiency_data.json'
+
+let seedCache = null
+let seedPromise = null
+
 // In-memory "live" copy (this mimics real-world changing state)
-let live = structuredClone(seed)
+let live = null
 let simStarted = false
 
 const STATUSES = ['RUNNING', 'WARNING', 'DOWN', 'OFFLINE', 'MAINTENANCE']
@@ -24,6 +27,52 @@ function nextStatus(current) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function normalizeHierarchy(root) {
+  if (!root?.factories) return
+  for (const f of root.factories) {
+    for (const p of f.plants || []) {
+      for (const d of p.departments || []) {
+        if (d?.layout?.zones && !d.zones) d.zones = d.layout.zones
+        if (d?.layout) delete d.layout
+      }
+    }
+  }
+}
+
+async function loadSeed() {
+  if (seedCache) return seedCache
+  if (seedPromise) return seedPromise
+
+  seedPromise = (async () => {
+    const res = await fetch(SEED_URL, {
+      headers: { Accept: 'application/json' },
+    })
+
+    if (!res.ok) {
+      throw new Error(
+        `Failed to load factoryHierarchy (${res.status} ${res.statusText})`,
+      )
+    }
+
+    const json = await res.json()
+    seedCache = json
+    return seedCache
+  })()
+
+  try {
+    return await seedPromise
+  } finally {
+    seedPromise = null
+  }
+}
+
+async function ensureLive() {
+  if (live) return
+  const seed = await loadSeed()
+  live = structuredClone(seed)
+  normalizeHierarchy(live)
 }
 
 function findFactory(factoryId) {
@@ -53,7 +102,7 @@ function getAllMachines() {
   for (const f of live.factories) {
     for (const p of f.plants) {
       for (const d of p.departments) {
-        for (const z of d.layout.zones) {
+        for (const z of d.zones || []) {
           for (const m of z.machines) machines.push(m)
         }
       }
@@ -83,17 +132,22 @@ export function startLiveSimulation({ tickMs = 2000 } = {}) {
   if (simStarted) return
   simStarted = true
 
-  setInterval(() => {
-    mutateSomeMachineStatuses()
-  }, tickMs)
+  ;(async () => {
+    await ensureLive()
+    setInterval(() => {
+      mutateSomeMachineStatuses()
+    }, tickMs)
+  })()
 }
 
 export async function getFactories() {
+  await ensureLive()
   await delay(NETWORK_MS)
   return live.factories.map(({ id, name }) => ({ id, name }))
 }
 
 export async function getPlantsByFactory(factoryId) {
+  await ensureLive()
   await delay(NETWORK_MS)
   const f = findFactory(factoryId)
   if (!f) return []
@@ -101,6 +155,7 @@ export async function getPlantsByFactory(factoryId) {
 }
 
 export async function getDepartmentsByPlant(plantId) {
+  await ensureLive()
   await delay(NETWORK_MS)
   const found = findPlant(plantId)
   if (!found) return []
@@ -108,18 +163,23 @@ export async function getDepartmentsByPlant(plantId) {
 }
 
 export async function getDepartmentLayout(departmentId) {
+  await ensureLive()
   await delay(NETWORK_MS)
   const found = findDepartment(departmentId)
   if (!found) throw new Error(`Department not found: ${departmentId}`)
 
   // Return a copy to avoid UI accidentally mutating live state
   return {
-    department: { id: found.department.id, name: found.department.name },
-    layout: structuredClone(found.department.layout),
+    department: {
+      id: found.department.id,
+      name: found.department.name,
+      zones: structuredClone(found.department.zones || []),
+    },
     meta: { simulated: true, fetchedAt: new Date().toISOString() },
   }
 }
 
 export function resetLiveData() {
-  live = structuredClone(seed)
+  live = seedCache ? structuredClone(seedCache) : null
+  if (live) normalizeHierarchy(live)
 }

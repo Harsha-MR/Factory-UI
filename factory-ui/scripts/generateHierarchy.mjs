@@ -85,9 +85,7 @@ function generateHierarchy({
         const department = {
           id: `d${departmentSeq++}`,
           name: `${pick(departmentNames, di)}`,
-          layout: {
-            zones: [],
-          },
+          zones: [],
         }
 
         for (let zi = 0; zi < zonesPerDepartment; zi++) {
@@ -111,7 +109,7 @@ function generateHierarchy({
             })
           }
 
-          department.layout.zones.push(zone)
+          department.zones.push(zone)
         }
 
         plant.departments.push(department)
