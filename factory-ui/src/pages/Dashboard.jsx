@@ -6,7 +6,12 @@ import {
   getPlantsByFactory,
 } from '../services/mockApi'
 
-import { DepartmentCard, MachineCard, Select } from '../components/dashboard'
+import {
+  DepartmentCard,
+  MachineCard,
+  MachineDetailsModal,
+  Select,
+} from '../components/dashboard'
 
 
 export default function Dashboard() {
@@ -25,6 +30,8 @@ export default function Dashboard() {
 
   const [deptResult, setDeptResult] = useState(null)
   const [machineStatusFilter, setMachineStatusFilter] = useState('ALL') // ALL | RUNNING | IDLE | DOWN
+
+  const [selectedMachine, setSelectedMachine] = useState(null)
 
   const activeDeptId = deptResult?.department?.id || ''
 
@@ -211,8 +218,21 @@ export default function Dashboard() {
     }
   }
 
+  function closeMachineModal() {
+    setSelectedMachine(null)
+  }
+
   return (
     <div className="space-y-3">
+      {selectedMachine ? (
+        <MachineDetailsModal
+          machine={selectedMachine.machine}
+          context={selectedMachine.context}
+          fetchedAt={selectedMachine.fetchedAt}
+          onClose={closeMachineModal}
+        />
+      ) : null}
+
       <div>
         <h1 className="text-xl font-semibold">Dashboard</h1>
       </div>
@@ -359,6 +379,16 @@ export default function Dashboard() {
                   }}
                   fetchedAt={deptResult.meta?.fetchedAt}
                   variant="compact"
+                  onClick={() =>
+                    setSelectedMachine({
+                      machine: m,
+                      context: {
+                        department: deptResult.department.name,
+                        plant: selectedPlantName,
+                      },
+                      fetchedAt: deptResult.meta?.fetchedAt,
+                    })
+                  }
                 />
               ))}
             </div>

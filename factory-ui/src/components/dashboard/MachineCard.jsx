@@ -81,7 +81,7 @@ function OeeGauge({ value, size = 148, stroke = 12, color = '#f97316' }) {
   )
 }
 
-export default function MachineCard({ machine, context, variant = 'full', fetchedAt }) {
+export default function MachineCard({ machine, context, variant = 'full', fetchedAt, onClick }) {
   const name = machine?.name || machine?.id
   const status = machine?.status || 'UNKNOWN'
   const updatedAt = machine?.updatedAt
@@ -109,9 +109,29 @@ export default function MachineCard({ machine, context, variant = 'full', fetche
         : `Running • Updated ${apiUpdatedAtText}`
 
   const isCompact = variant === 'compact'
+  const isClickable = typeof onClick === 'function'
 
   return (
-    <div className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${isCompact ? 'p-3' : 'p-5'}`}>
+    <div
+      className={
+        `overflow-hidden rounded-2xl border bg-white shadow-sm ` +
+        (isCompact ? 'p-3 ' : 'p-5 ') +
+        (isClickable ? 'cursor-pointer transition hover:shadow-md' : '')
+      }
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onClick={isClickable ? onClick : undefined}
+      onKeyDown={
+        isClickable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onClick()
+              }
+            }
+          : undefined
+      }
+    >
       <div className={`grid gap-4 ${isCompact ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2'}`}>
         <div className={`${!isCompact ? 'pr-0 xl:pr-4 xl:border-r' : ''}`}>
           <div className="flex items-start justify-between gap-3">
