@@ -71,7 +71,10 @@ function machinesHashKey(list) {
 function ZoneTicker({ zoneName, machines, onMachineClick }) {
   const list = useMemo(() => (Array.isArray(machines) ? machines : []), [machines])
   const visibleRows = 4
-  const rowH = 44 // px (matches h-11)
+  const rowH = 40 // px (matches h-10)
+  const rowGap = 8 // px (matches gap-2)
+  const stepPx = rowH + rowGap
+  const containerH = visibleRows * rowH + (visibleRows - 1) * rowGap
   const shouldTick = list.length > visibleRows
 
   const [items, setItems] = useState(() => list)
@@ -109,11 +112,11 @@ function ZoneTicker({ zoneName, machines, onMachineClick }) {
     <div className="rounded-xl border bg-white p-3">
       <div className="text-lg font-semibold text-slate-900">{zoneName}</div>
 
-      <div className="mt-3 overflow-hidden" style={{ height: visibleRows * rowH }}>
+      <div className="mt-3 overflow-hidden" style={{ height: containerH }}>
         <div
-          className="space-y-2"
+          className="flex flex-col gap-2"
           style={{
-            transform: `translateY(-${offsetRows * rowH}px)`,
+            transform: `translateY(-${offsetRows * stepPx}px)`,
             transition: animate ? 'transform 320ms ease' : 'none',
           }}
         >
@@ -126,7 +129,7 @@ function ZoneTicker({ zoneName, machines, onMachineClick }) {
               <div
                 key={`${m?.id || i}-${i}`}
                 className={
-                  `flex h-11 items-center justify-between rounded-lg px-3 text-sm font-semibold ${statusRowClass(
+                  `flex h-10 items-center justify-between rounded-lg px-3 text-sm font-semibold ${statusRowClass(
                     m?.status,
                   )} ` + (clickable ? 'cursor-pointer' : '')
                 }
