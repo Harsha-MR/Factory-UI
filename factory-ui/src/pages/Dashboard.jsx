@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getDepartmentsByPlant,
   getDepartmentLayout,
@@ -7,8 +7,8 @@ import {
 } from '../services/mockApi'
 
 import {
-  DepartmentCard,
   DepartmentZonesCard,
+  DepartmentZoneTickerCard,
   MachineCard,
   MachineDetailsModal,
   Select,
@@ -16,6 +16,10 @@ import {
 
 
 export default function Dashboard() {
+  const didAutoSelectFactoryRef = useRef(false)
+  const didAutoSelectPlantRef = useRef(false)
+  const didAutoShowDepartmentsRef = useRef(false)
+
   const [factories, setFactories] = useState([])
   const [plants, setPlants] = useState([])
   const [departments, setDepartments] = useState([])
@@ -117,7 +121,23 @@ export default function Dashboard() {
         setError('')
         setLoadingLists(true)
         const data = await getFactories()
-        if (!cancelled) setFactories(data)
+        if (!cancelled) {
+          setFactories(data)
+
+          // Default drill-down: Factory 1
+          if (!didAutoSelectFactoryRef.current) {
+            const preferred =
+              data.find((f) => /factory\s*1/i.test(f?.name || '')) ||
+              data.find((f) => String(f?.id || '').toLowerCase() === 'f1') ||
+              data.find((f) => String(f?.id || '').endsWith('1')) ||
+              data[0]
+
+            if (preferred?.id) {
+              didAutoSelectFactoryRef.current = true
+              setFactoryId((prev) => prev || preferred.id)
+            }
+          }
+        }
       } catch (e) {
         if (!cancelled)
           setError(e?.message || 'Failed to load factories')
@@ -149,7 +169,23 @@ export default function Dashboard() {
         setError('')
         setLoadingLists(true)
         const data = await getPlantsByFactory(factoryId)
-        if (!cancelled) setPlants(data)
+        if (!cancelled) {
+          setPlants(data)
+
+          // Default drill-down: Plant 1 (only for the initial auto-selected factory)
+          if (!didAutoSelectPlantRef.current) {
+            const preferred =
+              data.find((p) => /plant\s*1/i.test(p?.name || '')) ||
+              data.find((p) => String(p?.id || '').toLowerCase() === 'p1') ||
+              data.find((p) => String(p?.id || '').endsWith('1')) ||
+              data[0]
+
+            if (preferred?.id) {
+              didAutoSelectPlantRef.current = true
+              setPlantId(preferred.id)
+            }
+          }
+        }
       } catch (e) {
         if (!cancelled) setError(e?.message || 'Failed to load plants')
       } finally {
@@ -181,6 +217,12 @@ export default function Dashboard() {
         if (!cancelled) {
           setDepartments(data)
           setDepartmentsFetchedAt(new Date().toISOString())
+
+          // Auto-open the departments view only for the initial auto-selection.
+          if (!didAutoShowDepartmentsRef.current && didAutoSelectPlantRef.current) {
+            didAutoShowDepartmentsRef.current = true
+            setShowDepartments(true)
+          }
         }
       } catch (e) {
         if (!cancelled)
@@ -293,12 +335,13 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {departments.map((d) => (
-                <DepartmentZonesCard
+                <DepartmentZoneTickerCard
                   key={d.id}
                   name={d.name}
                   summary={d.summary}
                   id={d.id}
                   machines={d.machines}
+                  zones={d.zones}
                   bodyMaxHeightClass="max-h-[320px]"
                   onClick={() => onSelectDepartment(d)}
                   onMachineClick={(m) =>

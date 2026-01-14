@@ -1,6 +1,7 @@
 export { default as Select } from './Select'
 export { default as DepartmentCard } from './DepartmentCard'
 export { default as DepartmentZonesCard } from './DepartmentZonesCard'
+export { default as DepartmentZoneTickerCard } from './DepartmentZoneTickerCard'
 export { default as MachineCard } from './MachineCard'
 export { default as MachineDetailsModal } from './MachineDetailsModal'
 export { default as MachineDot } from './MachineDot'

@@ -188,7 +188,7 @@ export default function DepartmentZonesCard({
         </div>
       </div>
 
-      {/* {id ? <div className="mt-1 text-sm text-slate-500">ID: {id}</div> : null} */}
+      {id ? <div className="mt-1 text-sm text-slate-500">ID: {id}</div> : null}
 
       <div className="mt-1 text-sm font-medium text-slate-600 sm:hidden">
         <span className="text-slate-500">Active:</span> {active} / {total} machines

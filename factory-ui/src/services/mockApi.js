@@ -141,6 +141,30 @@ function coerceSeedToHierarchyShape(seed) {
 
   const generatedAt = seed.generatedAt || new Date().toISOString()
 
+  function ensureTwoZones(departmentId, zones, machinesFlat) {
+    const z = Array.isArray(zones) ? zones : []
+    if (z.length === 2) {
+      // Ensure consistent naming
+      const [a, b] = z
+      return [
+        { ...a, id: a.id ?? `${departmentId}-z1`, name: a.name ?? 'Zone A' },
+        { ...b, id: b.id ?? `${departmentId}-z2`, name: b.name ?? 'Zone B' },
+      ]
+    }
+
+    const ms = Array.isArray(machinesFlat) ? machinesFlat : []
+    if (!ms.length) return z
+
+    const half = Math.max(1, Math.ceil(ms.length / 2))
+    const zoneA = ms.slice(0, half)
+    const zoneB = ms.slice(half)
+
+    return [
+      { id: `${departmentId}-z1`, name: 'Zone A', machines: zoneA },
+      { id: `${departmentId}-z2`, name: 'Zone B', machines: zoneB },
+    ]
+  }
+
   return {
     ...seed,
     generatedAt,
@@ -152,27 +176,36 @@ function coerceSeedToHierarchyShape(seed) {
         name: p.plantName ?? p.name,
         departments: (p.departments || []).map((d) => {
           const departmentId = d.departmentId ?? d.id
-          const machines = (d.machines || []).map((m) => ({
+          const coerceMachine = (m) => ({
             ...m,
             id: m.machineId ?? m.id,
             name: m.machineName ?? m.name,
             status: m.status ?? 'RUNNING',
             updatedAt: m.updatedAt ?? generatedAt,
-          }))
+          })
+
+          const machines = (d.machines || []).map(coerceMachine)
+
+          const zonesRaw = d.zones || d.layout?.zones
+          const zonesNormalized = Array.isArray(zonesRaw)
+            ? zonesRaw.map((z, idx) => ({
+                ...z,
+                id: z.id ?? `${departmentId}-z-${idx}`,
+                name: z.name ?? `Zone ${idx + 1}`,
+                machines: (z.machines || []).map(coerceMachine),
+              }))
+            : null
+
+          const machinesFromZones = zonesNormalized
+            ? zonesNormalized.flatMap((z) => z.machines || [])
+            : []
 
           // If the data doesn't include zones/layout, group machines into one zone.
-          const zones =
-            d.zones ||
-            d.layout?.zones ||
-            (machines.length
-              ? [
-                  {
-                    id: `${departmentId}-z-all`,
-                    name: 'All Machines',
-                    machines,
-                  },
-                ]
-              : [])
+          const zones = ensureTwoZones(
+            departmentId,
+            zonesNormalized,
+            machines.length ? machines : machinesFromZones,
+          )
 
           return {
             id: departmentId,
@@ -285,6 +318,7 @@ export async function getDepartmentsByPlant(plantId) {
     name: d.name,
     summary: computeDepartmentSummary(d),
     machines: structuredClone(getDepartmentMachines(d)),
+    zones: structuredClone(d.zones || []),
   }))
 }
 
