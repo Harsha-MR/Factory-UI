@@ -8,6 +8,7 @@ import {
 
 import {
   DepartmentCard,
+  DepartmentZonesCard,
   MachineCard,
   MachineDetailsModal,
   Select,
@@ -292,13 +293,24 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {departments.map((d) => (
-                <DepartmentCard
+                <DepartmentZonesCard
                   key={d.id}
-                  id={d.id}
                   name={d.name}
                   summary={d.summary}
-                  updatedAt={departmentsFetchedAt}
+                  id={d.id}
+                  machines={d.machines}
+                  bodyMaxHeightClass="max-h-[320px]"
                   onClick={() => onSelectDepartment(d)}
+                  onMachineClick={(m) =>
+                    setSelectedMachine({
+                      machine: m,
+                      context: {
+                        department: d.name,
+                        plant: selectedPlantName,
+                      },
+                      fetchedAt: departmentsFetchedAt,
+                    })
+                  }
                 />
               ))}
             </div>
@@ -308,16 +320,25 @@ export default function Dashboard() {
 
       {deptResult ? (
         <div className="space-y-3">
-          <DepartmentCard
-            id={deptResult.department.id}
+          <DepartmentZonesCard
             name={deptResult.department.name}
             summary={deptResult.summary}
-            updatedAt={deptResult.meta?.fetchedAt}
+            machines={allMachines}
             onBack={() => {
               setDeptResult(null)
               setMachineStatusFilter('ALL')
               setShowDepartments(true)
             }}
+            onMachineClick={(m) =>
+              setSelectedMachine({
+                machine: m,
+                context: {
+                  department: deptResult.department.name,
+                  plant: selectedPlantName,
+                },
+                fetchedAt: deptResult.meta?.fetchedAt,
+              })
+            }
           />
 
           {/* <div className="rounded border bg-white p-4">

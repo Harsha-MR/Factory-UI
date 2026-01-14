@@ -284,6 +284,7 @@ export async function getDepartmentsByPlant(plantId) {
     id: d.id,
     name: d.name,
     summary: computeDepartmentSummary(d),
+    machines: structuredClone(getDepartmentMachines(d)),
   }))
 }
 
