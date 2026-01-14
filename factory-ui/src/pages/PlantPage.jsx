@@ -11,7 +11,7 @@ export default function PlantPage() {
         <div className="mb-2 text-sm text-gray-500">Mock departments</div>
         <Link
           className="text-blue-600 hover:underline"
-          to="/departments/d1/layout"
+          to="/departments/d1"
         >
           Go to Department d1 Layout
         </Link>

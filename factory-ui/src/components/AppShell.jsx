@@ -1,4 +1,5 @@
 import { Link, Outlet } from 'react-router-dom'
+import GlobalDownMachineAlerts from './alerts/GlobalDownMachineAlerts.jsx'
 
 function Crumb({ children, to }) {
   return to ? (
@@ -13,6 +14,7 @@ function Crumb({ children, to }) {
 export default function AppShell() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 text-gray-900">
+      <GlobalDownMachineAlerts />
       <header className="border-b bg-white">
         <div className="app-container flex items-center justify-between py-3">
           <div className="font-semibold">Factory Name</div>

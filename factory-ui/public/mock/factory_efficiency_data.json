@@ -227,7 +227,7 @@
                     {
                       "machineId": "m10",
                       "machineName": "Machine-10",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 24744,
@@ -463,7 +463,7 @@
                     {
                       "machineId": "m20",
                       "machineName": "Machine-20",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 24144,
@@ -872,7 +872,7 @@
                     {
                       "machineId": "m15",
                       "machineName": "Machine-20",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 24144,
@@ -1275,7 +1275,7 @@
                     {
                       "machineId": "m2",
                       "machineName": "Machine-20",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 24144,
@@ -1511,7 +1511,7 @@
                     {
                       "machineId": "m20",
                       "machineName": "Machine-30",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 24944,
@@ -1851,7 +1851,7 @@
                     {
                       "machineId": "m3",
                       "machineName": "Machine-30",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 24944,
@@ -2081,7 +2081,7 @@
                     {
                       "machineId": "m13",
                       "machineName": "Machine-40",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 24344,
@@ -2398,7 +2398,7 @@
                     {
                       "machineId": "m4",
                       "machineName": "Machine-40",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 24344,
@@ -2945,7 +2945,7 @@
                     {
                       "machineId": "m4",
                       "machineName": "Machine-50",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 25144,
@@ -3400,7 +3400,7 @@
                     {
                       "machineId": "m6",
                       "machineName": "Machine-2010",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 25144,
@@ -3636,7 +3636,7 @@
                     {
                       "machineId": "m16",
                       "machineName": "Machine-2020",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 24544,
@@ -3924,7 +3924,7 @@
                     {
                       "machineId": "m6",
                       "machineName": "Machine-2020",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 24544,
@@ -4160,7 +4160,7 @@
                     {
                       "machineId": "m16",
                       "machineName": "Machine-2030",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 25344,
@@ -4276,7 +4276,7 @@
                     {
                       "machineId": "m49",
                       "machineName": "Machine-49",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 20025,
@@ -4535,7 +4535,7 @@
                     {
                       "machineId": "m6",
                       "machineName": "Machine-60",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 20267,
@@ -4754,7 +4754,7 @@
                     {
                       "machineId": "m55",
                       "machineName": "Machine-55",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 14016,
@@ -5105,7 +5105,7 @@
                     {
                       "machineId": "m9",
                       "machineName": "Machine-70",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 14016,
@@ -5462,7 +5462,7 @@
                     {
                       "machineId": "m1",
                       "machineName": "Machine-70",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 20321,
@@ -5698,7 +5698,7 @@
                     {
                       "machineId": "m11",
                       "machineName": "Machine-80",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 19721,
@@ -5802,7 +5802,7 @@
                     {
                       "machineId": "m70",
                       "machineName": "Machine-70",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 13032,
@@ -5848,7 +5848,7 @@
                     {
                       "machineId": "m72",
                       "machineName": "Machine-72",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 20367,
@@ -5894,7 +5894,7 @@
                     {
                       "machineId": "m74",
                       "machineName": "Machine-74",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 14183,
@@ -6032,7 +6032,7 @@
                     {
                       "machineId": "m1",
                       "machineName": "Machine-80",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 12432,
@@ -6268,7 +6268,7 @@
                     {
                       "machineId": "m11",
                       "machineName": "Machine-90",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 11832,
@@ -6349,7 +6349,7 @@
                     {
                       "machineId": "m81",
                       "machineName": "Machine-81",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 23376,
@@ -6510,7 +6510,7 @@
                     {
                       "machineId": "m88",
                       "machineName": "Machine-88",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 20145,
@@ -6556,7 +6556,7 @@
                     {
                       "machineId": "m1",
                       "machineName": "Machine-90",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 10872,
@@ -6792,7 +6792,7 @@
                     {
                       "machineId": "m11",
                       "machineName": "Machine-100",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 11672,
@@ -6850,7 +6850,7 @@
                     {
                       "machineId": "m90",
                       "machineName": "Machine-90",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 16801,
@@ -7080,7 +7080,7 @@
                     {
                       "machineId": "m6",
                       "machineName": "Machine-100",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 16401,
@@ -7293,7 +7293,7 @@
                     {
                       "machineId": "m15",
                       "machineName": "Machine-109",
-                      "status": "RUNNING",
+                      "status": "DOWN",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 16001,

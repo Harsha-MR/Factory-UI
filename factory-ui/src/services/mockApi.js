@@ -342,6 +342,33 @@ export async function getDepartmentLayout(departmentId) {
   }
 }
 
+export async function getMachinesSnapshot() {
+  await ensureLive()
+  await delay(NETWORK_MS)
+
+  const out = []
+  for (const f of live?.factories || []) {
+    for (const p of f.plants || []) {
+      for (const d of p.departments || []) {
+        const zones = d?.zones || []
+        for (const z of zones) {
+          for (const m of z?.machines || []) {
+            out.push({
+              factory: { id: f.id, name: f.name },
+              plant: { id: p.id, name: p.name },
+              department: { id: d.id, name: d.name },
+              zone: { id: z?.id, name: z?.name },
+              machine: structuredClone(m),
+            })
+          }
+        }
+      }
+    }
+  }
+
+  return out
+}
+
 export function resetLiveData() {
   live = seedCache ? structuredClone(seedCache) : null
   if (live) normalizeHierarchy(live)
