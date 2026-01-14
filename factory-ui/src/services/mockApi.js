@@ -141,28 +141,22 @@ function coerceSeedToHierarchyShape(seed) {
 
   const generatedAt = seed.generatedAt || new Date().toISOString()
 
-  function ensureTwoZones(departmentId, zones, machinesFlat) {
-    const z = Array.isArray(zones) ? zones : []
-    if (z.length === 2) {
-      // Ensure consistent naming
-      const [a, b] = z
-      return [
-        { ...a, id: a.id ?? `${departmentId}-z1`, name: a.name ?? 'Zone A' },
-        { ...b, id: b.id ?? `${departmentId}-z2`, name: b.name ?? 'Zone B' },
-      ]
+  function ensureZones(departmentId, zones, machinesFlat) {
+    const z = Array.isArray(zones) ? zones.filter(Boolean) : []
+    if (z.length) {
+      return z.map((zone, idx) => ({
+        ...zone,
+        id: zone.id ?? `${departmentId}-z-${idx + 1}`,
+        name: zone.name ?? `Zone ${idx + 1}`,
+        machines: Array.isArray(zone.machines) ? zone.machines : [],
+      }))
     }
 
     const ms = Array.isArray(machinesFlat) ? machinesFlat : []
-    if (!ms.length) return z
+    if (!ms.length) return []
 
-    const half = Math.max(1, Math.ceil(ms.length / 2))
-    const zoneA = ms.slice(0, half)
-    const zoneB = ms.slice(half)
-
-    return [
-      { id: `${departmentId}-z1`, name: 'Zone A', machines: zoneA },
-      { id: `${departmentId}-z2`, name: 'Zone B', machines: zoneB },
-    ]
+    // If the data doesn't include zones/layout, put everything in a single zone.
+    return [{ id: `${departmentId}-z-1`, name: 'Zone A', machines: ms }]
   }
 
   return {
@@ -201,7 +195,7 @@ function coerceSeedToHierarchyShape(seed) {
             : []
 
           // If the data doesn't include zones/layout, group machines into one zone.
-          const zones = ensureTwoZones(
+          const zones = ensureZones(
             departmentId,
             zonesNormalized,
             machines.length ? machines : machinesFromZones,

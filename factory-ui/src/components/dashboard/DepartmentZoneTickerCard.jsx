@@ -209,6 +209,7 @@ export default function DepartmentZoneTickerCard({
 
   return (
     <div
+      data-department-id={id || undefined}
       className={
         'rounded-2xl border bg-white p-4 shadow-sm ' +
         (clickable ? 'cursor-pointer transition hover:shadow-md' : '')

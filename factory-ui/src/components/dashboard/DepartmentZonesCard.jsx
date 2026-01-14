@@ -118,6 +118,7 @@ function MachineBubble({ machine, onClick }) {
 export default function DepartmentZonesCard({
   id,
   name,
+  zones,
   machines,
   summary,
   onBack,
@@ -131,14 +132,24 @@ export default function DepartmentZonesCard({
 
   const { cls: badgeCls, text: badgeText } = deptBadge(summary?.severity || 'OK')
 
-  const zones = useMemo(() => {
+  const resolvedZones = useMemo(() => {
+    const z = Array.isArray(zones) ? zones : []
+    if (z.length) {
+      return z.map((zone, idx) => ({
+        id: zone?.id || `z-${idx}`,
+        name: zone?.name || zoneLabel(idx),
+        machines: Array.isArray(zone?.machines) ? zone.machines : [],
+      }))
+    }
+
+    // Fallback: older callers that only provide a flat machines list.
     const chunks = chunk4(list)
     return chunks.map((group, idx) => ({
       id: `z-${idx}`,
       name: zoneLabel(idx),
       machines: group,
     }))
-  }, [list])
+  }, [list, zones])
 
   const clickable = typeof onClick === 'function'
   const maxH = bodyMaxHeightClass || 'max-h-[60vh]'
@@ -196,7 +207,7 @@ export default function DepartmentZonesCard({
 
       <div className={`mt-4 ${maxH} overflow-y-auto pr-1`}>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {zones.map((z) => (
+          {resolvedZones.map((z) => (
             <div key={z.id} className="rounded-xl border bg-white p-3">
               <div className="text-lg font-semibold text-slate-900">{z.name}</div>
               <div className="mt-3 flex flex-wrap gap-3">

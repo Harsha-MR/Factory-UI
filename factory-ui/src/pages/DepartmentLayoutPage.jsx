@@ -173,6 +173,7 @@ export default function DepartmentLayoutPage() {
         id={deptResult.department.id}
         name={deptResult.department.name}
         summary={deptResult.summary}
+        zones={deptResult.department.zones}
         machines={allMachines}
         onBack={onBack}
         onMachineClick={onOpenMachine}

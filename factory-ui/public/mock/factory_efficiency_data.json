@@ -272,6 +272,7 @@
                     }
                   ]
                 },
+                
                 {
                   "id": "d11-z2",
                   "name": "Zone B",
@@ -7293,7 +7294,7 @@
                     {
                       "machineId": "m15",
                       "machineName": "Machine-109",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 16001,
@@ -7316,7 +7317,7 @@
                     {
                       "machineId": "m16",
                       "machineName": "Machine-110",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 15801,
