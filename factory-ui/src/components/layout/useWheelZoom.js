@@ -9,9 +9,9 @@ const clamp = (n, min, max) => Math.min(max, Math.max(min, n))
  */
 export function useWheelZoom({
   ref,
-  minZoom = 0.6,
-  maxZoom = 2.6,
-  step = 0.12,
+  minZoom = 0.1,
+  maxZoom = 2.0,
+  step = 0.1,
 } = {}) {
   const [zoom, setZoom] = useState(1)
   const [originPx, setOriginPx] = useState({ x: 0, y: 0 })

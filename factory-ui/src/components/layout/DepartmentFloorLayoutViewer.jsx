@@ -211,7 +211,7 @@ export default function DepartmentFloorLayoutViewer({
         })}
       </div>
 
-      <div className="absolute right-2 top-2 flex items-center gap-2">
+      <div className="absolute bottom-2 right-2 flex items-center gap-2">
         <div className="rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 backdrop-blur">
           Zoom: {Math.round(zoom * 100)}%
         </div>
