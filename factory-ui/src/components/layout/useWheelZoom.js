@@ -1,39 +1,49 @@
 import { useEffect, useMemo, useState } from 'react'
 
-function clamp(n, a, b) {
-  return Math.min(b, Math.max(a, n))
-}
+const clamp = (n, min, max) => Math.min(max, Math.max(min, n))
 
-export function useWheelZoom({ ref, min = 0.6, max = 2.6, step = 0.12, initial = 1 }) {
-  const [zoom, setZoom] = useState(initial)
-  const [origin, setOrigin] = useState('50% 50%')
+/**
+ * Wheel zoom helper for a "world" layer scaled via CSS transform.
+ * - `zoom`: scale factor
+ * - `origin`: CSS transform-origin string (e.g. "120px 80px")
+ */
+export function useWheelZoom({
+  ref,
+  minZoom = 0.6,
+  maxZoom = 2.6,
+  step = 0.12,
+} = {}) {
+  const [zoom, setZoom] = useState(1)
+  const [originPx, setOriginPx] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
     const el = ref?.current
     if (!el) return
 
     const onWheel = (e) => {
-      // Zoom only when pointer is over the layout.
+      // Only zoom when user is intentionally scrolling the canvas.
       e.preventDefault()
 
       const rect = el.getBoundingClientRect()
-      const x = rect.width ? ((e.clientX - rect.left) / rect.width) * 100 : 50
-      const y = rect.height ? ((e.clientY - rect.top) / rect.height) * 100 : 50
-      setOrigin(`${clamp(x, 0, 100)}% ${clamp(y, 0, 100)}%`)
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      setOriginPx({ x, y })
 
-      setZoom((z) => {
-        const dir = e.deltaY > 0 ? -1 : 1
-        const next = z * (1 + dir * step)
-        return clamp(next, min, max)
-      })
+      // Trackpads send small deltas; mouse wheels bigger. Normalize by sign.
+      const dir = e.deltaY > 0 ? -1 : 1
+      setZoom((z) => clamp(z * (1 + dir * step), minZoom, maxZoom))
     }
 
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [ref, min, max, step])
+  }, [ref, minZoom, maxZoom, step])
 
-  return useMemo(
-    () => ({ zoom, setZoom, origin, resetZoom: () => setZoom(initial) }),
-    [zoom, origin, initial],
-  )
+  const origin = useMemo(() => `${originPx.x}px ${originPx.y}px`, [originPx])
+
+  const resetZoom = () => {
+    setZoom(1)
+    setOriginPx({ x: 0, y: 0 })
+  }
+
+  return { zoom, origin, resetZoom }
 }

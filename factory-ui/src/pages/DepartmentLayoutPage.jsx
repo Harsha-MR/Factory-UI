@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { getDepartmentLayout } from '../services/mockApi'
+import { getDepartmentLayout, getDepartmentsByPlant } from '../services/mockApi'
 
 import DepartmentFloorLayoutViewer from '../components/layout/DepartmentFloorLayoutViewer'
 import DepartmentFloorLayoutEditor from '../components/layout/DepartmentFloorLayoutEditor'
@@ -27,6 +27,10 @@ export default function DepartmentLayoutPage() {
   const [editingLayout, setEditingLayout] = useState(false)
   const [editorSeedLayout, setEditorSeedLayout] = useState(null)
 
+  const [autoRotateEnabled, setAutoRotateEnabled] = useState(false)
+  const [autoRotateSeconds, setAutoRotateSeconds] = useState(10)
+  const [plantDepartments, setPlantDepartments] = useState([])
+
   const plantName = location.state?.plantName || ''
 
   const allMachines = useMemo(() => {
@@ -48,6 +52,12 @@ export default function DepartmentLayoutPage() {
     }
     return counts
   }, [allMachines])
+
+  const effectiveLayout = useMemo(() => {
+    const dept = deptResult?.department
+    if (!dept) return null
+    return deptResult?.customLayout || createDefaultLayoutForDepartment(dept)
+  }, [deptResult])
 
   useEffect(() => {
     if (!departmentId) return
@@ -92,6 +102,62 @@ export default function DepartmentLayoutPage() {
     }
   }, [departmentId, editingLayout])
 
+  useEffect(() => {
+    const plantId = deptResult?.plant?.id
+    if (!autoRotateEnabled || !plantId) return
+
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const depts = await getDepartmentsByPlant(String(plantId))
+        if (!cancelled) setPlantDepartments(Array.isArray(depts) ? depts : [])
+      } catch {
+        if (!cancelled) setPlantDepartments([])
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [autoRotateEnabled, deptResult?.plant?.id])
+
+  useEffect(() => {
+    if (!autoRotateEnabled) return
+    if (editingLayout) return
+    if (!deptResult?.plant?.id) return
+    if (!Array.isArray(plantDepartments) || plantDepartments.length < 2) return
+
+    const currentId = String(departmentId)
+    const idx = plantDepartments.findIndex((d) => String(d?.id) === currentId)
+    const next = plantDepartments[(idx >= 0 ? idx + 1 : 0) % plantDepartments.length]
+    if (!next?.id) return
+
+    const seconds = Math.max(1, Number(autoRotateSeconds) || 10)
+    const timer = setTimeout(() => {
+      navigate(`/departments/${next.id}`, {
+        state: {
+          ...(location.state || {}),
+          fromDashboard: location.state?.fromDashboard || true,
+          plantName: deptResult?.plant?.name || plantName || '',
+        },
+      })
+    }, seconds * 1000)
+
+    return () => clearTimeout(timer)
+  }, [
+    autoRotateEnabled,
+    autoRotateSeconds,
+    editingLayout,
+    plantDepartments,
+    departmentId,
+    navigate,
+    location.state,
+    deptResult?.plant?.id,
+    deptResult?.plant?.name,
+    plantName,
+  ])
+
   const layoutCtx = useMemo(() => {
     return {
       factoryId: deptResult?.factory?.id || '',
@@ -101,6 +167,7 @@ export default function DepartmentLayoutPage() {
   }, [deptResult, departmentId])
 
   const onStartCustomizeLayout = () => {
+    setAutoRotateEnabled(false)
     const base = deptResult?.customLayout || createDefaultLayoutForDepartment(deptResult?.department)
     setEditorSeedLayout(base)
     setEditingLayout(true)
@@ -221,13 +288,36 @@ export default function DepartmentLayoutPage() {
         <div className="mt-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="text-lg font-semibold text-slate-900">Customizable floor layout</div>
-              <div className="text-xs text-slate-500">Use mouse wheel to zoom. Hover icons for details. Click a machine icon to open details.</div>
+              <div className="text-lg font-semibold text-slate-900">Department floor layout</div>
+              <div className="text-xs text-slate-500">
+                Use mouse wheel to zoom. Hover icons for details. Click a machine icon to open details.
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               {!editingLayout ? (
                 <>
+                  <label className="flex items-center gap-2 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={autoRotateEnabled}
+                      onChange={(e) => setAutoRotateEnabled(e.target.checked)}
+                    />
+                    Auto-scroll
+                  </label>
+                  <select
+                    className="rounded-lg border px-2.5 py-1 text-xs text-slate-700"
+                    value={String(autoRotateSeconds)}
+                    disabled={!autoRotateEnabled}
+                    onChange={(e) => setAutoRotateSeconds(Number(e.target.value))}
+                    title="Auto-scroll between departments"
+                  >
+                    <option value="5">5s</option>
+                    <option value="10">10s</option>
+                    <option value="15">15s</option>
+                    <option value="20">20s</option>
+                  </select>
+
                   <button
                     type="button"
                     className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
@@ -260,16 +350,16 @@ export default function DepartmentLayoutPage() {
               />
             ) : (
               <DepartmentFloorLayoutViewer
-                layout={deptResult?.customLayout}
+                layout={effectiveLayout}
                 department={deptResult?.department}
                 onMachineClick={onOpenMachine}
               />
             )}
           </div>
-        </div>
 
-        <div className="mt-3 text-xs text-slate-500">
-          Auto-refresh is enabled (updates every 5 seconds){editingLayout ? ' — paused while editing layout.' : '.'}
+          <div className="mt-3 text-xs text-gray-500">
+            Auto-refresh is enabled (updates every 5 seconds){editingLayout ? ' — paused while editing layout.' : '.'}
+          </div>
         </div>
       </div>
     </div>

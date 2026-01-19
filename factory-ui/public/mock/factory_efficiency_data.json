@@ -20,7 +20,7 @@
                     {
                       "machineId": "m1",
                       "machineName": "Machine-1",
-                      "status": "RUNNING",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 25344,

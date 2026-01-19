@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getDepartmentsByPlant, getFactories, getPlantsByFactory } from '../services/mockApi'
 
 import { DepartmentZoneTickerCard, Select } from '../components/dashboard'
-import { Link } from 'react-router-dom'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -231,15 +230,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-3">
       <div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold">Dashboard</h1>
-          <Link
-            to="/builder"
-            className="rounded-lg border bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-          >
-            Factory Builder
-          </Link>
-        </div>
+        <h1 className="text-xl font-semibold">Dashboard</h1>
       </div>
 
       <div className="rounded border bg-white p-4">
@@ -279,7 +270,7 @@ export default function Dashboard() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="text-lg font-semibold">Departments</div>
-              <div className="text-xs text-gray-500">Select a department to view zones.</div>
+              <div className="text-xs text-gray-500">Select a department to view the floor layout.</div>
             </div>
           </div>
 

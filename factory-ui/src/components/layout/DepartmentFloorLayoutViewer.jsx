@@ -5,12 +5,12 @@ import { computeMachineOeePct } from '../dashboard/utils'
 import { useWheelZoom } from './useWheelZoom'
 
 function statusStyle(status) {
-  if (status === 'DOWN') return { ring: 'ring-red-200', bg: 'bg-red-50', dot: 'bg-red-500' }
-  if (status === 'IDLE') return { ring: 'ring-amber-200', bg: 'bg-amber-50', dot: 'bg-amber-400' }
-  if (status === 'WARNING') return { ring: 'ring-yellow-200', bg: 'bg-yellow-50', dot: 'bg-yellow-500' }
-  if (status === 'OFFLINE') return { ring: 'ring-slate-200', bg: 'bg-slate-50', dot: 'bg-slate-400' }
-  if (status === 'MAINTENANCE') return { ring: 'ring-purple-200', bg: 'bg-purple-50', dot: 'bg-purple-500' }
-  return { ring: 'ring-emerald-200', bg: 'bg-emerald-50', dot: 'bg-emerald-500' }
+  if (status === 'DOWN') return { tintBg: 'bg-red-500', glyphText: 'text-red-600' }
+  if (status === 'IDLE') return { tintBg: 'bg-amber-500', glyphText: 'text-amber-600' }
+  if (status === 'WARNING') return { tintBg: 'bg-yellow-500', glyphText: 'text-yellow-600' }
+  if (status === 'OFFLINE') return { tintBg: 'bg-slate-400', glyphText: 'text-slate-500' }
+  if (status === 'MAINTENANCE') return { tintBg: 'bg-purple-500', glyphText: 'text-purple-600' }
+  return { tintBg: 'bg-emerald-500', glyphText: 'text-emerald-600' }
 }
 
 function pct(n) {
@@ -118,7 +118,7 @@ export default function DepartmentFloorLayoutViewer({
           return (
             <div
               key={el.id}
-              className="absolute rounded-md border border-dashed border-slate-300 bg-slate-100/60"
+              className="absolute rounded-md bg-black/35 ring-1 ring-black/25"
               style={style}
               title={el.label || 'Walkway'}
             />
@@ -153,12 +153,14 @@ export default function DepartmentFloorLayoutViewer({
           const displayName = (el.label || machine?.name || el.machineId || 'Machine').toString()
           const oee = machine ? computeMachineOeePct(machine) : null
 
+          const perMachineIcon = el.iconSrc || null
+
           return (
             <div
               key={el.id}
               className={
-                `absolute flex items-center justify-center rounded-full ring-2 ${ui.ring} ${ui.bg} ` +
-                (clickable ? 'cursor-pointer transition hover:shadow-md' : '')
+                'absolute flex items-center justify-center ' +
+                (clickable ? 'cursor-pointer transition hover:drop-shadow-md' : '')
               }
               style={style}
               onClick={
@@ -185,11 +187,20 @@ export default function DepartmentFloorLayoutViewer({
               onMouseLeave={() => setHover(null)}
             >
               <div className="relative flex h-full w-full items-center justify-center">
-                <span className={`absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full ${ui.dot}`} />
-                {machineIconSrc ? (
-                  <img src={machineIconSrc} alt="Machine" className="h-7 w-7 object-contain" />
+                {(perMachineIcon || machineIconSrc) ? (
+                  <div className="relative isolate h-full w-full">
+                    <img
+                      src={perMachineIcon || machineIconSrc}
+                      alt="Machine"
+                      className="h-full w-full object-contain"
+                    />
+                    <div
+                      className={`pointer-events-none absolute inset-0 ${ui.tintBg} opacity-40 mix-blend-multiply`}
+                      aria-hidden="true"
+                    />
+                  </div>
                 ) : (
-                  <MachineGlyph className="h-7 w-7 text-slate-700" />
+                  <MachineGlyph className={`h-7 w-7 ${ui.glyphText}`} />
                 )}
               </div>
             </div>
@@ -233,7 +244,7 @@ export default function DepartmentFloorLayoutViewer({
       {elements.length === 0 ? (
         <div className="absolute inset-0 flex items-center justify-center p-6">
           <div className="rounded-lg border bg-white/80 p-3 text-sm text-slate-700 backdrop-blur">
-            No custom layout saved yet. Click “Customize layout” to create one.
+            No machines/zones to display yet.
           </div>
         </div>
       ) : null}

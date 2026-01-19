@@ -1,5 +1,4 @@
 import { getDepartmentCustomLayout } from './layoutStorage'
-import { clearLocalHierarchy, getLocalHierarchy, saveLocalHierarchy } from './hierarchyStorage'
 
 const NETWORK_MS = 350
 
@@ -260,47 +259,13 @@ async function loadSeed() {
   }
 }
 
-function createEmptyHierarchyRoot() {
-  return { generatedAt: new Date().toISOString(), factories: [] }
-}
-
-async function loadRootSource() {
-  const local = getLocalHierarchy()
-  if (local?.factories) return local
-  return await loadSeed()
-}
-
 async function ensureLive() {
   // In dev we want API calls to reflect the latest JSON file contents.
   // In prod we can cache in-memory.
   if (live && !IS_DEV) return
-  const root = await loadRootSource()
-  live = coerceSeedToHierarchyShape(structuredClone(root))
+  const seed = await loadSeed()
+  live = coerceSeedToHierarchyShape(structuredClone(seed))
   normalizeHierarchy(live)
-}
-
-export async function getHierarchyRoot() {
-  await ensureLive()
-  await delay(NETWORK_MS)
-  return structuredClone(live || createEmptyHierarchyRoot())
-}
-
-export async function saveHierarchyRoot(nextRoot) {
-  // Persist to local "database" (localStorage)
-  const normalized = coerceSeedToHierarchyShape(structuredClone(nextRoot || createEmptyHierarchyRoot()))
-  normalizeHierarchy(normalized)
-  saveLocalHierarchy(normalized)
-  live = structuredClone(normalized)
-  await delay(NETWORK_MS)
-  return { ok: true }
-}
-
-export async function resetHierarchyToSeed() {
-  clearLocalHierarchy()
-  live = null
-  await ensureLive()
-  await delay(NETWORK_MS)
-  return { ok: true }
 }
 
 function findFactory(factoryId) {

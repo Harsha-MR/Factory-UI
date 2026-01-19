@@ -3,7 +3,6 @@ import { Rnd } from 'react-rnd'
 import { nanoid } from 'nanoid'
 import { ELEMENT_TYPES, clamp01, normalizeLayout } from './layoutTypes'
 import { MachineGlyph, TransporterIcon } from './icons'
-import { useWheelZoom } from './useWheelZoom'
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -40,9 +39,6 @@ export default function DepartmentFloorLayoutEditor({
   onReset,
 }) {
   const containerRef = useRef(null)
-  const worldRef = useRef(null)
-
-  const { zoom, origin, resetZoom } = useWheelZoom({ ref: containerRef })
 
   const [canvasSize, setCanvasSize] = useState({ w: 1, h: 1 })
 
@@ -69,12 +65,6 @@ export default function DepartmentFloorLayoutEditor({
     () => draft.elements.find((e) => String(e.id) === String(selectedId)) || null,
     [draft, selectedId],
   )
-
-  const displayNameValue = useMemo(() => {
-    if (!selected) return ''
-    if (selected.type !== ELEMENT_TYPES.MACHINE) return ''
-    return selected.label || ''
-  }, [selected])
 
   const bgStyle = draft?.background?.src
     ? {
@@ -109,9 +99,6 @@ export default function DepartmentFloorLayoutEditor({
       if (ro) ro.disconnect()
     }
   }, [])
-
-  const machineIconSrc = draft?.assets?.machineIcon || '/icons/machine.svg'
-  const transporterIconSrc = draft?.assets?.transporterIcon || '/icons/transporter.svg'
 
   const updateElement = (id, patch) => {
     setDraft((prev) => ({
@@ -325,32 +312,20 @@ export default function DepartmentFloorLayoutEditor({
                     />
                   </label>
                 ) : (
-                  <>
-                    <label className="block text-xs text-slate-600">
-                      Machine binding
-                      <select
-                        className="mt-1 w-full rounded-md border px-2 py-1 text-sm"
-                        value={String(selected.machineId || '')}
-                        onChange={(e) => updateElement(selected.id, { machineId: e.target.value })}
-                      >
-                        {machineList.map((m) => (
-                          <option key={m.id} value={String(m.id)}>
-                            {m.name || m.id}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="block text-xs text-slate-600">
-                      Display name (optional)
-                      <input
-                        className="mt-1 w-full rounded-md border px-2 py-1 text-sm"
-                        value={displayNameValue}
-                        placeholder="e.g., CNC #3"
-                        onChange={(e) => updateElement(selected.id, { label: e.target.value })}
-                      />
-                    </label>
-                  </>
+                  <label className="block text-xs text-slate-600">
+                    Machine binding
+                    <select
+                      className="mt-1 w-full rounded-md border px-2 py-1 text-sm"
+                      value={String(selected.machineId || '')}
+                      onChange={(e) => updateElement(selected.id, { machineId: e.target.value })}
+                    >
+                      {machineList.map((m) => (
+                        <option key={m.id} value={String(m.id)}>
+                          {m.name || m.id}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 )}
 
                 <button
@@ -397,74 +372,64 @@ export default function DepartmentFloorLayoutEditor({
         <div
           ref={containerRef}
           className="relative w-full overflow-hidden rounded-xl border bg-slate-50"
-          style={{ height: '60vh', maxHeight: 700, minHeight: 360 }}
+          style={{ ...bgStyle, height: '60vh', maxHeight: 700, minHeight: 360 }}
           onMouseDown={() => setSelectedId('')}
         >
-          <div
-            ref={worldRef}
-            className="absolute inset-0"
-            style={{
-              ...bgStyle,
-              transform: `scale(${zoom})`,
-              transformOrigin: origin,
-            }}
-          >
-            {!bgStyle ? (
-              <div
-                className="pointer-events-none absolute inset-0 opacity-60"
-                style={{
-                  backgroundImage:
-                    'linear-gradient(to right, rgba(148,163,184,0.15) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.15) 1px, transparent 1px)',
-                  backgroundSize: '36px 36px',
-                }}
-              />
-            ) : null}
+          {!bgStyle ? (
+            <div
+              className="pointer-events-none absolute inset-0 opacity-60"
+              style={{
+                backgroundImage:
+                  'linear-gradient(to right, rgba(148,163,184,0.15) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.15) 1px, transparent 1px)',
+                backgroundSize: '36px 36px',
+              }}
+            />
+          ) : null}
 
-            {draft.elements.map((el) => {
-              const { w, h } = canvasSize
-              const pxW = Math.max(24, normToPx(el.w, w))
-              const pxH = Math.max(24, normToPx(el.h, h))
-              const pxX = normToPx(el.x, w)
-              const pxY = normToPx(el.y, h)
+          {draft.elements.map((el) => {
+            const { w, h } = canvasSize
+            const pxW = Math.max(24, normToPx(el.w, w))
+            const pxH = Math.max(24, normToPx(el.h, h))
+            const pxX = normToPx(el.x, w)
+            const pxY = normToPx(el.y, h)
 
-              const isSelected = el.id === selectedId
+            const isSelected = el.id === selectedId
 
-              const content =
-                el.type === ELEMENT_TYPES.ZONE ? (
-                  <div className="h-full w-full rounded-lg border border-slate-200 bg-white/70 p-2 text-xs font-semibold text-slate-800">
-                    {el.label || 'Zone'}
-                  </div>
-                ) : el.type === ELEMENT_TYPES.WALKWAY ? (
-                  <div className="h-full w-full rounded-md border border-dashed border-slate-300 bg-slate-100/60" />
-                ) : el.type === ELEMENT_TYPES.TRANSPORTER ? (
-                  <div className="flex h-full w-full items-center justify-center rounded-lg border border-slate-200 bg-white/70 text-slate-700">
-                    {el.iconSrc || transporterIconSrc ? (
-                      <img
-                        src={el.iconSrc || transporterIconSrc}
-                        alt="Transporter"
-                        className="h-full w-full object-contain p-1"
-                      />
-                    ) : (
-                      <TransporterIcon className="h-full w-full p-1" />
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center rounded-full border border-slate-200 bg-white/70 text-slate-700">
-                    {machineIconSrc ? (
-                      <img src={machineIconSrc} alt="Machine" className="h-7 w-7 object-contain" />
-                    ) : (
-                      <MachineGlyph className="h-7 w-7" />
-                    )}
-                  </div>
-                )
+            const content =
+              el.type === ELEMENT_TYPES.ZONE ? (
+                <div className="h-full w-full rounded-lg border border-slate-200 bg-white/70 p-2 text-xs font-semibold text-slate-800">
+                  {el.label || 'Zone'}
+                </div>
+              ) : el.type === ELEMENT_TYPES.WALKWAY ? (
+                <div className="h-full w-full rounded-md border border-dashed border-slate-300 bg-slate-100/60" />
+              ) : el.type === ELEMENT_TYPES.TRANSPORTER ? (
+                <div className="flex h-full w-full items-center justify-center rounded-lg border border-slate-200 bg-white/70 text-slate-700">
+                  {el.iconSrc || draft?.assets?.transporterIcon ? (
+                    <img
+                      src={el.iconSrc || draft?.assets?.transporterIcon}
+                      alt="Transporter"
+                      className="h-full w-full object-contain p-1"
+                    />
+                  ) : (
+                    <TransporterIcon className="h-full w-full p-1" />
+                  )}
+                </div>
+              ) : (
+                <div className="flex h-full w-full items-center justify-center rounded-full border border-slate-200 bg-white/70 text-slate-700">
+                  {draft?.assets?.machineIcon ? (
+                    <img src={draft.assets.machineIcon} alt="Machine" className="h-7 w-7 object-contain" />
+                  ) : (
+                    <MachineGlyph className="h-7 w-7" />
+                  )}
+                </div>
+              )
 
-              return (
-                <Rnd
-                  key={el.id}
-                  size={{ width: pxW, height: pxH }}
-                  position={{ x: pxX, y: pxY }}
-                  bounds="parent"
-                  scale={zoom}
+            return (
+              <Rnd
+                key={el.id}
+                size={{ width: pxW, height: pxH }}
+                position={{ x: pxX, y: pxY }}
+                bounds="parent"
                 onDragStart={(e) => {
                   e.stopPropagation()
                   setSelectedId(el.id)
@@ -499,25 +464,11 @@ export default function DepartmentFloorLayoutEditor({
                   outline: isSelected ? '2px solid rgb(16 185 129)' : 'none',
                   borderRadius: el.type === ELEMENT_TYPES.MACHINE ? 9999 : 12,
                 }}
-                >
-                  {content}
-                </Rnd>
-              )
-            })}
-          </div>
-
-          <div className="absolute right-2 top-2 flex items-center gap-2">
-            <div className="rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 backdrop-blur">
-              Zoom: {Math.round(zoom * 100)}%
-            </div>
-            <button
-              type="button"
-              className="rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 hover:bg-white"
-              onClick={resetZoom}
-            >
-              Reset
-            </button>
-          </div>
+              >
+                {content}
+              </Rnd>
+            )
+          })}
         </div>
       </div>
     </div>
