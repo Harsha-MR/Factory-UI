@@ -1,0 +1,242 @@
+import { useMemo, useRef, useState } from 'react'
+import { ELEMENT_TYPES } from './layoutTypes'
+import { MachineGlyph, TransporterIcon } from './icons'
+import { computeMachineOeePct } from '../dashboard/utils'
+import { useWheelZoom } from './useWheelZoom'
+
+function statusStyle(status) {
+  if (status === 'DOWN') return { ring: 'ring-red-200', bg: 'bg-red-50', dot: 'bg-red-500' }
+  if (status === 'IDLE') return { ring: 'ring-amber-200', bg: 'bg-amber-50', dot: 'bg-amber-400' }
+  if (status === 'WARNING') return { ring: 'ring-yellow-200', bg: 'bg-yellow-50', dot: 'bg-yellow-500' }
+  if (status === 'OFFLINE') return { ring: 'ring-slate-200', bg: 'bg-slate-50', dot: 'bg-slate-400' }
+  if (status === 'MAINTENANCE') return { ring: 'ring-purple-200', bg: 'bg-purple-50', dot: 'bg-purple-500' }
+  return { ring: 'ring-emerald-200', bg: 'bg-emerald-50', dot: 'bg-emerald-500' }
+}
+
+function pct(n) {
+  return `${Math.round(n * 10000) / 100}%`
+}
+
+export default function DepartmentFloorLayoutViewer({
+  layout,
+  department,
+  onMachineClick,
+}) {
+  const containerRef = useRef(null)
+  const { zoom, origin, resetZoom } = useWheelZoom({ ref: containerRef })
+  const [hover, setHover] = useState(null)
+
+  const machineById = useMemo(() => {
+    const map = new Map()
+    for (const z of department?.zones || []) {
+      for (const m of z?.machines || []) {
+        map.set(String(m.id), m)
+      }
+    }
+    return map
+  }, [department])
+
+  const bgStyle = layout?.background?.src
+    ? {
+        backgroundImage: `url(${layout.background.src})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    : null
+
+  const elements = Array.isArray(layout?.elements) ? layout.elements : []
+
+  const machineIconSrc = layout?.assets?.machineIcon || '/icons/machine.svg'
+  const transporterIconSrc = layout?.assets?.transporterIcon || '/icons/transporter.svg'
+
+  const onMove = (e) => {
+    if (!hover) return
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    setHover((prev) =>
+      prev
+        ? {
+            ...prev,
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          }
+        : prev,
+    )
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full overflow-hidden rounded-xl border bg-slate-50"
+      style={{ height: '52vh', maxHeight: 560, minHeight: 320 }}
+      onMouseMove={onMove}
+      onMouseLeave={() => setHover(null)}
+    >
+      <div
+        className="absolute inset-0"
+        style={{
+          ...bgStyle,
+          transform: `scale(${zoom})`,
+          transformOrigin: origin,
+        }}
+      >
+        {/* subtle grid when no background */}
+        {!bgStyle ? (
+          <div
+            className="pointer-events-none absolute inset-0 opacity-60"
+            style={{
+              backgroundImage:
+                'linear-gradient(to right, rgba(148,163,184,0.15) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.15) 1px, transparent 1px)',
+              backgroundSize: '36px 36px',
+            }}
+          />
+        ) : null}
+
+        {elements.map((el) => {
+        const style = {
+          left: pct(el.x),
+          top: pct(el.y),
+          width: pct(el.w),
+          height: pct(el.h),
+          transform: el.rotationDeg ? `rotate(${el.rotationDeg}deg)` : undefined,
+        }
+
+        if (el.type === ELEMENT_TYPES.ZONE) {
+          return (
+            <div
+              key={el.id}
+              className="absolute rounded-lg border border-slate-200 bg-white/60 p-2 backdrop-blur-[1px]"
+              style={style}
+              title={el.label || 'Zone'}
+            >
+              <div className="text-xs font-semibold text-slate-800">{el.label || 'Zone'}</div>
+            </div>
+          )
+        }
+
+        if (el.type === ELEMENT_TYPES.WALKWAY) {
+          return (
+            <div
+              key={el.id}
+              className="absolute rounded-md border border-dashed border-slate-300 bg-slate-100/60"
+              style={style}
+              title={el.label || 'Walkway'}
+            />
+          )
+        }
+
+        if (el.type === ELEMENT_TYPES.TRANSPORTER) {
+          return (
+            <div
+              key={el.id}
+              className="absolute flex items-center justify-center rounded-lg border border-slate-200 bg-white/70 text-slate-700"
+              style={style}
+              title={el.label || 'Transporter'}
+            >
+              {el.iconSrc || transporterIconSrc ? (
+                <img
+                  src={el.iconSrc || transporterIconSrc}
+                  alt={el.label || 'Transporter'}
+                  className="h-full w-full object-contain p-1"
+                />
+              ) : (
+                <TransporterIcon className="h-full w-full p-1" />
+              )}
+            </div>
+          )
+        }
+
+        if (el.type === ELEMENT_TYPES.MACHINE) {
+          const machine = machineById.get(String(el.machineId))
+          const clickable = typeof onMachineClick === 'function' && !!machine
+          const ui = statusStyle(machine?.status)
+          const displayName = (el.label || machine?.name || el.machineId || 'Machine').toString()
+          const oee = machine ? computeMachineOeePct(machine) : null
+
+          return (
+            <div
+              key={el.id}
+              className={
+                `absolute flex items-center justify-center rounded-full ring-2 ${ui.ring} ${ui.bg} ` +
+                (clickable ? 'cursor-pointer transition hover:shadow-md' : '')
+              }
+              style={style}
+              onClick={
+                clickable
+                  ? (e) => {
+                      e.stopPropagation()
+                      onMachineClick(machine)
+                    }
+                  : undefined
+              }
+              onMouseEnter={(e) => {
+                const rect = containerRef.current?.getBoundingClientRect()
+                if (!rect) return
+                setHover({
+                  id: el.id,
+                  kind: 'machine',
+                  name: displayName,
+                  status: machine?.status || 'UNKNOWN',
+                  oee,
+                  x: e.clientX - rect.left,
+                  y: e.clientY - rect.top,
+                })
+              }}
+              onMouseLeave={() => setHover(null)}
+            >
+              <div className="relative flex h-full w-full items-center justify-center">
+                <span className={`absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full ${ui.dot}`} />
+                {machineIconSrc ? (
+                  <img src={machineIconSrc} alt="Machine" className="h-7 w-7 object-contain" />
+                ) : (
+                  <MachineGlyph className="h-7 w-7 text-slate-700" />
+                )}
+              </div>
+            </div>
+          )
+        }
+
+        return null
+        })}
+      </div>
+
+      <div className="absolute right-2 top-2 flex items-center gap-2">
+        <div className="rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 backdrop-blur">
+          Zoom: {Math.round(zoom * 100)}%
+        </div>
+        <button
+          type="button"
+          className="rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 hover:bg-white"
+          onClick={resetZoom}
+        >
+          Reset
+        </button>
+      </div>
+
+      {hover ? (
+        <div
+          className="pointer-events-none absolute z-20"
+          style={{ left: hover.x + 14, top: hover.y + 14 }}
+        >
+          <div className="max-w-[260px] rounded-lg border bg-white/95 p-2 text-xs text-slate-800 shadow-lg">
+            <div className="font-semibold">{hover.name}</div>
+            <div className="mt-0.5 flex items-center gap-2 text-slate-600">
+              <span>Status: {hover.status}</span>
+              <span>•</span>
+              <span>OEE: {hover.oee == null ? '—' : `${hover.oee.toFixed(1)}%`}</span>
+            </div>
+            <div className="mt-1 text-[11px] text-slate-500">Click to open machine details</div>
+          </div>
+        </div>
+      ) : null}
+
+      {elements.length === 0 ? (
+        <div className="absolute inset-0 flex items-center justify-center p-6">
+          <div className="rounded-lg border bg-white/80 p-3 text-sm text-slate-700 backdrop-blur">
+            No custom layout saved yet. Click “Customize layout” to create one.
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}

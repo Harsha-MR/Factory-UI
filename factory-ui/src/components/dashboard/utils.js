@@ -41,6 +41,30 @@ export function clampPct(n) {
   return Math.max(0, Math.min(100, n))
 }
 
+function clamp01(n) {
+  if (!Number.isFinite(n)) return 0
+  return Math.min(1, Math.max(0, n))
+}
+
+export function computeMachineOeePct(machine) {
+  const time = machine?.timeMetrics || {}
+  const prod = machine?.productionMetrics || {}
+
+  const planned = Number(time.plannedProductionTime ?? 0)
+  const runtime = Number(time.runTime ?? 0)
+  const idealCycleTime = Number(prod.idealCycleTime ?? 0)
+  const totalParts = Number(prod.totalPartsProduced ?? 0)
+  const goodParts = Number(prod.goodParts ?? 0)
+
+  if (!Number.isFinite(planned) || planned <= 0) return null
+
+  const availability = planned > 0 ? runtime / planned : 0
+  const performance = runtime > 0 ? (idealCycleTime * totalParts) / runtime : 0
+  const quality = totalParts > 0 ? goodParts / totalParts : 0
+  const oee = clamp01(availability) * clamp01(performance) * clamp01(quality)
+  return clampPct(oee * 100)
+}
+
 export function formatRelativeTime(isoString) {
   if (!isoString) return '—'
   const t = new Date(isoString).getTime()

@@ -1,3 +1,6 @@
+import { getDepartmentCustomLayout } from './layoutStorage'
+import { clearLocalHierarchy, getLocalHierarchy, saveLocalHierarchy } from './hierarchyStorage'
+
 const NETWORK_MS = 350
 
 // const SEED_URL = '/mock/factoryHierarchy.json'
@@ -257,13 +260,47 @@ async function loadSeed() {
   }
 }
 
+function createEmptyHierarchyRoot() {
+  return { generatedAt: new Date().toISOString(), factories: [] }
+}
+
+async function loadRootSource() {
+  const local = getLocalHierarchy()
+  if (local?.factories) return local
+  return await loadSeed()
+}
+
 async function ensureLive() {
   // In dev we want API calls to reflect the latest JSON file contents.
   // In prod we can cache in-memory.
   if (live && !IS_DEV) return
-  const seed = await loadSeed()
-  live = coerceSeedToHierarchyShape(structuredClone(seed))
+  const root = await loadRootSource()
+  live = coerceSeedToHierarchyShape(structuredClone(root))
   normalizeHierarchy(live)
+}
+
+export async function getHierarchyRoot() {
+  await ensureLive()
+  await delay(NETWORK_MS)
+  return structuredClone(live || createEmptyHierarchyRoot())
+}
+
+export async function saveHierarchyRoot(nextRoot) {
+  // Persist to local "database" (localStorage)
+  const normalized = coerceSeedToHierarchyShape(structuredClone(nextRoot || createEmptyHierarchyRoot()))
+  normalizeHierarchy(normalized)
+  saveLocalHierarchy(normalized)
+  live = structuredClone(normalized)
+  await delay(NETWORK_MS)
+  return { ok: true }
+}
+
+export async function resetHierarchyToSeed() {
+  clearLocalHierarchy()
+  live = null
+  await ensureLive()
+  await delay(NETWORK_MS)
+  return { ok: true }
 }
 
 function findFactory(factoryId) {
@@ -324,13 +361,22 @@ export async function getDepartmentLayout(departmentId) {
 
   const summary = computeDepartmentSummary(found.department)
 
+  const customLayout = getDepartmentCustomLayout({
+    factoryId: found.factory?.id,
+    plantId: found.plant?.id,
+    departmentId: found.department?.id,
+  })
+
   // Return a copy to avoid UI accidentally mutating live state
   return {
+    factory: { id: found.factory.id, name: found.factory.name },
+    plant: { id: found.plant.id, name: found.plant.name },
     department: {
       id: found.department.id,
       name: found.department.name,
       zones: structuredClone(found.department.zones || []),
     },
+    customLayout,
     summary,
     meta: { simulated: false, fetchedAt: new Date().toISOString() },
   }

@@ -2,15 +2,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getDepartmentLayout } from '../services/mockApi'
 
-import { DepartmentZonesCard, MachineCard } from '../components/dashboard'
+import DepartmentFloorLayoutViewer from '../components/layout/DepartmentFloorLayoutViewer'
+import DepartmentFloorLayoutEditor from '../components/layout/DepartmentFloorLayoutEditor'
+import { createDefaultLayoutForDepartment } from '../components/layout/defaultLayout'
+import {
+  deleteDepartmentCustomLayout,
+  saveDepartmentCustomLayout,
+} from '../services/layoutStorage'
 
-function machineFilterBtnClass(isActive) {
-  return (
-    'rounded-full border px-3 py-1 text-xs font-semibold transition ' +
-    (isActive
-      ? 'border-black bg-black text-white'
-      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50')
-  )
+function deptBadge(severity) {
+  if (severity === 'CRITICAL') return { cls: 'bg-red-100 text-red-700', text: 'CRITICAL' }
+  if (severity === 'ACTION_REQUIRED') return { cls: 'bg-yellow-100 text-yellow-800', text: 'ATTENTION' }
+  return { cls: 'bg-emerald-100 text-emerald-700', text: 'OK' }
 }
 
 export default function DepartmentLayoutPage() {
@@ -21,7 +24,8 @@ export default function DepartmentLayoutPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [deptResult, setDeptResult] = useState(null)
-  const [machineStatusFilter, setMachineStatusFilter] = useState('ALL')
+  const [editingLayout, setEditingLayout] = useState(false)
+  const [editorSeedLayout, setEditorSeedLayout] = useState(null)
 
   const plantName = location.state?.plantName || ''
 
@@ -44,24 +48,6 @@ export default function DepartmentLayoutPage() {
     }
     return counts
   }, [allMachines])
-
-  const filteredMachines = useMemo(() => {
-    if (machineStatusFilter === 'ALL') return allMachines
-    return allMachines.filter((m) => m?.status === machineStatusFilter)
-  }, [allMachines, machineStatusFilter])
-
-  const machinesHeading =
-    machineStatusFilter === 'RUNNING'
-      ? 'Running Machines'
-      : machineStatusFilter === 'IDLE'
-        ? 'Idle Machines'
-        : machineStatusFilter === 'DOWN'
-          ? 'Down Machines'
-          : 'All Machines'
-
-  useEffect(() => {
-    setMachineStatusFilter('ALL')
-  }, [departmentId])
 
   useEffect(() => {
     if (!departmentId) return
@@ -88,6 +74,7 @@ export default function DepartmentLayoutPage() {
   // Auto-refresh every 5 seconds
   useEffect(() => {
     if (!departmentId) return
+    if (editingLayout) return
     let cancelled = false
 
     const intervalId = setInterval(async () => {
@@ -103,7 +90,40 @@ export default function DepartmentLayoutPage() {
       cancelled = true
       clearInterval(intervalId)
     }
-  }, [departmentId])
+  }, [departmentId, editingLayout])
+
+  const layoutCtx = useMemo(() => {
+    return {
+      factoryId: deptResult?.factory?.id || '',
+      plantId: deptResult?.plant?.id || '',
+      departmentId: departmentId || '',
+    }
+  }, [deptResult, departmentId])
+
+  const onStartCustomizeLayout = () => {
+    const base = deptResult?.customLayout || createDefaultLayoutForDepartment(deptResult?.department)
+    setEditorSeedLayout(base)
+    setEditingLayout(true)
+  }
+
+  const onCancelCustomizeLayout = () => {
+    setEditingLayout(false)
+    setEditorSeedLayout(null)
+  }
+
+  const onSaveCustomizeLayout = (layout) => {
+    saveDepartmentCustomLayout(layoutCtx, layout)
+    setDeptResult((prev) => (prev ? { ...prev, customLayout: layout } : prev))
+    setEditingLayout(false)
+    setEditorSeedLayout(null)
+  }
+
+  const onResetCustomizeLayout = () => {
+    deleteDepartmentCustomLayout(layoutCtx)
+    setDeptResult((prev) => (prev ? { ...prev, customLayout: null } : prev))
+    setEditingLayout(false)
+    setEditorSeedLayout(null)
+  }
 
   const onBack = () => {
     if (location.state?.fromDashboard) {
@@ -167,84 +187,91 @@ export default function DepartmentLayoutPage() {
 
   if (!deptResult) return null
 
+  const { cls: badgeCls, text: badgeText } = deptBadge(deptResult?.summary?.severity || 'OK')
+
   return (
     <div className="space-y-3">
-      <DepartmentZonesCard
-        id={deptResult.department.id}
-        name={deptResult.department.name}
-        summary={deptResult.summary}
-        zones={deptResult.department.zones}
-        machines={allMachines}
-        onBack={onBack}
-        onMachineClick={onOpenMachine}
-        bodyMaxHeightClass="max-h-[62vh]"
-      />
-
-      <div className="rounded border bg-white p-4">
+      <div className="rounded-2xl border bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-lg font-semibold">{machinesHeading}</div>
-            <div className="text-xs text-gray-500">
-              Total: {allMachines.length} | Running: {allMachinesCounts.RUNNING} | Idle: {allMachinesCounts.IDLE} | Down: {allMachinesCounts.DOWN}
-            </div>
+            <div className="text-2xl font-semibold text-slate-900">{deptResult.department.name}</div>
+            <div className="mt-1 text-sm text-slate-500">ID: {deptResult.department.id}</div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden text-sm font-medium text-slate-600 sm:block">
+              <span className="text-slate-500">Active:</span> {allMachinesCounts.RUNNING} / {allMachines.length} machines
+            </div>
+
             <button
               type="button"
-              className={machineFilterBtnClass(machineStatusFilter === 'ALL')}
-              onClick={() => setMachineStatusFilter('ALL')}
+              className="rounded-lg border px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50"
+              onClick={onBack}
             >
-              ALL
+              Back
             </button>
-            <button
-              type="button"
-              className={machineFilterBtnClass(machineStatusFilter === 'RUNNING')}
-              onClick={() => setMachineStatusFilter('RUNNING')}
-            >
-              RUNNING
-            </button>
-            <button
-              type="button"
-              className={machineFilterBtnClass(machineStatusFilter === 'IDLE')}
-              onClick={() => setMachineStatusFilter('IDLE')}
-            >
-              IDLE
-            </button>
-            <button
-              type="button"
-              className={machineFilterBtnClass(machineStatusFilter === 'DOWN')}
-              onClick={() => setMachineStatusFilter('DOWN')}
-            >
-              DOWN
-            </button>
+
+            <div className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold ${badgeCls}`}>
+              <span className="inline-block h-2 w-2 rounded-full bg-current opacity-60" />
+              <span>{badgeText}</span>
+            </div>
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {filteredMachines.map((m) => (
-            <MachineCard
-              key={m.id}
-              machine={m}
-              context={{
-                department: deptResult.department.name,
-                plant: plantName,
-              }}
-              fetchedAt={deptResult.meta?.fetchedAt}
-              variant="compact"
-              onClick={() => onOpenMachine(m)}
-            />
-          ))}
+        <div className="mt-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-lg font-semibold text-slate-900">Customizable floor layout</div>
+              <div className="text-xs text-slate-500">Use mouse wheel to zoom. Hover icons for details. Click a machine icon to open details.</div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {!editingLayout ? (
+                <>
+                  <button
+                    type="button"
+                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+                    onClick={onStartCustomizeLayout}
+                  >
+                    {deptResult?.customLayout ? 'Edit layout' : 'Customize layout'}
+                  </button>
+                  {deptResult?.customLayout ? (
+                    <button
+                      type="button"
+                      className="rounded-lg border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                      onClick={onResetCustomizeLayout}
+                    >
+                      Reset
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            {editingLayout ? (
+              <DepartmentFloorLayoutEditor
+                department={deptResult.department}
+                initialLayout={editorSeedLayout}
+                onCancel={onCancelCustomizeLayout}
+                onSave={onSaveCustomizeLayout}
+                onReset={onResetCustomizeLayout}
+              />
+            ) : (
+              <DepartmentFloorLayoutViewer
+                layout={deptResult?.customLayout}
+                department={deptResult?.department}
+                onMachineClick={onOpenMachine}
+              />
+            )}
+          </div>
         </div>
 
-        {filteredMachines.length === 0 ? (
-          <div className="mt-3 rounded border bg-gray-50 p-3 text-sm text-gray-600">
-            No machines found for this filter.
-          </div>
-        ) : null}
+        <div className="mt-3 text-xs text-slate-500">
+          Auto-refresh is enabled (updates every 5 seconds){editingLayout ? ' — paused while editing layout.' : '.'}
+        </div>
       </div>
-
-      <div className="text-xs text-gray-500">Auto-refresh is enabled (updates every 5 seconds).</div>
     </div>
   )
 }
