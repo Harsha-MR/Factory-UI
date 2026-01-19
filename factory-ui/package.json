@@ -5,11 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "node server/index.js",
+    "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
+    "seed:mongo": "node scripts/seedMongo.mjs",
+    "json:add-layout": "node scripts/addLayoutToEfficiencyJson.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongodb": "^6.12.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.12.0"
@@ -26,6 +34,7 @@
     "globals": "^16.5.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
+    "concurrently": "^9.1.2",
     "vite": "^7.2.4"
   }
 }
