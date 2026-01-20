@@ -40,10 +40,21 @@ export function sanitizeDepartmentLayout(raw) {
       }
     : {}
 
+  const threeD = raw.threeD && typeof raw.threeD === 'object'
+    ? {
+        floorModelUrl: raw.threeD.floorModelUrl ? String(raw.threeD.floorModelUrl) : undefined,
+        floorModelScale: Number.isFinite(Number(raw.threeD.floorModelScale))
+          ? Math.max(0.01, Math.min(50, Number(raw.threeD.floorModelScale)))
+          : undefined,
+        floorModelAutoRotate: !!raw.threeD.floorModelAutoRotate,
+      }
+    : null
+
   return {
     version,
     background: background?.src ? background : null,
     assets,
+    threeD,
     elements,
     updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
   }

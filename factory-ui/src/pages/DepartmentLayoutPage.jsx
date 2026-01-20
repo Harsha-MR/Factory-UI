@@ -170,6 +170,17 @@ export default function DepartmentLayoutPage() {
 
   const onStartCustomizeLayout = () => {
     setAutoRotateEnabled(false)
+    navigate(`/departments/${departmentId}/layout-3d`, {
+      state: {
+        ...(location.state || {}),
+        plantName: deptResult?.plant?.name || plantName || '',
+        fromDashboard: location.state?.fromDashboard || true,
+      },
+    })
+  }
+
+  const onStartCustomizeLayout2d = () => {
+    setAutoRotateEnabled(false)
     const base = deptResult?.customLayout || createDefaultLayoutForDepartment(deptResult?.department)
     setEditorSeedLayout(base)
     setEditingLayout(true)
@@ -326,6 +337,14 @@ export default function DepartmentLayoutPage() {
                     onClick={onStartCustomizeLayout}
                   >
                     {deptResult?.customLayout ? 'Edit layout' : 'Customize layout'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-lg border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                    onClick={onStartCustomizeLayout2d}
+                  >
+                    2D editor
                   </button>
                   {deptResult?.customLayout ? (
                     <button

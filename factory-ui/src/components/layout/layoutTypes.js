@@ -40,7 +40,7 @@ export function normalizeElement(raw) {
 
 export function normalizeLayout(raw) {
   if (!raw || typeof raw !== 'object') {
-    return { version: 1, background: null, assets: {}, elements: [], updatedAt: null }
+    return { version: 1, background: null, assets: {}, threeD: null, elements: [], updatedAt: null }
   }
 
   const elements = Array.isArray(raw.elements) ? raw.elements.map(normalizeElement).filter(Boolean) : []
@@ -52,10 +52,19 @@ export function normalizeLayout(raw) {
       }
     : null
 
+  const threeD = raw.threeD && typeof raw.threeD === 'object'
+    ? {
+        floorModelUrl: raw.threeD.floorModelUrl ? String(raw.threeD.floorModelUrl) : undefined,
+        floorModelScale: coerceNum(raw.threeD.floorModelScale, 1),
+        floorModelAutoRotate: !!raw.threeD.floorModelAutoRotate,
+      }
+    : null
+
   return {
     version: Number(raw.version || 1),
     background: background?.src ? background : null,
     assets: raw.assets && typeof raw.assets === 'object' ? raw.assets : {},
+    threeD,
     elements,
     updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
   }

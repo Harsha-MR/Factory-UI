@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard.jsx'
 import FactoryPage from './pages/FactoryPage.jsx'
 import PlantPage from './pages/PlantPage.jsx'
 import DepartmentLayoutPage from './pages/DepartmentLayoutPage.jsx'
+import Department3DLayoutPage from './pages/Department3DLayoutPage.jsx'
 import MachineModalRoutePage from './pages/MachineModalRoutePage.jsx'
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/factories/:factoryId" element={<FactoryPage />} />
           <Route path="/plants/:plantId" element={<PlantPage />} />
           <Route path="/departments/:departmentId" element={<DepartmentLayoutPage />} />
+          <Route path="/departments/:departmentId/layout-3d" element={<Department3DLayoutPage />} />
           <Route
             path="/departments/:departmentId/machines/:machineId"
             element={<MachineModalRoutePage />}
