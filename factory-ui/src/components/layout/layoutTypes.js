@@ -28,6 +28,8 @@ export function normalizeElement(raw) {
     type,
     label: raw.label ? String(raw.label) : '',
     machineId: raw.machineId ? String(raw.machineId) : undefined,
+    modelUrl: raw.modelUrl ? String(raw.modelUrl) : undefined,
+    scale: Math.max(0.01, Math.min(50, coerceNum(raw.scale, 1))),
     x: clamp01(coerceNum(raw.x, 0.1)),
     y: clamp01(coerceNum(raw.y, 0.1)),
     w: clamp01(coerceNum(raw.w, 0.15)),
