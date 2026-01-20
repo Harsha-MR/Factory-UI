@@ -27,6 +27,8 @@ export default function DepartmentLayoutPage() {
   const [editingLayout, setEditingLayout] = useState(false)
   const [editorSeedLayout, setEditorSeedLayout] = useState(null)
 
+  const [floorZoom, setFloorZoom] = useState(1)
+
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(false)
   const [autoRotateSeconds, setAutoRotateSeconds] = useState(10)
   const [plantDepartments, setPlantDepartments] = useState([])
@@ -347,12 +349,16 @@ export default function DepartmentLayoutPage() {
                 onCancel={onCancelCustomizeLayout}
                 onSave={onSaveCustomizeLayout}
                 onReset={onResetCustomizeLayout}
+                zoom={floorZoom}
+                onZoomChange={setFloorZoom}
               />
             ) : (
               <DepartmentFloorLayoutViewer
                 layout={effectiveLayout}
                 department={deptResult?.department}
                 onMachineClick={onOpenMachine}
+                zoom={floorZoom}
+                onZoomChange={setFloorZoom}
               />
             )}
           </div>

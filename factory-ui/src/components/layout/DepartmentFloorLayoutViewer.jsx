@@ -21,9 +21,11 @@ export default function DepartmentFloorLayoutViewer({
   layout,
   department,
   onMachineClick,
+  zoom: zoomProp,
+  onZoomChange,
 }) {
   const containerRef = useRef(null)
-  const { zoom, origin, resetZoom } = useWheelZoom({ ref: containerRef })
+  const { zoom, pan, resetZoom } = useWheelZoom({ ref: containerRef, zoom: zoomProp, onZoomChange })
   const [hover, setHover] = useState(null)
 
   const machineById = useMemo(() => {
@@ -76,8 +78,8 @@ export default function DepartmentFloorLayoutViewer({
         className="absolute inset-0"
         style={{
           ...bgStyle,
-          transform: `scale(${zoom})`,
-          transformOrigin: origin,
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: '0px 0px',
         }}
       >
         {/* subtle grid when no background */}

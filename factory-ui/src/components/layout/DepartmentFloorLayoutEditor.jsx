@@ -3,6 +3,7 @@ import { Rnd } from 'react-rnd'
 import { nanoid } from 'nanoid'
 import { ELEMENT_TYPES, clamp01, normalizeLayout } from './layoutTypes'
 import { MachineGlyph, TransporterIcon } from './icons'
+import { useWheelZoom } from './useWheelZoom'
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -37,8 +38,13 @@ export default function DepartmentFloorLayoutEditor({
   onCancel,
   onSave,
   onReset,
+  zoom: zoomProp,
+  onZoomChange,
 }) {
   const containerRef = useRef(null)
+  const isPanningRef = useRef(false)
+  const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
+  const [isPanning, setIsPanning] = useState(false)
 
   const [canvasSize, setCanvasSize] = useState({ w: 1, h: 1 })
 
@@ -73,6 +79,12 @@ export default function DepartmentFloorLayoutEditor({
         backgroundPosition: 'center',
       }
     : null
+
+  const { zoom, pan, setPan, resetZoom } = useWheelZoom({
+    ref: containerRef,
+    zoom: zoomProp,
+    onZoomChange,
+  })
 
   useEffect(() => {
     const el = containerRef.current
@@ -372,21 +384,71 @@ export default function DepartmentFloorLayoutEditor({
         <div
           ref={containerRef}
           className="relative w-full overflow-hidden rounded-xl border bg-slate-50"
-          style={{ ...bgStyle, height: '60vh', maxHeight: 700, minHeight: 360 }}
+          style={{ height: '60vh', maxHeight: 700, minHeight: 360 }}
           onMouseDown={() => setSelectedId('')}
         >
-          {!bgStyle ? (
-            <div
-              className="pointer-events-none absolute inset-0 opacity-60"
-              style={{
-                backgroundImage:
-                  'linear-gradient(to right, rgba(148,163,184,0.15) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.15) 1px, transparent 1px)',
-                backgroundSize: '36px 36px',
-              }}
-            />
-          ) : null}
+          <div
+            className="absolute inset-0 z-0"
+            style={{ cursor: isPanning ? 'grabbing' : 'grab' }}
+            onMouseDown={(e) => {
+              // Start panning only when dragging the empty floor (this layer).
+              if (e.button !== 0) return
+              e.preventDefault()
+              e.stopPropagation()
 
-          {draft.elements.map((el) => {
+              isPanningRef.current = true
+              setIsPanning(true)
+              panStartRef.current = {
+                x: e.clientX,
+                y: e.clientY,
+                panX: pan.x,
+                panY: pan.y,
+              }
+
+              const onMove = (ev) => {
+                if (!isPanningRef.current) return
+                const dx = ev.clientX - panStartRef.current.x
+                const dy = ev.clientY - panStartRef.current.y
+                setPan({
+                  x: panStartRef.current.panX + dx,
+                  y: panStartRef.current.panY + dy,
+                })
+              }
+
+              const onUp = () => {
+                isPanningRef.current = false
+                setIsPanning(false)
+                window.removeEventListener('mousemove', onMove)
+                window.removeEventListener('mouseup', onUp)
+              }
+
+              window.addEventListener('mousemove', onMove)
+              window.addEventListener('mouseup', onUp)
+            }}
+          />
+
+          <div
+            className="absolute inset-0 z-10"
+            style={{
+              ...bgStyle,
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: '0px 0px',
+            }}
+          >
+            {!bgStyle ? (
+              <div
+                className="pointer-events-none absolute inset-0 opacity-60"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(to right, rgba(148,163,184,0.15) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.15) 1px, transparent 1px)',
+                  backgroundSize: '36px 36px',
+                }}
+              />
+            ) : null
+
+            }
+
+            {draft.elements.map((el) => {
             const { w, h } = canvasSize
             const pxW = Math.max(24, normToPx(el.w, w))
             const pxH = Math.max(24, normToPx(el.h, h))
@@ -430,6 +492,7 @@ export default function DepartmentFloorLayoutEditor({
                 size={{ width: pxW, height: pxH }}
                 position={{ x: pxX, y: pxY }}
                 bounds="parent"
+                scale={zoom}
                 onDragStart={(e) => {
                   e.stopPropagation()
                   setSelectedId(el.id)
@@ -468,7 +531,21 @@ export default function DepartmentFloorLayoutEditor({
                 {content}
               </Rnd>
             )
-          })}
+            })}
+          </div>
+
+          <div className="absolute bottom-2 right-2 z-20 flex items-center gap-2">
+            <div className="rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 backdrop-blur">
+              Zoom: {Math.round(zoom * 100)}%
+            </div>
+            <button
+              type="button"
+              className="rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 hover:bg-white"
+              onClick={resetZoom}
+            >
+              Reset
+            </button>
+          </div>
         </div>
       </div>
     </div>
