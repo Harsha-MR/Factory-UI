@@ -175,6 +175,10 @@ export default function Department3DLayoutPage() {
 
   if (!draft) return null
 
+  const neutralBtnClass = isFullscreen
+    ? 'rounded-lg border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50'
+    : 'rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-900'
+
   const floorScale = Number(draft?.threeD?.floorModelScale) || 1
 
   const placeableElements = (draft?.elements || []).filter((e) =>
@@ -191,15 +195,15 @@ export default function Department3DLayoutPage() {
         className={
           isFullscreen
             ? 'relative h-screen w-screen bg-white p-4 flex flex-col'
-            : 'rounded-2xl border bg-white p-4 shadow-sm'
+            : 'rounded-2xl border bg-slate-950 p-4 shadow-sm'
         }
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-2xl font-semibold text-slate-900">
+            <div className={isFullscreen ? 'text-2xl font-semibold text-slate-900' : 'text-2xl font-semibold text-slate-100'}>
               3D Layout — {deptResult?.department?.name || `Department ${departmentId}`}
             </div>
-            <div className="mt-1 text-sm text-slate-500">
+            <div className={isFullscreen ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-400'}>
               Plant: {deptResult?.plant?.name || plantName || '—'}
             </div>
           </div>
@@ -207,7 +211,7 @@ export default function Department3DLayoutPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              className="rounded-lg border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              className={neutralBtnClass}
               onClick={toggleFullscreen}
               title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
@@ -215,14 +219,14 @@ export default function Department3DLayoutPage() {
             </button>
             <button
               type="button"
-              className="rounded-lg border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              className={neutralBtnClass}
               onClick={onCancel}
             >
               Cancel
             </button>
             <button
               type="button"
-              className="rounded-lg border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              className={neutralBtnClass}
               onClick={onReset}
             >
               Reset
@@ -241,7 +245,7 @@ export default function Department3DLayoutPage() {
           className={
             isFullscreen
               ? 'relative mt-4 flex-1 min-h-0'
-              : 'mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]'
+              : 'mt-4 flex justify-center'
           }
         >
           {isFullscreen ? (
@@ -629,86 +633,11 @@ export default function Department3DLayoutPage() {
               ) : null}
               </div>
             </div>
-          ) : (
-            <div className="rounded-xl border bg-white p-3">
-              <div className="text-sm font-semibold text-slate-900">3D settings</div>
-              <div className="mt-1 text-xs text-slate-500">
-                Use the scale slider if the GLB looks too small/large.
-              </div>
-
-              <div className="mt-3 space-y-3">
-                <div className="rounded-lg border p-2">
-                  <div className="text-xs font-semibold text-slate-700">Floor model</div>
-                  <div className="mt-2 text-xs text-slate-600 break-all">{draft?.threeD?.floorModelUrl}</div>
-
-                  <label className="mt-3 block text-xs text-slate-600">
-                    Scale: {floorScale.toFixed(2)}x
-                    <input
-                      className="mt-2 w-full"
-                      type="range"
-                      min="0.25"
-                      max="10"
-                      step="0.05"
-                      value={String(floorScale)}
-                      onChange={(e) =>
-                        setDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                threeD: {
-                                  ...(prev.threeD || {}),
-                                  floorModelScale: Number(e.target.value),
-                                },
-                              }
-                            : prev,
-                        )
-                      }
-                    />
-                  </label>
-
-                  <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={!!draft?.threeD?.floorModelAutoRotate}
-                      onChange={(e) =>
-                        setDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                threeD: {
-                                  ...(prev.threeD || {}),
-                                  floorModelAutoRotate: e.target.checked,
-                                },
-                              }
-                            : prev,
-                        )
-                      }
-                    />
-                    Auto-rotate
-                  </label>
-                </div>
-
-                <div className="rounded-lg border p-2">
-                  <div className="text-xs font-semibold text-slate-700">Machines</div>
-                  <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={showMachineMarkers}
-                      onChange={(e) => setShowMachineMarkers(e.target.checked)}
-                    />
-                    Show draggable machine markers
-                  </label>
-                  <div className="mt-2 text-[11px] text-slate-500">
-                    Tip: use Full screen to access add/scale tools.
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          ) : null}
 
           <div
             style={isFullscreen ? { paddingLeft: 320, height: '100%' } : undefined}
-            className={isFullscreen ? 'h-full' : undefined}
+            className={isFullscreen ? 'h-full' : 'w-full lg:w-[80%]'}
           >
             <DepartmentFloor3DViewer
               modelUrl={draft?.threeD?.floorModelUrl || '/models/floor-model.glb'}

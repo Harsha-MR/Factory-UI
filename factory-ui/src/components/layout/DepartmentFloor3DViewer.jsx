@@ -109,6 +109,19 @@ export default function DepartmentFloor3DViewer({
 
   const orbitRef = useRef(null)
 
+  const draggingObjectRef = useRef(null)
+  const draggingNormRef = useRef(null)
+
+  const stopDragging = () => {
+    if (!draggingId) return
+    if (typeof onMoveElement === 'function' && draggingNormRef.current) {
+      onMoveElement(String(draggingId), draggingNormRef.current)
+    }
+    draggingObjectRef.current = null
+    draggingNormRef.current = null
+    setDraggingId('')
+  }
+
   const isAddMode = typeof activeTool === 'string' && activeTool.startsWith('add:')
   const addType = isAddMode ? activeTool.slice('add:'.length) : ''
   const addElementType =
@@ -135,11 +148,7 @@ export default function DepartmentFloor3DViewer({
 
   return (
     <div
-      className={
-        fullScreen
-          ? 'relative w-full overflow-hidden rounded-xl border bg-slate-950'
-          : 'relative w-full overflow-hidden rounded-xl border bg-slate-50'
-      }
+      className="relative w-full overflow-hidden rounded-xl border bg-slate-950"
       style={
         fullScreen
           ? { height: '100%', minHeight: 0 }
@@ -163,7 +172,7 @@ export default function DepartmentFloor3DViewer({
         )}
       >
         <Canvas camera={{ position: [3.5, 2.5, 3.5], fov: 45 }}>
-          <color attach="background" args={[fullScreen ? '#0b1020' : '#f8fafc']} />
+          <color attach="background" args={['#0b1020']} />
           <ambientLight intensity={0.7} />
           <directionalLight position={[5, 8, 5]} intensity={1.2} />
 
@@ -207,8 +216,13 @@ export default function DepartmentFloor3DViewer({
 
               if (isAddMode) setHoverNorm(next)
 
-              if (draggingId && typeof onMoveElement === 'function') {
-                onMoveElement(draggingId, next)
+              if (draggingId) {
+                draggingNormRef.current = next
+                const obj = draggingObjectRef.current
+                if (obj) {
+                  obj.position.x = p.x
+                  obj.position.z = p.z
+                }
               }
             }}
             onPointerDown={(e) => {
@@ -227,8 +241,8 @@ export default function DepartmentFloor3DViewer({
               const next = planeToNorm(p.x, p.z, planeSize)
               onAddElement(addElementType, next)
             }}
-            onPointerUp={() => setDraggingId('')}
-            onPointerLeave={() => setDraggingId('')}
+            onPointerUp={stopDragging}
+            onPointerLeave={stopDragging}
           >
             <planeGeometry args={[planeSize, planeSize]} />
             <meshStandardMaterial transparent opacity={0} />
@@ -253,9 +267,13 @@ export default function DepartmentFloor3DViewer({
                     if (isAddMode) return
                     e.stopPropagation()
 
+                    if (isTransforming) return
+
                     if (typeof onSelectElement === 'function') onSelectElement(String(el.id))
 
                     if (typeof onMoveElement === 'function') {
+                      draggingObjectRef.current = e.eventObject
+                      draggingNormRef.current = null
                       setDraggingId(String(el.id))
                     }
                   }}
@@ -330,7 +348,7 @@ export default function DepartmentFloor3DViewer({
             autoRotateSpeed={1.0}
             enabled={!draggingId && !isTransforming}
             onStart={() => {
-              setDraggingId('')
+              stopDragging()
               setHoverNorm(null)
             }}
           />
