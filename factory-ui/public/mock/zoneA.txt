@@ -1,0 +1,161 @@
+{
+                      "machineId": "m5",
+                      "machineName": "Machine-5",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25344,
+                        "idleTime": 2304,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 1.58,
+                        "actualCycleTime": 2.03,
+                        "totalPartsProduced": 16980,
+                        "goodParts": 16620,
+                        "rejectedParts": 360
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-31"
+                      }
+                    },
+                    {
+                      "machineId": "m6",
+                      "machineName": "Machine-6",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24144,
+                        "idleTime": 2454,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 15100,
+                        "goodParts": 14860,
+                        "rejectedParts": 240
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-7"
+                      }
+                    },
+                    {
+                      "machineId": "m7",
+                      "machineName": "Machine-7",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25344,
+                        "idleTime": 2604,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 15400,
+                        "goodParts": 15040,
+                        "rejectedParts": 360
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-8"
+                      }
+                    },
+                    {
+                      "machineId": "m8",
+                      "machineName": "Machine-8",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25144,
+                        "idleTime": 2754,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 15700,
+                        "goodParts": 15700,
+                        "rejectedParts": 0
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-9"
+                      }
+                    },
+                    {
+                      "machineId": "m9",
+                      "machineName": "Machine-9",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24944,
+                        "idleTime": 2904,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 13300,
+                        "goodParts": 13180,
+                        "rejectedParts": 120
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-10"
+                      }
+                    },
+                    {
+                      "machineId": "m10",
+                      "machineName": "Machine-10",
+                      "status": "IDLE",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24744,
+                        "idleTime": 2304,
+                        "breakdownTime": 1200,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 13600,
+                        "goodParts": 13360,
+                        "rejectedParts": 240
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-11"
+                      }
+                    },
+                    {
+                      "machineId": "m11",
+                      "machineName": "Machine-11",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24544,
+                        "idleTime": 2454,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 13900,
+                        "goodParts": 13540,
+                        "rejectedParts": 360
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-12"
+                      }
+                    }

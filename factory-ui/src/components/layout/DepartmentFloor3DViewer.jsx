@@ -1,6 +1,7 @@
-import { Component, Suspense, useMemo, useRef, useState } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Center, Html, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
+import { Center, Edges, Html, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
+import { Box3, Vector3 } from 'three'
 
 import { ELEMENT_TYPES } from './layoutTypes'
 
@@ -74,6 +75,19 @@ function statusColor(status) {
   return '#22c55e' // RUNNING (default)
 }
 
+function zoneFillColor(colorKey) {
+  const k = String(colorKey || '').toLowerCase()
+  if (k === 'dark-green' || k === 'darkgreen' || k === 'green') return '#14532d'
+  if (k === 'orange') return '#f97316'
+  if (k === 'yellow') return '#facc15'
+  return '#14532d'
+}
+
+function setCursor(cursor) {
+  if (typeof document === 'undefined') return
+  document.body.style.cursor = cursor || 'default'
+}
+
 function normToPlane(xNorm, yNorm, planeSize) {
   const x = (clamp01(xNorm) - 0.5) * planeSize
   const z = (0.5 - clamp01(yNorm)) * planeSize
@@ -86,11 +100,33 @@ function planeToNorm(x, z, planeSize) {
   return { x: xNorm, y: yNorm }
 }
 
-function FloorModel({ url, scale }) {
+function FloorModel({ url, scale, onComputedPlaneSize }) {
   const { scene } = useGLTF(url)
 
   // Clone so multiple renders don’t mutate the shared cached scene.
   const cloned = useMemo(() => scene.clone(true), [scene])
+
+  useEffect(() => {
+    if (typeof onComputedPlaneSize !== 'function') return
+
+    try {
+      cloned.updateMatrixWorld(true)
+      const box = new Box3().setFromObject(cloned)
+      const size = new Vector3()
+      box.getSize(size)
+
+      const x = Number(size.x) * (Number(scale) || 1)
+      const z = Number(size.z) * (Number(scale) || 1)
+      const next = Math.max(x, z)
+
+      if (Number.isFinite(next) && next > 0.001) {
+        // Slightly pad so placing at the edge still feels reachable.
+        onComputedPlaneSize(next * 1.02)
+      }
+    } catch {
+      // ignore
+    }
+  }, [cloned, scale, onComputedPlaneSize])
 
   return (
     <Center>
@@ -139,8 +175,26 @@ export default function DepartmentFloor3DViewer({
   const [draggingId, setDraggingId] = useState('')
   const [hoverNorm, setHoverNorm] = useState(null)
   const [isTransforming, setIsTransforming] = useState(false)
+  const [floorPlaneSize, setFloorPlaneSize] = useState(0)
+  const effectivePlaneSize = Number.isFinite(Number(floorPlaneSize)) && Number(floorPlaneSize) > 0
+    ? Number(floorPlaneSize)
+    : planeSize
 
   const orbitRef = useRef(null)
+
+  useEffect(() => {
+    const controls = orbitRef.current
+    if (!controls) return
+
+    // three.js OrbitControls supports zoom-to-cursor in newer versions.
+    // We set both flags for compatibility across versions.
+    if ('zoomToCursor' in controls) controls.zoomToCursor = true
+    if ('dollyToCursor' in controls) controls.dollyToCursor = true
+
+    if ('enableDamping' in controls) controls.enableDamping = true
+    if ('dampingFactor' in controls) controls.dampingFactor = 0.12
+    if (typeof controls.update === 'function') controls.update()
+  }, [])
 
   const draggingObjectRef = useRef(null)
   const draggingNormRef = useRef(null)
@@ -148,7 +202,19 @@ export default function DepartmentFloor3DViewer({
   const stopDragging = () => {
     if (!draggingId) return
     if (typeof onMoveElement === 'function' && draggingNormRef.current) {
-      onMoveElement(String(draggingId), draggingNormRef.current)
+      const dragged = normalizedElements.find((e) => String(e?.id) === String(draggingId))
+      const nextCenter = draggingNormRef.current
+
+      if (dragged?.type === ELEMENT_TYPES.ZONE || dragged?.type === ELEMENT_TYPES.WALKWAY) {
+        const wNorm = clamp01(Number(dragged?.w) || 0.2)
+        const hNorm = clamp01(Number(dragged?.h) || 0.12)
+        onMoveElement(String(draggingId), {
+          x: clamp01((Number(nextCenter?.x) || 0) - wNorm / 2),
+          y: clamp01((Number(nextCenter?.y) || 0) - hNorm / 2),
+        })
+      } else {
+        onMoveElement(String(draggingId), nextCenter)
+      }
     }
     draggingObjectRef.current = null
     draggingNormRef.current = null
@@ -160,6 +226,8 @@ export default function DepartmentFloor3DViewer({
   const addElementType =
     addType === 'floor'
       ? null
+      : addType === 'zone'
+        ? ELEMENT_TYPES.ZONE
       : addType === 'machine'
         ? ELEMENT_TYPES.MACHINE
         : addType === 'walkway'
@@ -169,8 +237,12 @@ export default function DepartmentFloor3DViewer({
             : null
 
   const normalizedElements = Array.isArray(elements) ? elements.filter(Boolean) : []
+  const zoneElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE)
+  // Walkway is rendered as a 2D overlay on the floor.
+  const walkwayElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.WALKWAY)
+  // 3D placeables (GLBs)
   const placeableElements = normalizedElements.filter((e) =>
-    [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.WALKWAY, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
+    [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
   )
 
   const visiblePlaceableElements = placeableElements.filter((el) => {
@@ -184,7 +256,7 @@ export default function DepartmentFloor3DViewer({
   })
 
   const selectedElement = selectedId
-    ? visiblePlaceableElements.find((e) => String(e.id) === String(selectedId))
+    ? normalizedElements.find((e) => String(e?.id) === String(selectedId))
     : null
 
   const selectedObjectRef = useRef(null)
@@ -195,7 +267,7 @@ export default function DepartmentFloor3DViewer({
       style={
         fullScreen
           ? { height: '100%', minHeight: 0 }
-          : { height: '52vh', maxHeight: 560, minHeight: 320 }
+          : { height: '60vh', maxHeight: 560, minHeight: 320 }
       }
     >
       <ErrorBoundary
@@ -221,7 +293,7 @@ export default function DepartmentFloor3DViewer({
 
           {fullScreen ? (
             <>
-              <gridHelper args={[planeSize * 2.5, 40, '#334155', '#1f2937']} position={[0, 0.001, 0]} />
+              <gridHelper args={[effectivePlaneSize * 2.5, 40, '#334155', '#1f2937']} position={[0, 0.001, 0]} />
               <axesHelper args={[1.5]} />
             </>
           ) : null}
@@ -244,57 +316,181 @@ export default function DepartmentFloor3DViewer({
                 </Html>
               }
             >
-              <FloorModel url={modelUrl} scale={scale} />
+              <FloorModel
+                url={modelUrl}
+                scale={scale}
+                onComputedPlaneSize={(next) => {
+                  // Avoid noisy re-renders if the computed size doesn’t really change.
+                  setFloorPlaneSize((prev) => {
+                    const p = Number(prev) || 0
+                    const n = Number(next) || 0
+                    if (!Number.isFinite(n) || n <= 0) return p
+                    if (Math.abs(p - n) < 0.001) return p
+                    return n
+                  })
+                }}
+              />
             </Suspense>
           </ErrorBoundary>
 
-        {showMachineMarkers ? (
-          <mesh
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[0, 0, 0]}
-            onPointerMove={(e) => {
-              e.stopPropagation()
-              const p = e.point
-              const next = planeToNorm(p.x, p.z, planeSize)
+          {/* 2D overlays: zones + walkways */}
+          {zoneElements.map((el) => {
+            const id = String(el.id)
+            const isSelected = selectedId && String(selectedId) === id
+            const wNorm = clamp01(Number(el.w) || 0.15)
+            const hNorm = clamp01(Number(el.h) || 0.12)
+            const cx = clamp01((Number(el.x) || 0) + wNorm / 2)
+            const cy = clamp01((Number(el.y) || 0) + hNorm / 2)
+            const pos = normToPlane(cx, cy, effectivePlaneSize)
+            const w = Math.max(0.02, wNorm) * effectivePlaneSize
+            const d = Math.max(0.02, hNorm) * effectivePlaneSize
+            const fill = zoneFillColor(el.color)
 
-              if (isAddMode) setHoverNorm(next)
+            return (
+              <group
+                key={id}
+                position={[pos.x, 0.01, pos.z]}
+                onPointerDown={(e) => {
+                  if (!fullScreen) return
+                  if (isAddMode) return
+                  e.stopPropagation()
+                  if (typeof onSelectElement === 'function') onSelectElement(id)
 
-              if (draggingId) {
-                draggingNormRef.current = next
-                const obj = draggingObjectRef.current
-                if (obj) {
-                  obj.position.x = p.x
-                  obj.position.z = p.z
-                }
+                  if (isTransforming) return
+
+                  if (typeof onMoveElement === 'function' && activeTool === 'select') {
+                    // eventObject is one of the meshes; move its parent group.
+                    draggingObjectRef.current = e.eventObject?.parent || null
+                    draggingNormRef.current = null
+                    setDraggingId(id)
+                  }
+                }}
+              >
+                <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                  <planeGeometry args={[w, d]} />
+                  <meshBasicMaterial color={fill} transparent opacity={0.35} depthWrite={false} />
+                </mesh>
+                <mesh
+                  rotation={[-Math.PI / 2, 0, 0]}
+                  onPointerOver={(e) => {
+                    if (!fullScreen) return
+                    e.stopPropagation()
+                    setCursor('nwse-resize')
+                  }}
+                  onPointerOut={() => {
+                    if (!fullScreen) return
+                    setCursor('default')
+                  }}
+                >
+                  <planeGeometry args={[w, d]} />
+                  <meshBasicMaterial transparent opacity={0} />
+                  {isSelected ? <Edges color="#fdba74" /> : <Edges color="#ffffff" />}
+                </mesh>
+              </group>
+            )
+          })}
+
+          {walkwayElements.map((el) => {
+            const id = String(el.id)
+            const isSelected = selectedId && String(selectedId) === id
+            const wNorm = clamp01(Number(el.w) || 0.2)
+            const hNorm = clamp01(Number(el.h) || 0.06)
+            const cx = clamp01((Number(el.x) || 0) + wNorm / 2)
+            const cy = clamp01((Number(el.y) || 0) + hNorm / 2)
+            const pos = normToPlane(cx, cy, effectivePlaneSize)
+            const w = Math.max(0.02, wNorm) * effectivePlaneSize
+            const d = Math.max(0.02, hNorm) * effectivePlaneSize
+
+            return (
+              <group
+                key={id}
+                position={[pos.x, 0.012, pos.z]}
+                onPointerDown={(e) => {
+                  if (!fullScreen) return
+                  if (isAddMode) return
+                  e.stopPropagation()
+                  if (typeof onSelectElement === 'function') onSelectElement(id)
+
+                  if (isTransforming) return
+
+                  if (typeof onMoveElement === 'function' && activeTool === 'select') {
+                    draggingObjectRef.current = e.eventObject?.parent || null
+                    draggingNormRef.current = null
+                    setDraggingId(id)
+                  }
+                }}
+              >
+                <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                  <planeGeometry args={[w, d]} />
+                  <meshBasicMaterial color="#000000" transparent opacity={0.65} depthWrite={false} />
+                </mesh>
+                <mesh
+                  rotation={[-Math.PI / 2, 0, 0]}
+                  onPointerOver={(e) => {
+                    if (!fullScreen) return
+                    e.stopPropagation()
+                    setCursor('nwse-resize')
+                  }}
+                  onPointerOut={() => {
+                    if (!fullScreen) return
+                    setCursor('default')
+                  }}
+                >
+                  <planeGeometry args={[w, d]} />
+                  <meshBasicMaterial transparent opacity={0} />
+                  <Edges color={isSelected ? '#fdba74' : '#ffffff'} />
+                </mesh>
+              </group>
+            )
+          })}
+
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0, 0]}
+          onPointerMove={(e) => {
+            if (!fullScreen) return
+            e.stopPropagation()
+            const p = e.point
+            const next = planeToNorm(p.x, p.z, effectivePlaneSize)
+
+            if (isAddMode) setHoverNorm(next)
+
+            if (draggingId) {
+              draggingNormRef.current = next
+              const obj = draggingObjectRef.current
+              if (obj) {
+                obj.position.x = p.x
+                obj.position.z = p.z
               }
-            }}
-            onPointerDown={(e) => {
-              e.stopPropagation()
+            }
+          }}
+          onPointerDown={(e) => {
+            if (!fullScreen) return
+            e.stopPropagation()
 
-              if (!isAddMode) {
-                if (typeof onSelectElement === 'function') onSelectElement('')
-                setDraggingId('')
-                return
-              }
+            if (!isAddMode) {
+              if (typeof onSelectElement === 'function') onSelectElement('')
+              setDraggingId('')
+              return
+            }
 
-              if (!addElementType) return
-              if (typeof onAddElement !== 'function') return
+            if (!addElementType) return
+            if (typeof onAddElement !== 'function') return
 
-              const p = e.point
-              const next = planeToNorm(p.x, p.z, planeSize)
-              onAddElement(addElementType, next)
-            }}
-            onPointerUp={stopDragging}
-            onPointerLeave={stopDragging}
-          >
-            <planeGeometry args={[planeSize, planeSize]} />
-            <meshStandardMaterial transparent opacity={0} />
-          </mesh>
-        ) : null}
+            const p = e.point
+            const next = planeToNorm(p.x, p.z, effectivePlaneSize)
+            onAddElement(addElementType, next)
+          }}
+          onPointerUp={stopDragging}
+          onPointerLeave={stopDragging}
+        >
+          <planeGeometry args={[effectivePlaneSize, effectivePlaneSize]} />
+          <meshStandardMaterial transparent opacity={0} />
+        </mesh>
 
           {showMachineMarkers
             ? visiblePlaceableElements.map((el) => {
-              const pos = normToPlane(el.x ?? 0.5, el.y ?? 0.5, planeSize)
+              const pos = normToPlane(el.x ?? 0.5, el.y ?? 0.5, effectivePlaneSize)
               const isSelected = selectedId && String(selectedId) === String(el.id)
               const isDragging = draggingId && String(draggingId) === String(el.id)
 
@@ -315,6 +511,7 @@ export default function DepartmentFloor3DViewer({
                   scale={[uniformScale, uniformScale, uniformScale]}
                   onPointerDown={(e) => {
                     if (isAddMode) return
+                    if (!fullScreen) return
                     e.stopPropagation()
 
                     if (isTransforming) return
@@ -351,7 +548,8 @@ export default function DepartmentFloor3DViewer({
                       style={{ pointerEvents: 'none' }}
                     >
                       <div
-                        className="rounded-md border border-slate-700/60 bg-slate-950/80 px-2 py-0.5 text-[11px] font-semibold text-slate-100 shadow"
+                        className="px-1 text-[11px] font-semibold text-white"
+                        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}
                         title={`${machineName}${machineStatus ? ` • ${machineStatus}` : ''}`}
                       >
                         {labelText}
@@ -360,9 +558,20 @@ export default function DepartmentFloor3DViewer({
                   ) : null}
 
                   {isSelected ? (
-                    <mesh position={[0, 0.08, 0]}>
+                    <mesh
+                      position={[0, 0.08, 0]}
+                      onPointerOver={(ev) => {
+                        if (!fullScreen) return
+                        ev.stopPropagation()
+                        setCursor('nwse-resize')
+                      }}
+                      onPointerOut={() => {
+                        if (!fullScreen) return
+                        setCursor('default')
+                      }}
+                    >
                       <boxGeometry args={[0.28, 0.18, 0.28]} />
-                      <meshBasicMaterial color="#0ea5e9" wireframe />
+                      <meshBasicMaterial color="#fdba74" wireframe />
                     </mesh>
                   ) : null}
                 </group>
@@ -395,7 +604,7 @@ export default function DepartmentFloor3DViewer({
 
         {showMachineMarkers && isAddMode && hoverNorm && addElementType ? (
           (() => {
-            const pos = normToPlane(hoverNorm.x, hoverNorm.y, planeSize)
+            const pos = normToPlane(hoverNorm.x, hoverNorm.y, effectivePlaneSize)
             return (
               <mesh position={[pos.x, 0.08, pos.z]}>
                 <boxGeometry args={[0.25, 0.16, 0.25]} />

@@ -18,9 +18,6 @@ const MODEL_LIBRARY = {
   [ELEMENT_TYPES.MACHINE]: [
     { label: 'Machine', url: '/models/machine.glb' },
   ],
-  [ELEMENT_TYPES.WALKWAY]: [
-    { label: 'Walkway', url: '/models/walkway.glb' },
-  ],
   [ELEMENT_TYPES.TRANSPORTER]: [
     { label: 'Transporter', url: '/models/transporter.glb' },
     { label: 'Tranporter (alt filename)', url: '/models/tranporter.glb' },
@@ -29,6 +26,7 @@ const MODEL_LIBRARY = {
 
 function typeLabel(t) {
   if (t === ELEMENT_TYPES.MACHINE) return 'Machine'
+  if (t === ELEMENT_TYPES.ZONE) return 'Zone'
   if (t === ELEMENT_TYPES.WALKWAY) return 'Walkway'
   if (t === ELEMENT_TYPES.TRANSPORTER) return 'Transporter'
   return String(t || '')
@@ -208,10 +206,10 @@ export default function Department3DLayoutPage() {
   const floorScale = Number(draft?.threeD?.floorModelScale) || 1
 
   const placeableElements = (draft?.elements || []).filter((e) =>
-    [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.WALKWAY, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
+    [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.ZONE, ELEMENT_TYPES.WALKWAY, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
   )
   const selectedElement = selectedId
-    ? placeableElements.find((e) => String(e.id) === String(selectedId))
+    ? (draft?.elements || []).find((e) => String(e?.id) === String(selectedId))
     : null
 
   return (
@@ -321,6 +319,22 @@ export default function Department3DLayoutPage() {
                 <button
                   type="button"
                   className={
+                    activeTool === 'add:zone'
+                      ? 'grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white'
+                      : 'grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50'
+                  }
+                  title="Add zone"
+                  onClick={() => setActiveTool('add:zone')}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 6h16v12H4V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                    <path d="M8 10h8M8 14h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  className={
                     activeTool === 'add:walkway'
                       ? 'grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white'
                       : 'grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50'
@@ -398,6 +412,19 @@ export default function Department3DLayoutPage() {
                 >
                   Add machine
                 </button>
+
+                <button
+                  type="button"
+                  className={
+                    activeTool === 'add:zone'
+                      ? 'rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white'
+                      : 'rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50'
+                  }
+                  onClick={() => setActiveTool('add:zone')}
+                >
+                  Add zone
+                </button>
+
                 <button
                   type="button"
                   className={
@@ -561,80 +588,204 @@ export default function Department3DLayoutPage() {
                     />
                   </label>
 
-                  <label className="mt-2 block text-xs text-slate-600">
-                    Model
-                    <select
-                      className="mt-1 w-full rounded-lg border px-2 py-1 text-xs text-slate-700"
-                      value={selectedElement.modelUrl || MODEL_LIBRARY[selectedElement.type]?.[0]?.url || ''}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        setDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                elements: (prev.elements || []).map((x) =>
-                                  String(x.id) === String(selectedElement.id) ? { ...x, modelUrl: value } : x,
-                                ),
-                              }
-                            : prev,
-                        )
-                      }}
-                    >
-                      {(MODEL_LIBRARY[selectedElement.type] || []).map((m) => (
-                        <option key={m.url} value={m.url}>
-                          {m.label} ({m.url})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {selectedElement.type === ELEMENT_TYPES.ZONE ? (
+                    <>
+                      <label className="mt-2 block text-xs text-slate-600">
+                        Fill color
+                        <select
+                          className="mt-1 w-full rounded-lg border px-2 py-1 text-xs text-slate-700"
+                          value={selectedElement.color || 'dark-green'}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            setDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    elements: (prev.elements || []).map((x) =>
+                                      String(x.id) === String(selectedElement.id) ? { ...x, color: value } : x,
+                                    ),
+                                  }
+                                : prev,
+                            )
+                          }}
+                        >
+                          <option value="dark-green">Dark green</option>
+                          <option value="orange">Orange</option>
+                          <option value="yellow">Yellow</option>
+                        </select>
+                      </label>
 
-                  <label className="mt-2 block text-xs text-slate-600">
-                    Scale
-                    <div className="mt-1 flex items-center gap-2">
-                      <input
-                        className="w-full"
-                        type="range"
-                        min="0.1"
-                        max="10"
-                        step="0.05"
-                        value={String(clamp(selectedElement.scale ?? 1, 0.1, 10))}
-                        onChange={(e) => {
-                          const value = clamp(e.target.value, 0.01, 50)
-                          setDraft((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  elements: (prev.elements || []).map((x) =>
-                                    String(x.id) === String(selectedElement.id) ? { ...x, scale: value } : x,
-                                  ),
-                                }
-                              : prev,
-                          )
-                        }}
-                      />
-                      <input
-                        className="w-20 rounded-lg border px-2 py-1 text-xs"
-                        inputMode="decimal"
-                        value={String(Number(selectedElement.scale ?? 1).toFixed(2))}
-                        onChange={(e) => {
-                          const value = clamp(e.target.value, 0.01, 50)
-                          setDraft((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  elements: (prev.elements || []).map((x) =>
-                                    String(x.id) === String(selectedElement.id) ? { ...x, scale: value } : x,
-                                  ),
-                                }
-                              : prev,
-                          )
-                        }}
-                      />
-                    </div>
-                    <div className="mt-1 text-[11px] text-slate-500">
-                      Tip: you can also scale with the gizmo in the 3D view.
-                    </div>
-                  </label>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <label className="block text-xs text-slate-600">
+                          Width
+                          <input
+                            className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
+                            inputMode="decimal"
+                            value={String(Number(selectedElement.w ?? 0.2).toFixed(3))}
+                            onChange={(e) => {
+                              const value = clamp(e.target.value, 0.02, 1)
+                              setDraft((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      elements: (prev.elements || []).map((x) =>
+                                        String(x.id) === String(selectedElement.id) ? { ...x, w: value } : x,
+                                      ),
+                                    }
+                                  : prev,
+                              )
+                            }}
+                          />
+                        </label>
+                        <label className="block text-xs text-slate-600">
+                          Height
+                          <input
+                            className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
+                            inputMode="decimal"
+                            value={String(Number(selectedElement.h ?? 0.12).toFixed(3))}
+                            onChange={(e) => {
+                              const value = clamp(e.target.value, 0.02, 1)
+                              setDraft((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      elements: (prev.elements || []).map((x) =>
+                                        String(x.id) === String(selectedElement.id) ? { ...x, h: value } : x,
+                                      ),
+                                    }
+                                  : prev,
+                              )
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </>
+                  ) : selectedElement.type === ELEMENT_TYPES.WALKWAY ? (
+                    <>
+                      <div className="mt-2 text-xs text-slate-600">Walkway overlay (black fill)</div>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <label className="block text-xs text-slate-600">
+                          Width
+                          <input
+                            className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
+                            inputMode="decimal"
+                            value={String(Number(selectedElement.w ?? 0.25).toFixed(3))}
+                            onChange={(e) => {
+                              const value = clamp(e.target.value, 0.02, 1)
+                              setDraft((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      elements: (prev.elements || []).map((x) =>
+                                        String(x.id) === String(selectedElement.id) ? { ...x, w: value } : x,
+                                      ),
+                                    }
+                                  : prev,
+                              )
+                            }}
+                          />
+                        </label>
+                        <label className="block text-xs text-slate-600">
+                          Height
+                          <input
+                            className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
+                            inputMode="decimal"
+                            value={String(Number(selectedElement.h ?? 0.06).toFixed(3))}
+                            onChange={(e) => {
+                              const value = clamp(e.target.value, 0.02, 1)
+                              setDraft((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      elements: (prev.elements || []).map((x) =>
+                                        String(x.id) === String(selectedElement.id) ? { ...x, h: value } : x,
+                                      ),
+                                    }
+                                  : prev,
+                              )
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <label className="mt-2 block text-xs text-slate-600">
+                        Model
+                        <select
+                          className="mt-1 w-full rounded-lg border px-2 py-1 text-xs text-slate-700"
+                          value={selectedElement.modelUrl || MODEL_LIBRARY[selectedElement.type]?.[0]?.url || ''}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            setDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    elements: (prev.elements || []).map((x) =>
+                                      String(x.id) === String(selectedElement.id) ? { ...x, modelUrl: value } : x,
+                                    ),
+                                  }
+                                : prev,
+                            )
+                          }}
+                        >
+                          {(MODEL_LIBRARY[selectedElement.type] || []).map((m) => (
+                            <option key={m.url} value={m.url}>
+                              {m.label} ({m.url})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="mt-2 block text-xs text-slate-600">
+                        Scale
+                        <div className="mt-1 flex items-center gap-2">
+                          <input
+                            className="w-full"
+                            type="range"
+                            min="0.1"
+                            max="10"
+                            step="0.05"
+                            value={String(clamp(selectedElement.scale ?? 1, 0.1, 10))}
+                            onChange={(e) => {
+                              const value = clamp(e.target.value, 0.01, 50)
+                              setDraft((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      elements: (prev.elements || []).map((x) =>
+                                        String(x.id) === String(selectedElement.id) ? { ...x, scale: value } : x,
+                                      ),
+                                    }
+                                  : prev,
+                              )
+                            }}
+                          />
+                          <input
+                            className="w-20 rounded-lg border px-2 py-1 text-xs"
+                            inputMode="decimal"
+                            value={String(Number(selectedElement.scale ?? 1).toFixed(2))}
+                            onChange={(e) => {
+                              const value = clamp(e.target.value, 0.01, 50)
+                              setDraft((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      elements: (prev.elements || []).map((x) =>
+                                        String(x.id) === String(selectedElement.id) ? { ...x, scale: value } : x,
+                                      ),
+                                    }
+                                  : prev,
+                              )
+                            }}
+                          />
+                        </div>
+                        <div className="mt-1 text-[11px] text-slate-500">
+                          Tip: you can also scale with the gizmo in the 3D view.
+                        </div>
+                      </label>
+                    </>
+                  )}
 
                   <button
                     type="button"
@@ -663,7 +814,7 @@ export default function Department3DLayoutPage() {
 
           <div
             style={isFullscreen ? { paddingLeft: 320, height: '100%' } : undefined}
-            className={isFullscreen ? 'h-full' : 'w-full lg:w-[80%]'}
+            className={isFullscreen ? 'h-full' : 'w-full lg:w-[90%]'}
           >
             {!isFullscreen ? (
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -739,6 +890,29 @@ export default function Department3DLayoutPage() {
                       const defaultModelUrl = MODEL_LIBRARY[t]?.[0]?.url
                       const label = `${typeLabel(t)} ${newId.slice(0, 4)}`
 
+                      const defaultsForType = () => {
+                        if (t === ELEMENT_TYPES.ZONE) {
+                          return { w: 0.35, h: 0.22, color: 'dark-green' }
+                        }
+                        if (t === ELEMENT_TYPES.WALKWAY) {
+                          return { w: 0.3, h: 0.06 }
+                        }
+                        return { w: 0.12, h: 0.12, scale: 1, modelUrl: defaultModelUrl }
+                      }
+
+                      const defaults = defaultsForType()
+
+                      const rawX = pos?.x ?? 0.5
+                      const rawY = pos?.y ?? 0.5
+                      const x =
+                        t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
+                          ? clamp(rawX - (Number(defaults.w) || 0) / 2, 0, 1)
+                          : rawX
+                      const y =
+                        t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
+                          ? clamp(rawY - (Number(defaults.h) || 0) / 2, 0, 1)
+                          : rawY
+
                       setDraft((prev) =>
                         prev
                           ? {
@@ -749,12 +923,9 @@ export default function Department3DLayoutPage() {
                                   id: newId,
                                   type: t,
                                   label,
-                                  x: pos?.x ?? 0.5,
-                                  y: pos?.y ?? 0.5,
-                                  w: 0.12,
-                                  h: 0.12,
-                                  scale: 1,
-                                  modelUrl: defaultModelUrl,
+                                  x,
+                                  y,
+                                  ...defaults,
                                 },
                               ],
                             }
