@@ -44,6 +44,36 @@ function clamp01(n) {
   return Math.min(1, Math.max(0, n))
 }
 
+function abbreviateMachineName(raw) {
+  const name = String(raw || '').trim()
+  if (!name) return 'MA'
+
+  // Match: "Machine 1", "Machine-1", "MACHINE_01" -> MA-1
+  const m = name.match(/\bmachine\b\s*[-_]?\s*(\d+)/i)
+  if (m) return `MA-${Number.parseInt(m[1], 10)}`
+
+  // Generic: take an uppercase prefix + trailing number
+  const parts = name.split(/\s*[-_\s]+\s*/).filter(Boolean)
+  const head = parts[0] || name
+  const last = parts[parts.length - 1] || ''
+  const numMatch = last.match(/(\d+)/)
+
+  const isAllCapsShort = /^[A-Z0-9]{2,4}$/.test(head)
+  const prefix = isAllCapsShort ? head : head.slice(0, 2).toUpperCase()
+
+  if (numMatch) return `${prefix}-${Number.parseInt(numMatch[1], 10)}`
+  return prefix
+}
+
+function statusColor(status) {
+  const s = String(status || '').toUpperCase()
+  if (s === 'DOWN') return '#ef4444'
+  if (s === 'WARNING') return '#f59e0b'
+  if (s === 'MAINTENANCE') return '#a855f7'
+  if (s === 'OFFLINE') return '#94a3b8'
+  return '#22c55e' // RUNNING (default)
+}
+
 function normToPlane(xNorm, yNorm, planeSize) {
   const x = (clamp01(xNorm) - 0.5) * planeSize
   const z = (0.5 - clamp01(yNorm)) * planeSize
@@ -100,6 +130,9 @@ export default function DepartmentFloor3DViewer({
   onMoveElement,
   onUpdateElement,
   showMachineMarkers = true,
+  showMachineLabels = true,
+  machineMetaById = null,
+  machineStatusVisibility = null,
   planeSize = DEFAULT_PLANE_SIZE,
   fullScreen = false,
 }) {
@@ -140,8 +173,18 @@ export default function DepartmentFloor3DViewer({
     [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.WALKWAY, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
   )
 
+  const visiblePlaceableElements = placeableElements.filter((el) => {
+    if (el?.type !== ELEMENT_TYPES.MACHINE) return true
+    const mid = String(el?.machineId || '')
+    const status = machineMetaById && mid && machineMetaById[mid]?.status ? machineMetaById[mid].status : 'RUNNING'
+    const v = machineStatusVisibility && typeof machineStatusVisibility === 'object'
+      ? machineStatusVisibility[String(status).toUpperCase()]
+      : undefined
+    return v !== false
+  })
+
   const selectedElement = selectedId
-    ? placeableElements.find((e) => String(e.id) === String(selectedId))
+    ? visiblePlaceableElements.find((e) => String(e.id) === String(selectedId))
     : null
 
   const selectedObjectRef = useRef(null)
@@ -250,13 +293,20 @@ export default function DepartmentFloor3DViewer({
         ) : null}
 
           {showMachineMarkers
-            ? placeableElements.map((el) => {
+            ? visiblePlaceableElements.map((el) => {
               const pos = normToPlane(el.x ?? 0.5, el.y ?? 0.5, planeSize)
               const isSelected = selectedId && String(selectedId) === String(el.id)
               const isDragging = draggingId && String(draggingId) === String(el.id)
 
               const url = el.modelUrl || DEFAULT_MODEL_URLS[el.type] || ''
               const uniformScale = clamp(Number(el.scale) || 1, 0.01, 50)
+
+              const machineId = el?.type === ELEMENT_TYPES.MACHINE ? String(el?.machineId || '') : ''
+              const machineMeta = machineId && machineMetaById ? machineMetaById[machineId] : null
+              const machineName = machineMeta?.name || el?.label || machineId
+              const machineStatus = machineMeta?.status || 'RUNNING'
+              const markerColor = el?.type === ELEMENT_TYPES.MACHINE ? statusColor(machineStatus) : '#111827'
+              const labelText = el?.type === ELEMENT_TYPES.MACHINE ? abbreviateMachineName(machineName) : ''
 
               const content = (
                 <group
@@ -287,11 +337,27 @@ export default function DepartmentFloor3DViewer({
                   <mesh position={[0, 0.08, 0]}>
                     <boxGeometry args={[0.25, 0.16, 0.25]} />
                     <meshStandardMaterial
-                      color={isSelected ? '#0ea5e9' : isDragging ? '#0ea5e9' : '#111827'}
+                      color={isSelected ? '#0ea5e9' : isDragging ? '#0ea5e9' : markerColor}
                       transparent
                       opacity={url ? 0.05 : 1}
                     />
                   </mesh>
+
+                  {showMachineLabels && el?.type === ELEMENT_TYPES.MACHINE && labelText ? (
+                    <Html
+                      position={[0, 0.35, 0]}
+                      center
+                      distanceFactor={10}
+                      style={{ pointerEvents: 'none' }}
+                    >
+                      <div
+                        className="rounded-md border border-slate-700/60 bg-slate-950/80 px-2 py-0.5 text-[11px] font-semibold text-slate-100 shadow"
+                        title={`${machineName}${machineStatus ? ` • ${machineStatus}` : ''}`}
+                      >
+                        {labelText}
+                      </div>
+                    </Html>
+                  ) : null}
 
                   {isSelected ? (
                     <mesh position={[0, 0.08, 0]}>

@@ -66,6 +66,14 @@ export default function Department3DLayoutPage() {
   const [deptResult, setDeptResult] = useState(null)
   const [draft, setDraft] = useState(null)
   const [showMachineMarkers, setShowMachineMarkers] = useState(true)
+  const [showMachineLabels, setShowMachineLabels] = useState(true)
+  const [machineStatusVisibility, setMachineStatusVisibility] = useState({
+    RUNNING: true,
+    WARNING: true,
+    DOWN: true,
+    MAINTENANCE: true,
+    OFFLINE: true,
+  })
 
   const [activeTool, setActiveTool] = useState('select')
   const [selectedId, setSelectedId] = useState('')
@@ -118,6 +126,24 @@ export default function Department3DLayoutPage() {
       departmentId: departmentId || '',
     }
   }, [deptResult, departmentId])
+
+  const machineMetaById = useMemo(() => {
+    const zones = deptResult?.department?.zones || []
+    const out = {}
+    for (const z of zones) {
+      for (const m of z?.machines || []) {
+        if (!m) continue
+        const id = String(m.id || '')
+        if (!id) continue
+        out[id] = {
+          id,
+          name: m?.name || id,
+          status: m?.status || 'RUNNING',
+        }
+      }
+    }
+    return out
+  }, [deptResult])
 
   const onCancel = () => {
     navigate(`/departments/${departmentId}`, { state: location.state || {} })
@@ -639,73 +665,138 @@ export default function Department3DLayoutPage() {
             style={isFullscreen ? { paddingLeft: 320, height: '100%' } : undefined}
             className={isFullscreen ? 'h-full' : 'w-full lg:w-[80%]'}
           >
+            {!isFullscreen ? (
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-2 text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={showMachineMarkers}
+                      onChange={(e) => setShowMachineMarkers(e.target.checked)}
+                    />
+                    Show machines
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={showMachineLabels}
+                      onChange={(e) => setShowMachineLabels(e.target.checked)}
+                    />
+                    Show labels
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {['RUNNING', 'WARNING', 'DOWN', 'MAINTENANCE', 'OFFLINE'].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={
+                        machineStatusVisibility?.[s]
+                          ? 'rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-100'
+                          : 'rounded-full border border-slate-800 bg-transparent px-3 py-1 text-xs text-slate-400'
+                      }
+                      onClick={() =>
+                        setMachineStatusVisibility((prev) => ({
+                          ...(prev || {}),
+                          [s]: !prev?.[s],
+                        }))
+                      }
+                      title={`Toggle ${s}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <DepartmentFloor3DViewer
               modelUrl={draft?.threeD?.floorModelUrl || '/models/floor-model.glb'}
               scale={floorScale}
               autoRotate={!!draft?.threeD?.floorModelAutoRotate}
               elements={draft?.elements || []}
               showMachineMarkers={showMachineMarkers}
+              showMachineLabels={showMachineLabels}
+              machineMetaById={machineMetaById}
+              machineStatusVisibility={machineStatusVisibility}
               fullScreen={isFullscreen}
-              activeTool={activeTool}
-              selectedId={selectedId}
-              onSelectElement={(id) => {
-                setSelectedId(String(id || ''))
-                setActiveTool('select')
-              }}
-              onAddElement={(type, pos) => {
-                const t = String(type)
-                const newId = nanoid(8)
-                const defaultModelUrl = MODEL_LIBRARY[t]?.[0]?.url
-                const label = `${typeLabel(t)} ${newId.slice(0, 4)}`
+              activeTool={isFullscreen ? activeTool : 'select'}
+              selectedId={isFullscreen ? selectedId : ''}
+              onSelectElement={
+                isFullscreen
+                  ? (id) => {
+                      setSelectedId(String(id || ''))
+                      setActiveTool('select')
+                    }
+                  : undefined
+              }
+              onAddElement={
+                isFullscreen
+                  ? (type, pos) => {
+                      const t = String(type)
+                      const newId = nanoid(8)
+                      const defaultModelUrl = MODEL_LIBRARY[t]?.[0]?.url
+                      const label = `${typeLabel(t)} ${newId.slice(0, 4)}`
 
-                setDraft((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        elements: [
-                          ...(prev.elements || []),
-                          {
-                            id: newId,
-                            type: t,
-                            label,
-                            x: pos?.x ?? 0.5,
-                            y: pos?.y ?? 0.5,
-                            w: 0.12,
-                            h: 0.12,
-                            scale: 1,
-                            modelUrl: defaultModelUrl,
-                          },
-                        ],
-                      }
-                    : prev,
-                )
-                setSelectedId(newId)
-                setActiveTool('select')
-              }}
-              onMoveElement={(id, patch) => {
-                setDraft((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        elements: (prev.elements || []).map((e) =>
-                          String(e.id) === String(id) ? { ...e, ...patch } : e,
-                        ),
-                      }
-                    : prev,
-                )
-              }}
-              onUpdateElement={(id, patch) => {
-                setDraft((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        elements: (prev.elements || []).map((e) =>
-                          String(e.id) === String(id) ? { ...e, ...patch } : e,
-                        ),
-                      }
-                    : prev,
-                )
-              }}
+                      setDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              elements: [
+                                ...(prev.elements || []),
+                                {
+                                  id: newId,
+                                  type: t,
+                                  label,
+                                  x: pos?.x ?? 0.5,
+                                  y: pos?.y ?? 0.5,
+                                  w: 0.12,
+                                  h: 0.12,
+                                  scale: 1,
+                                  modelUrl: defaultModelUrl,
+                                },
+                              ],
+                            }
+                          : prev,
+                      )
+                      setSelectedId(newId)
+                      setActiveTool('select')
+                    }
+                  : undefined
+              }
+              onMoveElement={
+                isFullscreen
+                  ? (id, patch) => {
+                      setDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              elements: (prev.elements || []).map((e) =>
+                                String(e.id) === String(id) ? { ...e, ...patch } : e,
+                              ),
+                            }
+                          : prev,
+                      )
+                    }
+                  : undefined
+              }
+              onUpdateElement={
+                isFullscreen
+                  ? (id, patch) => {
+                      setDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              elements: (prev.elements || []).map((e) =>
+                                String(e.id) === String(id) ? { ...e, ...patch } : e,
+                              ),
+                            }
+                          : prev,
+                      )
+                    }
+                  : undefined
+              }
             />
           </div>
         </div>
