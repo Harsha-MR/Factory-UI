@@ -175,6 +175,8 @@ export default function DepartmentFloor3DViewer({
   const [draggingId, setDraggingId] = useState('')
   const [hoverNorm, setHoverNorm] = useState(null)
   const [isTransforming, setIsTransforming] = useState(false)
+  const [isAddDrawing, setIsAddDrawing] = useState(false)
+  const [addPreview, setAddPreview] = useState(null)
   const [floorPlaneSize, setFloorPlaneSize] = useState(0)
   const effectivePlaneSize = Number.isFinite(Number(floorPlaneSize)) && Number(floorPlaneSize) > 0
     ? Number(floorPlaneSize)
@@ -198,6 +200,18 @@ export default function DepartmentFloor3DViewer({
 
   const draggingObjectRef = useRef(null)
   const draggingNormRef = useRef(null)
+  const addDragRef = useRef(null)
+  const addPreviewRafRef = useRef(0)
+
+  const clearAddDrag = () => {
+    addDragRef.current = null
+    setIsAddDrawing(false)
+    setAddPreview(null)
+    if (addPreviewRafRef.current) {
+      cancelAnimationFrame(addPreviewRafRef.current)
+      addPreviewRafRef.current = 0
+    }
+  }
 
   const stopDragging = () => {
     if (!draggingId) return
@@ -258,6 +272,9 @@ export default function DepartmentFloor3DViewer({
   const selectedElement = selectedId
     ? normalizedElements.find((e) => String(e?.id) === String(selectedId))
     : null
+
+  const addOverlayType =
+    addElementType === ELEMENT_TYPES.ZONE || addElementType === ELEMENT_TYPES.WALKWAY ? addElementType : null
 
   const selectedObjectRef = useRef(null)
 
@@ -345,11 +362,13 @@ export default function DepartmentFloor3DViewer({
             const w = Math.max(0.02, wNorm) * effectivePlaneSize
             const d = Math.max(0.02, hNorm) * effectivePlaneSize
             const fill = zoneFillColor(el.color)
+            const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
 
             return (
               <group
                 key={id}
                 position={[pos.x, 0.01, pos.z]}
+                rotation={[0, rot, 0]}
                 onPointerDown={(e) => {
                   if (!fullScreen) return
                   if (isAddMode) return
@@ -400,11 +419,13 @@ export default function DepartmentFloor3DViewer({
             const pos = normToPlane(cx, cy, effectivePlaneSize)
             const w = Math.max(0.02, wNorm) * effectivePlaneSize
             const d = Math.max(0.02, hNorm) * effectivePlaneSize
+            const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
 
             return (
               <group
                 key={id}
                 position={[pos.x, 0.012, pos.z]}
+                rotation={[0, rot, 0]}
                 onPointerDown={(e) => {
                   if (!fullScreen) return
                   if (isAddMode) return
@@ -444,6 +465,37 @@ export default function DepartmentFloor3DViewer({
             )
           })}
 
+          {/* Add-mode click-drag preview for Zone/Walkway */}
+          {fullScreen && isAddMode && isAddDrawing && addPreview && addOverlayType ? (
+            (() => {
+              const wNorm = clamp01(Number(addPreview.w) || 0)
+              const hNorm = clamp01(Number(addPreview.h) || 0)
+              const x = clamp01(Number(addPreview.x) || 0)
+              const y = clamp01(Number(addPreview.y) || 0)
+              const cx = clamp01(x + wNorm / 2)
+              const cy = clamp01(y + hNorm / 2)
+              const pos = normToPlane(cx, cy, effectivePlaneSize)
+              const w = Math.max(0.02, wNorm) * effectivePlaneSize
+              const d = Math.max(0.02, hNorm) * effectivePlaneSize
+              const color = addOverlayType === ELEMENT_TYPES.ZONE ? '#14532d' : '#000000'
+              const opacity = addOverlayType === ELEMENT_TYPES.ZONE ? 0.25 : 0.5
+
+              return (
+                <group position={[pos.x, 0.02, pos.z]}>
+                  <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[w, d]} />
+                    <meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} />
+                  </mesh>
+                  <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[w, d]} />
+                    <meshBasicMaterial transparent opacity={0} />
+                    <Edges color="#fdba74" />
+                  </mesh>
+                </group>
+              )
+            })()
+          ) : null}
+
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, 0, 0]}
@@ -454,6 +506,26 @@ export default function DepartmentFloor3DViewer({
             const next = planeToNorm(p.x, p.z, effectivePlaneSize)
 
             if (isAddMode) setHoverNorm(next)
+
+            // Click-drag adding for Zone/Walkway
+            if (isAddMode && addDragRef.current) {
+              addDragRef.current.current = next
+
+              if (!addPreviewRafRef.current) {
+                addPreviewRafRef.current = requestAnimationFrame(() => {
+                  addPreviewRafRef.current = 0
+                  const drag = addDragRef.current
+                  if (!drag) return
+                  const a = drag.start
+                  const b = drag.current
+                  const x = clamp01(Math.min(a.x, b.x))
+                  const y = clamp01(Math.min(a.y, b.y))
+                  const w = clamp01(Math.abs(a.x - b.x))
+                  const h = clamp01(Math.abs(a.y - b.y))
+                  setAddPreview({ x, y, w, h })
+                })
+              }
+            }
 
             if (draggingId) {
               draggingNormRef.current = next
@@ -479,10 +551,58 @@ export default function DepartmentFloor3DViewer({
 
             const p = e.point
             const next = planeToNorm(p.x, p.z, effectivePlaneSize)
+
+            // For zones/walkways: start click-drag sizing.
+            if (addOverlayType) {
+              addDragRef.current = { type: addOverlayType, start: next, current: next }
+              setIsAddDrawing(true)
+              setAddPreview({ x: next.x, y: next.y, w: 0, h: 0 })
+              return
+            }
+
+            // For models: click-to-place.
             onAddElement(addElementType, next)
           }}
-          onPointerUp={stopDragging}
-          onPointerLeave={stopDragging}
+          onPointerUp={() => {
+            stopDragging()
+
+            if (!fullScreen) return
+            if (!isAddMode) return
+            if (!addDragRef.current) return
+            if (typeof onAddElement !== 'function') {
+              clearAddDrag()
+              return
+            }
+
+            const drag = addDragRef.current
+            const a = drag.start
+            const b = drag.current
+            const x = clamp01(Math.min(a.x, b.x))
+            const y = clamp01(Math.min(a.y, b.y))
+            const w = clamp01(Math.abs(a.x - b.x))
+            const h = clamp01(Math.abs(a.y - b.y))
+
+            const minW = 0.02
+            const minH = 0.02
+            const finalW = Math.max(minW, w)
+            const finalH = Math.max(minH, h)
+
+            const payload = {
+              x,
+              y,
+              w: finalW,
+              h: finalH,
+              rotationDeg: 0,
+              ...(drag.type === ELEMENT_TYPES.ZONE ? { color: 'dark-green' } : null),
+            }
+
+            onAddElement(drag.type, payload)
+            clearAddDrag()
+          }}
+          onPointerLeave={() => {
+            stopDragging()
+            clearAddDrag()
+          }}
         >
           <planeGeometry args={[effectivePlaneSize, effectivePlaneSize]} />
           <meshStandardMaterial transparent opacity={0} />
@@ -509,6 +629,7 @@ export default function DepartmentFloor3DViewer({
                   ref={isSelected ? selectedObjectRef : undefined}
                   position={[pos.x, 0.0, pos.z]}
                   scale={[uniformScale, uniformScale, uniformScale]}
+                  rotation={[0, (Number(el.rotationDeg) || 0) * (Math.PI / 180), 0]}
                   onPointerDown={(e) => {
                     if (isAddMode) return
                     if (!fullScreen) return
@@ -621,9 +742,10 @@ export default function DepartmentFloor3DViewer({
             enableRotate
             autoRotate={autoRotate}
             autoRotateSpeed={1.0}
-            enabled={!draggingId && !isTransforming}
+            enabled={!draggingId && !isTransforming && !isAddDrawing}
             onStart={() => {
               stopDragging()
+              clearAddDrag()
               setHoverNorm(null)
             }}
           />

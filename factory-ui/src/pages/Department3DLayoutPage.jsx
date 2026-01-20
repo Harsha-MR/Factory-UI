@@ -588,6 +588,67 @@ export default function Department3DLayoutPage() {
                     />
                   </label>
 
+                  <div className="mt-3 rounded-lg border bg-slate-50 p-2">
+                    <div className="text-[11px] font-semibold text-slate-700">Rotation</div>
+                    <div className="mt-2 grid grid-cols-4 gap-2">
+                      {[
+                        { label: 'Top', deg: 0 },
+                        { label: 'Right', deg: 90 },
+                        { label: 'Down', deg: 180 },
+                        { label: 'Left', deg: 270 },
+                      ].map((r) => (
+                        <button
+                          key={r.label}
+                          type="button"
+                          className={
+                            Number(selectedElement.rotationDeg || 0) === r.deg
+                              ? 'rounded-md bg-slate-900 px-2 py-1 text-[11px] font-semibold text-white'
+                              : 'rounded-md border bg-white px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50'
+                          }
+                          onClick={() => {
+                            setDraft((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    elements: (prev.elements || []).map((x) =>
+                                      String(x.id) === String(selectedElement.id)
+                                        ? { ...x, rotationDeg: r.deg }
+                                        : x,
+                                    ),
+                                  }
+                                : prev,
+                            )
+                          }}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                    <label className="mt-2 block text-[11px] text-slate-600">
+                      Degrees
+                      <input
+                        className="mt-1 w-full rounded-md border bg-white px-2 py-1 text-xs"
+                        inputMode="numeric"
+                        value={String(Number(selectedElement.rotationDeg || 0))}
+                        onChange={(e) => {
+                          const value = clamp(e.target.value, -360, 360)
+                          setDraft((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  elements: (prev.elements || []).map((x) =>
+                                    String(x.id) === String(selectedElement.id)
+                                      ? { ...x, rotationDeg: value }
+                                      : x,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }}
+                      />
+                    </label>
+                  </div>
+
                   {selectedElement.type === ELEMENT_TYPES.ZONE ? (
                     <>
                       <label className="mt-2 block text-xs text-slate-600">
@@ -902,16 +963,27 @@ export default function Department3DLayoutPage() {
 
                       const defaults = defaultsForType()
 
+                      // Viewer can pass either a center point ({x,y}) or a drag-sized rect ({x,y,w,h}).
+                      const isDragRect = pos && typeof pos === 'object' && Number.isFinite(Number(pos.w)) && Number.isFinite(Number(pos.h))
                       const rawX = pos?.x ?? 0.5
                       const rawY = pos?.y ?? 0.5
-                      const x =
-                        t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
+
+                      const x = isDragRect
+                        ? clamp(rawX, 0, 1)
+                        : t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
                           ? clamp(rawX - (Number(defaults.w) || 0) / 2, 0, 1)
                           : rawX
-                      const y =
-                        t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
+
+                      const y = isDragRect
+                        ? clamp(rawY, 0, 1)
+                        : t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
                           ? clamp(rawY - (Number(defaults.h) || 0) / 2, 0, 1)
                           : rawY
+
+                      const w = isDragRect ? clamp(pos?.w, 0.02, 1) : defaults.w
+                      const h = isDragRect ? clamp(pos?.h, 0.02, 1) : defaults.h
+                      const color = t === ELEMENT_TYPES.ZONE ? (pos?.color || defaults.color || 'dark-green') : undefined
+                      const rotationDeg = Number.isFinite(Number(pos?.rotationDeg)) ? Number(pos.rotationDeg) : 0
 
                       setDraft((prev) =>
                         prev
@@ -926,6 +998,10 @@ export default function Department3DLayoutPage() {
                                   x,
                                   y,
                                   ...defaults,
+                                  w,
+                                  h,
+                                  rotationDeg,
+                                  ...(color ? { color } : null),
                                 },
                               ],
                             }
