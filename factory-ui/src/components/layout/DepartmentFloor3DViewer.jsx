@@ -276,6 +276,8 @@ export default function DepartmentFloor3DViewer({
   const addOverlayType =
     addElementType === ELEMENT_TYPES.ZONE || addElementType === ELEMENT_TYPES.WALKWAY ? addElementType : null
 
+  const isOverlayAddToolActive = fullScreen && isAddMode && !!addOverlayType
+
   const selectedObjectRef = useRef(null)
 
   return (
@@ -742,7 +744,9 @@ export default function DepartmentFloor3DViewer({
             enableRotate
             autoRotate={autoRotate}
             autoRotateSpeed={1.0}
-            enabled={!draggingId && !isTransforming && !isAddDrawing}
+            // Important: when adding Zone/Walkway we need click+drag on the floor to draw,
+            // so disable OrbitControls drag handling in that mode.
+            enabled={!isOverlayAddToolActive && !draggingId && !isTransforming && !isAddDrawing}
             onStart={() => {
               stopDragging()
               clearAddDrag()
@@ -753,7 +757,13 @@ export default function DepartmentFloor3DViewer({
       </ErrorBoundary>
 
       <div className="pointer-events-none absolute bottom-2 right-2 rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 backdrop-blur">
-        {isAddMode ? 'Click to place' : selectedId ? 'Drag to move • Use gizmo to scale' : 'Click to select • Drag to move'}
+        {isOverlayAddToolActive
+          ? 'Click + drag + release to draw • Camera drag disabled'
+          : isAddMode
+            ? 'Click to place'
+            : selectedId
+              ? 'Drag to move • Use gizmo to scale'
+              : 'Click to select • Drag to move'}
       </div>
     </div>
   )
