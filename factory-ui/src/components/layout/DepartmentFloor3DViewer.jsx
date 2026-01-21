@@ -1,7 +1,7 @@
 import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Center, Edges, Html, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
-import { Box3, Vector3 } from 'three'
+import { Box3, Plane, Vector3 } from 'three'
 
 import { ELEMENT_TYPES } from './layoutTypes'
 
@@ -231,6 +231,97 @@ export default function DepartmentFloor3DViewer({
     }
   }
 
+  const floorPlaneRef = useMemo(() => new Plane(new Vector3(0, 1, 0), 0), [])
+  const floorHitRef = useMemo(() => new Vector3(), [])
+
+  const getFloorNormFromEvent = (e) => {
+    const ray = e?.ray
+    if (!ray) return null
+
+    // Plane equation: y = effectiveFloorY + epsilon.
+    // three.Plane uses: normal.dot(point) + constant = 0
+    const y = (Number.isFinite(Number(effectiveFloorY)) ? Number(effectiveFloorY) : 0) + 0.001
+    floorPlaneRef.normal.set(0, 1, 0)
+    floorPlaneRef.constant = -y
+
+    const hit = ray.intersectPlane(floorPlaneRef, floorHitRef)
+    if (!hit) return null
+    return planeToNorm(hit.x, hit.z, effectivePlaneSize)
+  }
+
+  const capturePointer = (e) => {
+    const t = e?.nativeEvent?.target
+    const pid = e?.pointerId
+    if (!t || pid == null) return
+    if (typeof t.setPointerCapture !== 'function') return
+    try {
+      t.setPointerCapture(pid)
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleAddPointerDown = (e) => {
+    if (!fullScreen) return
+    if (!isAddMode) return
+    if (!addElementType) return
+    if (typeof onAddElement !== 'function') return
+
+    const next = getFloorNormFromEvent(e)
+    if (!next) return
+
+    // For zones/walkways: start click-drag sizing.
+    if (addOverlayType) {
+      capturePointer(e)
+      addDragRef.current = { type: addOverlayType, start: next, current: next }
+      setIsAddDrawing(true)
+      setAddPreview({ x: next.x, y: next.y, w: 0, h: 0 })
+      return
+    }
+
+    // For models: click-to-place.
+    onAddElement(addElementType, next)
+  }
+
+  const handleFloorPointerMove = (e) => {
+    if (!fullScreen) return
+
+    const next = getFloorNormFromEvent(e)
+    if (!next) return
+
+    if (isAddMode) setHoverNorm(next)
+
+    // Click-drag adding for Zone/Walkway
+    if (isAddMode && addDragRef.current) {
+      addDragRef.current.current = next
+
+      if (!addPreviewRafRef.current) {
+        addPreviewRafRef.current = requestAnimationFrame(() => {
+          addPreviewRafRef.current = 0
+          const drag = addDragRef.current
+          if (!drag) return
+          const a = drag.start
+          const b = drag.current
+          const x = clamp01(Math.min(a.x, b.x))
+          const y = clamp01(Math.min(a.y, b.y))
+          const w = clamp01(Math.abs(a.x - b.x))
+          const h = clamp01(Math.abs(a.y - b.y))
+          setAddPreview({ x, y, w, h })
+        })
+      }
+    }
+
+    if (draggingId) {
+      draggingNormRef.current = next
+      const obj = draggingObjectRef.current
+      if (obj) {
+        // Use the same floor-projected hit point so movement stays locked to the floor.
+        obj.position.x = floorHitRef.x
+        obj.position.z = floorHitRef.z
+      }
+    }
+  }
+
   const stopDragging = () => {
     if (!draggingId) return
     if (typeof onMoveElement === 'function' && draggingNormRef.current) {
@@ -402,7 +493,10 @@ export default function DepartmentFloor3DViewer({
                 rotation={[0, rot, 0]}
                 onPointerDown={(e) => {
                   if (!fullScreen) return
-                  if (isAddMode) return
+                  if (isAddMode) {
+                    handleAddPointerDown(e)
+                    return
+                  }
                   e.stopPropagation()
                   if (typeof onSelectElement === 'function') onSelectElement(id)
 
@@ -415,7 +509,12 @@ export default function DepartmentFloor3DViewer({
                     setDraggingId(id)
                     setCursor('grabbing')
                     setOrbitEnabledNow(false)
+                    capturePointer(e)
                   }
+                }}
+                onPointerMove={(e) => {
+                  // Keep add preview + dragging responsive even when hovering existing meshes.
+                  handleFloorPointerMove(e)
                 }}
               >
                 <mesh rotation={[-Math.PI / 2, 0, 0]}>
@@ -461,7 +560,10 @@ export default function DepartmentFloor3DViewer({
                 rotation={[0, rot, 0]}
                 onPointerDown={(e) => {
                   if (!fullScreen) return
-                  if (isAddMode) return
+                  if (isAddMode) {
+                    handleAddPointerDown(e)
+                    return
+                  }
                   e.stopPropagation()
                   if (typeof onSelectElement === 'function') onSelectElement(id)
 
@@ -473,7 +575,11 @@ export default function DepartmentFloor3DViewer({
                     setDraggingId(id)
                     setCursor('grabbing')
                     setOrbitEnabledNow(false)
+                    capturePointer(e)
                   }
+                }}
+                onPointerMove={(e) => {
+                  handleFloorPointerMove(e)
                 }}
               >
                 <mesh rotation={[-Math.PI / 2, 0, 0]}>
@@ -537,39 +643,7 @@ export default function DepartmentFloor3DViewer({
           onPointerMove={(e) => {
             if (!fullScreen) return
             e.stopPropagation()
-            const p = e.point
-            const next = planeToNorm(p.x, p.z, effectivePlaneSize)
-
-            if (isAddMode) setHoverNorm(next)
-
-            // Click-drag adding for Zone/Walkway
-            if (isAddMode && addDragRef.current) {
-              addDragRef.current.current = next
-
-              if (!addPreviewRafRef.current) {
-                addPreviewRafRef.current = requestAnimationFrame(() => {
-                  addPreviewRafRef.current = 0
-                  const drag = addDragRef.current
-                  if (!drag) return
-                  const a = drag.start
-                  const b = drag.current
-                  const x = clamp01(Math.min(a.x, b.x))
-                  const y = clamp01(Math.min(a.y, b.y))
-                  const w = clamp01(Math.abs(a.x - b.x))
-                  const h = clamp01(Math.abs(a.y - b.y))
-                  setAddPreview({ x, y, w, h })
-                })
-              }
-            }
-
-            if (draggingId) {
-              draggingNormRef.current = next
-              const obj = draggingObjectRef.current
-              if (obj) {
-                obj.position.x = p.x
-                obj.position.z = p.z
-              }
-            }
+            handleFloorPointerMove(e)
           }}
           onPointerDown={(e) => {
             if (!fullScreen) return
@@ -582,22 +656,7 @@ export default function DepartmentFloor3DViewer({
               return
             }
 
-            if (!addElementType) return
-            if (typeof onAddElement !== 'function') return
-
-            const p = e.point
-            const next = planeToNorm(p.x, p.z, effectivePlaneSize)
-
-            // For zones/walkways: start click-drag sizing.
-            if (addOverlayType) {
-              addDragRef.current = { type: addOverlayType, start: next, current: next }
-              setIsAddDrawing(true)
-              setAddPreview({ x: next.x, y: next.y, w: 0, h: 0 })
-              return
-            }
-
-            // For models: click-to-place.
-            onAddElement(addElementType, next)
+            handleAddPointerDown(e)
           }}
           onPointerUp={() => {
             stopDragging()
@@ -671,7 +730,10 @@ export default function DepartmentFloor3DViewer({
                   scale={[uniformScale, uniformScale, uniformScale]}
                   rotation={[0, (Number(el.rotationDeg) || 0) * (Math.PI / 180), 0]}
                   onPointerDown={(e) => {
-                    if (isAddMode) return
+                    if (isAddMode) {
+                      handleAddPointerDown(e)
+                      return
+                    }
                     if (!fullScreen) return
                     e.stopPropagation()
 
@@ -685,7 +747,11 @@ export default function DepartmentFloor3DViewer({
                       setDraggingId(String(el.id))
                       setCursor('grabbing')
                       setOrbitEnabledNow(false)
+                      capturePointer(e)
                     }
+                  }}
+                  onPointerMove={(e) => {
+                    handleFloorPointerMove(e)
                   }}
                 >
                   <ErrorBoundary fallback={() => <FallbackMarker selected={isSelected || isDragging} />}>
