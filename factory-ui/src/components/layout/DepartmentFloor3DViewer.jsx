@@ -107,6 +107,14 @@ function computeMachineOeePct(machine) {
   return oee * 100
 }
 
+function machineModelUrlForStatus(status) {
+  const s = String(status || '').toUpperCase()
+  if (s === 'DOWN') return '/models/machine-down.glb'
+  if (s === 'IDLE') return '/models/machine-idle.glb'
+  // Default to RUNNING for unknown/other states.
+  return '/models/machine-running.glb'
+}
+
 function setCursor(cursor) {
   if (typeof document === 'undefined') return
   document.body.style.cursor = cursor || 'default'
@@ -950,13 +958,24 @@ export default function DepartmentFloor3DViewer({
               const isSelected = selectedId && String(selectedId) === String(el.id)
               const isDragging = draggingId && String(draggingId) === String(el.id)
 
-              const url = el.modelUrl || DEFAULT_MODEL_URLS[el.type] || ''
-              const uniformScale = clamp(Number(el.scale) || 1, 0.01, 50)
-
               const machineId = el?.type === ELEMENT_TYPES.MACHINE ? String(el?.machineId || '') : ''
               const machineMeta = machineId && machineMetaById ? machineMetaById[machineId] : null
               const machineName = machineMeta?.name || el?.label || machineId
               const machineStatus = machineMeta?.status || 'RUNNING'
+
+              const rawModelUrl = typeof el?.modelUrl === 'string' ? el.modelUrl.trim() : ''
+              const isDefaultMachineUrl =
+                rawModelUrl === '' ||
+                rawModelUrl === DEFAULT_MODEL_URLS[ELEMENT_TYPES.MACHINE] ||
+                rawModelUrl === '/models/machine.glb'
+
+              const url =
+                el?.type === ELEMENT_TYPES.MACHINE
+                  ? (isDefaultMachineUrl
+                      ? machineModelUrlForStatus(machineStatus)
+                      : rawModelUrl)
+                  : (rawModelUrl || DEFAULT_MODEL_URLS[el.type] || '')
+              const uniformScale = clamp(Number(el.scale) || 1, 0.01, 50)
               const markerColor = el?.type === ELEMENT_TYPES.MACHINE ? statusColor(machineStatus) : '#111827'
               const labelText = el?.type === ELEMENT_TYPES.MACHINE ? abbreviateMachineName(machineName) : ''
               const oeePct = el?.type === ELEMENT_TYPES.MACHINE ? computeMachineOeePct(machineMeta) : null
@@ -1183,3 +1202,6 @@ export default function DepartmentFloor3DViewer({
 }
 
 useGLTF.preload('/models/floor-model.glb')
+useGLTF.preload('/models/machine-running.glb')
+useGLTF.preload('/models/machine-idle.glb')
+useGLTF.preload('/models/machine-down.glb')

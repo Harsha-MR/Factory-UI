@@ -290,7 +290,7 @@ export default function Dashboard() {
                   zones={d.zones}
                   bodyMaxHeightClass="max-h-[320px]"
                   onClick={() =>
-                    navigate(`/departments/${d.id}`, {
+                    navigate(`/departments/${d.id}/layout-3d`, {
                       state: {
                         fromDashboard: { factoryId, plantId, show: showDepartments ? '1' : '0' },
                         plantName: selectedPlantName,
