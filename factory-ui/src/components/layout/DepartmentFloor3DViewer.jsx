@@ -100,7 +100,7 @@ function planeToNorm(x, z, planeSize) {
   return { x: xNorm, y: yNorm }
 }
 
-function FloorModel({ url, scale, onComputedPlaneSize }) {
+function FloorModel({ url, scale, onComputedPlaneSize, onComputedFloorY }) {
   const { scene } = useGLTF(url)
 
   // Clone so multiple renders don’t mutate the shared cached scene.
@@ -123,10 +123,18 @@ function FloorModel({ url, scale, onComputedPlaneSize }) {
         // Slightly pad so placing at the edge still feels reachable.
         onComputedPlaneSize(next * 1.02)
       }
+
+      if (typeof onComputedFloorY === 'function') {
+        const y = Number(size.y) * (Number(scale) || 1)
+        // The model is wrapped in <Center>, so its bounds become centered at y=0.
+        // Use half-height to approximate the model "ground" plane.
+        const floorY = Number.isFinite(y) && y > 0 ? -y / 2 : 0
+        onComputedFloorY(floorY)
+      }
     } catch {
       // ignore
     }
-  }, [cloned, scale, onComputedPlaneSize])
+  }, [cloned, scale, onComputedPlaneSize, onComputedFloorY])
 
   return (
     <Center>
@@ -178,9 +186,12 @@ export default function DepartmentFloor3DViewer({
   const [isAddDrawing, setIsAddDrawing] = useState(false)
   const [addPreview, setAddPreview] = useState(null)
   const [floorPlaneSize, setFloorPlaneSize] = useState(0)
+  const [floorPlaneY, setFloorPlaneY] = useState(0)
   const effectivePlaneSize = Number.isFinite(Number(floorPlaneSize)) && Number(floorPlaneSize) > 0
     ? Number(floorPlaneSize)
     : planeSize
+
+  const effectiveFloorY = Number.isFinite(Number(floorPlaneY)) ? Number(floorPlaneY) : 0
 
   const orbitRef = useRef(null)
 
@@ -233,6 +244,7 @@ export default function DepartmentFloor3DViewer({
     draggingObjectRef.current = null
     draggingNormRef.current = null
     setDraggingId('')
+    setCursor('default')
   }
 
   const isAddMode = typeof activeTool === 'string' && activeTool.startsWith('add:')
@@ -348,6 +360,15 @@ export default function DepartmentFloor3DViewer({
                     return n
                   })
                 }}
+                onComputedFloorY={(next) => {
+                  setFloorPlaneY((prev) => {
+                    const p = Number(prev) || 0
+                    const n = Number(next) || 0
+                    if (!Number.isFinite(n)) return p
+                    if (Math.abs(p - n) < 0.001) return p
+                    return n
+                  })
+                }}
               />
             </Suspense>
           </ErrorBoundary>
@@ -369,7 +390,7 @@ export default function DepartmentFloor3DViewer({
             return (
               <group
                 key={id}
-                position={[pos.x, 0.01, pos.z]}
+                position={[pos.x, effectiveFloorY + 0.01, pos.z]}
                 rotation={[0, rot, 0]}
                 onPointerDown={(e) => {
                   if (!fullScreen) return
@@ -384,6 +405,7 @@ export default function DepartmentFloor3DViewer({
                     draggingObjectRef.current = e.eventObject?.parent || null
                     draggingNormRef.current = null
                     setDraggingId(id)
+                    setCursor('grabbing')
                   }
                 }}
               >
@@ -396,7 +418,7 @@ export default function DepartmentFloor3DViewer({
                   onPointerOver={(e) => {
                     if (!fullScreen) return
                     e.stopPropagation()
-                    setCursor('nwse-resize')
+                    setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
                   }}
                   onPointerOut={() => {
                     if (!fullScreen) return
@@ -426,7 +448,7 @@ export default function DepartmentFloor3DViewer({
             return (
               <group
                 key={id}
-                position={[pos.x, 0.012, pos.z]}
+                position={[pos.x, effectiveFloorY + 0.012, pos.z]}
                 rotation={[0, rot, 0]}
                 onPointerDown={(e) => {
                   if (!fullScreen) return
@@ -440,6 +462,7 @@ export default function DepartmentFloor3DViewer({
                     draggingObjectRef.current = e.eventObject?.parent || null
                     draggingNormRef.current = null
                     setDraggingId(id)
+                    setCursor('grabbing')
                   }
                 }}
               >
@@ -452,7 +475,7 @@ export default function DepartmentFloor3DViewer({
                   onPointerOver={(e) => {
                     if (!fullScreen) return
                     e.stopPropagation()
-                    setCursor('nwse-resize')
+                    setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
                   }}
                   onPointerOut={() => {
                     if (!fullScreen) return
@@ -483,7 +506,7 @@ export default function DepartmentFloor3DViewer({
               const opacity = addOverlayType === ELEMENT_TYPES.ZONE ? 0.25 : 0.5
 
               return (
-                <group position={[pos.x, 0.02, pos.z]}>
+                <group position={[pos.x, effectiveFloorY + 0.02, pos.z]}>
                   <mesh rotation={[-Math.PI / 2, 0, 0]}>
                     <planeGeometry args={[w, d]} />
                     <meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} />
@@ -500,7 +523,7 @@ export default function DepartmentFloor3DViewer({
 
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0, 0]}
+          position={[0, effectiveFloorY + 0.001, 0]}
           onPointerMove={(e) => {
             if (!fullScreen) return
             e.stopPropagation()
@@ -545,6 +568,7 @@ export default function DepartmentFloor3DViewer({
             if (!isAddMode) {
               if (typeof onSelectElement === 'function') onSelectElement('')
               setDraggingId('')
+              setCursor('default')
               return
             }
 
@@ -567,6 +591,7 @@ export default function DepartmentFloor3DViewer({
           }}
           onPointerUp={() => {
             stopDragging()
+            setCursor('default')
 
             if (!fullScreen) return
             if (!isAddMode) return
@@ -604,6 +629,7 @@ export default function DepartmentFloor3DViewer({
           onPointerLeave={() => {
             stopDragging()
             clearAddDrag()
+            setCursor('default')
           }}
         >
           <planeGeometry args={[effectivePlaneSize, effectivePlaneSize]} />
@@ -629,7 +655,7 @@ export default function DepartmentFloor3DViewer({
               const content = (
                 <group
                   ref={isSelected ? selectedObjectRef : undefined}
-                  position={[pos.x, 0.0, pos.z]}
+                  position={[pos.x, effectiveFloorY + 0.0, pos.z]}
                   scale={[uniformScale, uniformScale, uniformScale]}
                   rotation={[0, (Number(el.rotationDeg) || 0) * (Math.PI / 180), 0]}
                   onPointerDown={(e) => {
@@ -641,10 +667,11 @@ export default function DepartmentFloor3DViewer({
 
                     if (typeof onSelectElement === 'function') onSelectElement(String(el.id))
 
-                    if (typeof onMoveElement === 'function') {
+                    if (typeof onMoveElement === 'function' && activeTool === 'select') {
                       draggingObjectRef.current = e.eventObject
                       draggingNormRef.current = null
                       setDraggingId(String(el.id))
+                      setCursor('grabbing')
                     }
                   }}
                 >
@@ -686,7 +713,7 @@ export default function DepartmentFloor3DViewer({
                       onPointerOver={(ev) => {
                         if (!fullScreen) return
                         ev.stopPropagation()
-                        setCursor('nwse-resize')
+                        setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
                       }}
                       onPointerOut={() => {
                         if (!fullScreen) return
@@ -729,7 +756,7 @@ export default function DepartmentFloor3DViewer({
           (() => {
             const pos = normToPlane(hoverNorm.x, hoverNorm.y, effectivePlaneSize)
             return (
-              <mesh position={[pos.x, 0.08, pos.z]}>
+              <mesh position={[pos.x, effectiveFloorY + 0.08, pos.z]}>
                 <boxGeometry args={[0.25, 0.16, 0.25]} />
                 <meshStandardMaterial color="#0ea5e9" transparent opacity={0.35} />
               </mesh>
