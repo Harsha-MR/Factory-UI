@@ -1,7 +1,7 @@
 import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Center, Edges, Html, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
-import { Box3, Plane, Vector3 } from 'three'
+import { Box3, MOUSE, Plane, Vector3 } from 'three'
 
 import { ELEMENT_TYPES } from './layoutTypes'
 
@@ -196,6 +196,12 @@ export default function DepartmentFloor3DViewer({
 
   const orbitRef = useRef(null)
 
+  const defaultMouseButtonsRef = useRef(null)
+  const panDragPointerIdRef = useRef(null)
+  const lastClickRef = useRef({ t: 0, x: 0, y: 0 })
+  const DOUBLE_CLICK_MS = 320
+  const DOUBLE_CLICK_PX = 6
+
   const setOrbitEnabledNow = (enabled) => {
     const controls = orbitRef.current
     if (!controls) return
@@ -207,6 +213,11 @@ export default function DepartmentFloor3DViewer({
     const controls = orbitRef.current
     if (!controls) return
 
+    if (!defaultMouseButtonsRef.current) {
+      // Snapshot so we can restore after temporary pan mode.
+      defaultMouseButtonsRef.current = { ...controls.mouseButtons }
+    }
+
     // three.js OrbitControls supports zoom-to-cursor in newer versions.
     // We set both flags for compatibility across versions.
     if ('zoomToCursor' in controls) controls.zoomToCursor = true
@@ -216,6 +227,53 @@ export default function DepartmentFloor3DViewer({
     if ('dampingFactor' in controls) controls.dampingFactor = 0.12
     if (typeof controls.update === 'function') controls.update()
   }, [])
+
+  const setOrbitMouseModeNow = (mode) => {
+    const controls = orbitRef.current
+    if (!controls) return
+    if (!controls.mouseButtons) return
+    controls.mouseButtons.LEFT = mode === 'pan' ? MOUSE.PAN : MOUSE.ROTATE
+    if (typeof controls.update === 'function') controls.update()
+  }
+
+  const maybeStartPanDrag = (e) => {
+    // Only allow double-click+drag panning when camera controls are active.
+    const controls = orbitRef.current
+    if (!controls || !controls.enabled) return false
+    if (!fullScreen) return false
+    if (isOverlayAddToolActive || isTransforming || isAddDrawing || draggingId) return false
+
+    const ne = e?.nativeEvent
+    const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
+    const x = Number(ne?.clientX) || 0
+    const y = Number(ne?.clientY) || 0
+
+    const prev = lastClickRef.current
+    const dt = now - (Number(prev?.t) || 0)
+    const dx = x - (Number(prev?.x) || 0)
+    const dy = y - (Number(prev?.y) || 0)
+    const dist = Math.hypot(dx, dy)
+
+    // Record click for next time.
+    lastClickRef.current = { t: now, x, y }
+
+    const isDouble = dt > 0 && dt <= DOUBLE_CLICK_MS && dist <= DOUBLE_CLICK_PX
+    if (!isDouble) return false
+
+    panDragPointerIdRef.current = e?.pointerId ?? null
+    setOrbitMouseModeNow('pan')
+    setCursor('grabbing')
+    capturePointer(e)
+    return true
+  }
+
+  const stopPanDrag = (pointerId) => {
+    if (panDragPointerIdRef.current == null) return
+    if (pointerId != null && panDragPointerIdRef.current !== pointerId) return
+    panDragPointerIdRef.current = null
+    setOrbitMouseModeNow('rotate')
+    setCursor('default')
+  }
 
   const draggingObjectRef = useRef(null)
   const draggingNormRef = useRef(null)
@@ -680,6 +738,12 @@ export default function DepartmentFloor3DViewer({
             if (!fullScreen) return
             e.stopPropagation()
 
+            // Double-click + drag pans the camera.
+            // Note: we only start it when the user clicks on the floor (not on objects).
+            if (!isAddMode) {
+              maybeStartPanDrag(e)
+            }
+
             if (!isAddMode) {
               if (typeof onSelectElement === 'function') onSelectElement('')
               setDraggingId('')
@@ -690,6 +754,7 @@ export default function DepartmentFloor3DViewer({
             handleAddPointerDown(e)
           }}
           onPointerUp={() => {
+            stopPanDrag()
             stopDragging()
             setCursor('default')
             setOrbitEnabledNow(!isOverlayAddToolActive && !isTransforming && !isAddDrawing)
@@ -733,6 +798,7 @@ export default function DepartmentFloor3DViewer({
             clearAddDrag()
           }}
           onPointerLeave={() => {
+            stopPanDrag()
             stopDragging()
             clearAddDrag()
             setCursor('default')
@@ -884,6 +950,7 @@ export default function DepartmentFloor3DViewer({
             enablePan
             enableZoom
             enableRotate
+            mouseButtons={{ LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }}
             autoRotate={autoRotate}
             autoRotateSpeed={1.0}
             // Important: when adding Zone/Walkway we need click+drag on the floor to draw,
