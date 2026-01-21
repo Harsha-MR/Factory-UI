@@ -1,7 +1,7 @@
 import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { Center, Edges, Html, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
-import { Box3, MOUSE, Plane, Vector3 } from 'three'
+import { Box3, MOUSE, Plane, Vector2, Vector3 } from 'three'
 
 import { ELEMENT_TYPES } from './layoutTypes'
 
@@ -153,6 +153,46 @@ function PlacedGLB({ url }) {
   )
 }
 
+function CanvasPointerTracker({ enabled, floorY, onMove }) {
+  const { gl, camera, raycaster } = useThree()
+
+  const planeRef = useMemo(() => new Plane(new Vector3(0, 1, 0), 0), [])
+  const hitRef = useMemo(() => new Vector3(), [])
+  const ndcRef = useMemo(() => new Vector2(), [])
+
+  useEffect(() => {
+    if (!enabled) return
+    const el = gl?.domElement
+    if (!el) return
+
+    const onPointerMove = (ev) => {
+      if (typeof onMove !== 'function') return
+
+      const rect = el.getBoundingClientRect()
+      const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1
+      const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1
+      ndcRef.set(x, y)
+
+      raycaster.setFromCamera(ndcRef, camera)
+
+      const yPlane = (Number.isFinite(Number(floorY)) ? Number(floorY) : 0) + 0.001
+      planeRef.normal.set(0, 1, 0)
+      planeRef.constant = -yPlane
+
+      const hit = raycaster.ray.intersectPlane(planeRef, hitRef)
+      if (!hit) return
+      onMove(hit.x, hit.z)
+    }
+
+    // Pointer capture is handled elsewhere; this listener ensures we still update
+    // even when R3F doesn't emit events due to hit-testing gaps.
+    el.addEventListener('pointermove', onPointerMove)
+    return () => el.removeEventListener('pointermove', onPointerMove)
+  }, [enabled, gl, camera, raycaster, floorY, onMove, planeRef, hitRef, ndcRef])
+
+  return null
+}
+
 function FallbackMarker({ selected }) {
   return (
     <mesh position={[0, 0.08, 0]}>
@@ -279,6 +319,7 @@ export default function DepartmentFloor3DViewer({
   const draggingNormRef = useRef(null)
   const addDragRef = useRef(null)
   const addPreviewRafRef = useRef(0)
+  const hoverRafRef = useRef(0)
 
   const clearAddDrag = () => {
     addDragRef.current = null
@@ -293,64 +334,19 @@ export default function DepartmentFloor3DViewer({
   const floorPlaneRef = useMemo(() => new Plane(new Vector3(0, 1, 0), 0), [])
   const floorHitRef = useMemo(() => new Vector3(), [])
 
-  const getFloorNormFromEvent = (e) => {
-    const ray = e?.ray
-    if (!ray) return null
+  const handleFloorMoveFromHit = (hitX, hitZ) => {
+    const next = planeToNorm(hitX, hitZ, effectivePlaneSize)
 
-    // Plane equation: y = effectiveFloorY + epsilon.
-    // three.Plane uses: normal.dot(point) + constant = 0
-    const y = (Number.isFinite(Number(effectiveFloorY)) ? Number(effectiveFloorY) : 0) + 0.001
-    floorPlaneRef.normal.set(0, 1, 0)
-    floorPlaneRef.constant = -y
-
-    const hit = ray.intersectPlane(floorPlaneRef, floorHitRef)
-    if (!hit) return null
-    return planeToNorm(hit.x, hit.z, effectivePlaneSize)
-  }
-
-  const capturePointer = (e) => {
-    const t = e?.nativeEvent?.target
-    const pid = e?.pointerId
-    if (!t || pid == null) return
-    if (typeof t.setPointerCapture !== 'function') return
-    try {
-      t.setPointerCapture(pid)
-    } catch {
-      // ignore
+    if (isAddMode) {
+      // Throttle hover updates to avoid React re-rendering on every pointermove
+      // (helps on low-end GPUs/CPUs).
+      if (!hoverRafRef.current) {
+        hoverRafRef.current = requestAnimationFrame(() => {
+          hoverRafRef.current = 0
+          setHoverNorm(next)
+        })
+      }
     }
-  }
-
-  const handleAddPointerDown = (e) => {
-    if (!fullScreen) return
-    if (!isAddMode) return
-    if (!addElementType) return
-    if (typeof onAddElement !== 'function') return
-
-    const next = getFloorNormFromEvent(e)
-    if (!next) return
-
-    // For zones/walkways: start click-drag sizing.
-    if (addOverlayType) {
-      capturePointer(e)
-      // Disable camera immediately so click+drag draws without moving the scene.
-      setOrbitEnabledNow(false)
-      addDragRef.current = { type: addOverlayType, start: next, current: next }
-      setIsAddDrawing(true)
-      setAddPreview({ x: next.x, y: next.y, w: 0, h: 0 })
-      return
-    }
-
-    // For models: click-to-place.
-    onAddElement(addElementType, next)
-  }
-
-  const handleFloorPointerMove = (e) => {
-    if (!fullScreen) return
-
-    const next = getFloorNormFromEvent(e)
-    if (!next) return
-
-    if (isAddMode) setHoverNorm(next)
 
     // Click-drag adding for Zone/Walkway
     if (isAddMode && addDragRef.current) {
@@ -376,11 +372,70 @@ export default function DepartmentFloor3DViewer({
       draggingNormRef.current = next
       const obj = draggingObjectRef.current
       if (obj) {
-        // Use the same floor-projected hit point so movement stays locked to the floor.
-        obj.position.x = floorHitRef.x
-        obj.position.z = floorHitRef.z
+        obj.position.x = hitX
+        obj.position.z = hitZ
       }
     }
+  }
+
+  const getFloorHitFromEvent = (e) => {
+    const ray = e?.ray
+    if (!ray) return null
+
+    // Plane equation: y = effectiveFloorY + epsilon.
+    // three.Plane uses: normal.dot(point) + constant = 0
+    const y = (Number.isFinite(Number(effectiveFloorY)) ? Number(effectiveFloorY) : 0) + 0.001
+    floorPlaneRef.normal.set(0, 1, 0)
+    floorPlaneRef.constant = -y
+
+    const hit = ray.intersectPlane(floorPlaneRef, floorHitRef)
+    if (!hit) return null
+    return { x: hit.x, z: hit.z }
+  }
+
+  const capturePointer = (e) => {
+    const t = e?.nativeEvent?.target
+    const pid = e?.pointerId
+    if (!t || pid == null) return
+    if (typeof t.setPointerCapture !== 'function') return
+    try {
+      t.setPointerCapture(pid)
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleAddPointerDown = (e) => {
+    if (!fullScreen) return
+    if (!isAddMode) return
+    if (!addElementType) return
+    if (typeof onAddElement !== 'function') return
+
+    const hit = getFloorHitFromEvent(e)
+    if (!hit) return
+    const next = planeToNorm(hit.x, hit.z, effectivePlaneSize)
+
+    // For zones/walkways: start click-drag sizing.
+    if (addOverlayType) {
+      capturePointer(e)
+      // Disable camera immediately so click+drag draws without moving the scene.
+      setOrbitEnabledNow(false)
+      addDragRef.current = { type: addOverlayType, start: next, current: next }
+      setIsAddDrawing(true)
+      setAddPreview({ x: next.x, y: next.y, w: 0, h: 0 })
+      return
+    }
+
+    // For models: click-to-place.
+    onAddElement(addElementType, next)
+  }
+
+  const handleFloorPointerMove = (e) => {
+    if (!fullScreen) return
+
+    const hit = getFloorHitFromEvent(e)
+    if (!hit) return
+    handleFloorMoveFromHit(hit.x, hit.z)
   }
 
   const stopDragging = () => {
@@ -480,6 +535,11 @@ export default function DepartmentFloor3DViewer({
         )}
       >
         <Canvas camera={{ position: [3.5, 2.5, 3.5], fov: 45 }}>
+          <CanvasPointerTracker
+            enabled={fullScreen && (draggingId || isAddMode)}
+            floorY={effectiveFloorY}
+            onMove={(x, z) => handleFloorMoveFromHit(x, z)}
+          />
           <color attach="background" args={['#0b1020']} />
           <ambientLight intensity={0.7} />
           <directionalLight position={[5, 8, 5]} intensity={1.2} />
