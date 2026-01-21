@@ -127,8 +127,8 @@ function FloorModel({ url, scale, onComputedPlaneSize, onComputedFloorY }) {
       if (typeof onComputedFloorY === 'function') {
         const y = Number(size.y) * (Number(scale) || 1)
         // The model is wrapped in <Center>, so its bounds become centered at y=0.
-        // Use half-height to approximate the model "ground" plane.
-        const floorY = Number.isFinite(y) && y > 0 ? -y / 2 : 0
+        // For a floor mesh, the visible surface is typically the TOP of the bounds.
+        const floorY = Number.isFinite(y) && y > 0 ? y / 2 : 0
         onComputedFloorY(floorY)
       }
     } catch {
@@ -192,6 +192,7 @@ export default function DepartmentFloor3DViewer({
     : planeSize
 
   const effectiveFloorY = Number.isFinite(Number(floorPlaneY)) ? Number(floorPlaneY) : 0
+  const overlayLift = Math.max(0.002, effectivePlaneSize * 0.001)
 
   const orbitRef = useRef(null)
 
@@ -273,6 +274,8 @@ export default function DepartmentFloor3DViewer({
     // For zones/walkways: start click-drag sizing.
     if (addOverlayType) {
       capturePointer(e)
+      // Disable camera immediately so click+drag draws without moving the scene.
+      setOrbitEnabledNow(false)
       addDragRef.current = { type: addOverlayType, start: next, current: next }
       setIsAddDrawing(true)
       setAddPreview({ x: next.x, y: next.y, w: 0, h: 0 })
@@ -343,7 +346,9 @@ export default function DepartmentFloor3DViewer({
     draggingNormRef.current = null
     setDraggingId('')
     setCursor('default')
-    setOrbitEnabledNow(true)
+    // Re-enable camera only if current mode allows it.
+    // (When adding Zone/Walkway, OrbitControls should remain disabled.)
+    setOrbitEnabledNow(!isOverlayAddToolActive && !isTransforming && !isAddDrawing)
   }
 
   const isAddMode = typeof activeTool === 'string' && activeTool.startsWith('add:')
@@ -489,7 +494,7 @@ export default function DepartmentFloor3DViewer({
             return (
               <group
                 key={id}
-                position={[pos.x, effectiveFloorY + 0.01, pos.z]}
+                position={[pos.x, effectiveFloorY + overlayLift, pos.z]}
                 rotation={[0, rot, 0]}
                 onPointerDown={(e) => {
                   if (!fullScreen) return
@@ -519,10 +524,19 @@ export default function DepartmentFloor3DViewer({
               >
                 <mesh rotation={[-Math.PI / 2, 0, 0]}>
                   <planeGeometry args={[w, d]} />
-                  <meshBasicMaterial color={fill} transparent opacity={0.35} depthWrite={false} />
+                  <meshBasicMaterial
+                    color={fill}
+                    transparent
+                    opacity={0.35}
+                    depthWrite={false}
+                    polygonOffset
+                    polygonOffsetFactor={-1}
+                    polygonOffsetUnits={-1}
+                  />
                 </mesh>
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
+                  renderOrder={10}
                   onPointerOver={(e) => {
                     if (!fullScreen) return
                     e.stopPropagation()
@@ -556,7 +570,7 @@ export default function DepartmentFloor3DViewer({
             return (
               <group
                 key={id}
-                position={[pos.x, effectiveFloorY + 0.012, pos.z]}
+                position={[pos.x, effectiveFloorY + overlayLift, pos.z]}
                 rotation={[0, rot, 0]}
                 onPointerDown={(e) => {
                   if (!fullScreen) return
@@ -584,10 +598,19 @@ export default function DepartmentFloor3DViewer({
               >
                 <mesh rotation={[-Math.PI / 2, 0, 0]}>
                   <planeGeometry args={[w, d]} />
-                  <meshBasicMaterial color="#000000" transparent opacity={0.65} depthWrite={false} />
+                  <meshBasicMaterial
+                    color="#000000"
+                    transparent
+                    opacity={0.85}
+                    depthWrite={false}
+                    polygonOffset
+                    polygonOffsetFactor={-1}
+                    polygonOffsetUnits={-1}
+                  />
                 </mesh>
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
+                  renderOrder={10}
                   onPointerOver={(e) => {
                     if (!fullScreen) return
                     e.stopPropagation()
@@ -619,13 +642,21 @@ export default function DepartmentFloor3DViewer({
               const w = Math.max(0.02, wNorm) * effectivePlaneSize
               const d = Math.max(0.02, hNorm) * effectivePlaneSize
               const color = addOverlayType === ELEMENT_TYPES.ZONE ? '#14532d' : '#000000'
-              const opacity = addOverlayType === ELEMENT_TYPES.ZONE ? 0.25 : 0.5
+              const opacity = addOverlayType === ELEMENT_TYPES.ZONE ? 0.25 : 0.65
 
               return (
-                <group position={[pos.x, effectiveFloorY + 0.02, pos.z]}>
+                <group position={[pos.x, effectiveFloorY + overlayLift, pos.z]}>
                   <mesh rotation={[-Math.PI / 2, 0, 0]}>
                     <planeGeometry args={[w, d]} />
-                    <meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} />
+                    <meshBasicMaterial
+                      color={color}
+                      transparent
+                      opacity={opacity}
+                      depthWrite={false}
+                      polygonOffset
+                      polygonOffsetFactor={-1}
+                      polygonOffsetUnits={-1}
+                    />
                   </mesh>
                   <mesh rotation={[-Math.PI / 2, 0, 0]}>
                     <planeGeometry args={[w, d]} />
@@ -661,7 +692,7 @@ export default function DepartmentFloor3DViewer({
           onPointerUp={() => {
             stopDragging()
             setCursor('default')
-            setOrbitEnabledNow(true)
+            setOrbitEnabledNow(!isOverlayAddToolActive && !isTransforming && !isAddDrawing)
 
             if (!fullScreen) return
             if (!isAddMode) return
@@ -679,8 +710,9 @@ export default function DepartmentFloor3DViewer({
             const w = clamp01(Math.abs(a.x - b.x))
             const h = clamp01(Math.abs(a.y - b.y))
 
-            const minW = 0.02
-            const minH = 0.02
+            // Allow rectangles (not forced square) and let walkways be thinner.
+            const minW = drag.type === ELEMENT_TYPES.WALKWAY ? 0.01 : 0.02
+            const minH = drag.type === ELEMENT_TYPES.WALKWAY ? 0.006 : 0.02
             const finalW = Math.max(minW, w)
             const finalH = Math.max(minH, h)
 
@@ -690,7 +722,11 @@ export default function DepartmentFloor3DViewer({
               w: finalW,
               h: finalH,
               rotationDeg: 0,
-              ...(drag.type === ELEMENT_TYPES.ZONE ? { color: 'dark-green' } : null),
+              ...(drag.type === ELEMENT_TYPES.ZONE
+                ? { color: 'dark-green' }
+                : drag.type === ELEMENT_TYPES.WALKWAY
+                  ? { color: 'black' }
+                  : null),
             }
 
             onAddElement(drag.type, payload)
@@ -700,7 +736,7 @@ export default function DepartmentFloor3DViewer({
             stopDragging()
             clearAddDrag()
             setCursor('default')
-            setOrbitEnabledNow(true)
+            setOrbitEnabledNow(!isOverlayAddToolActive && !isTransforming && !isAddDrawing)
           }}
         >
           <planeGeometry args={[effectivePlaneSize, effectivePlaneSize]} />
