@@ -1,7 +1,7 @@
 import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { Center, Edges, Html, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
-import { Box3, MOUSE, Plane, Vector2, Vector3 } from 'three'
+import { Box3, Color, MOUSE, Plane, Vector2, Vector3 } from 'three'
 
 import { ELEMENT_TYPES } from './layoutTypes'
 
@@ -175,9 +175,46 @@ function FloorModel({ url, scale, onComputedPlaneSize, onComputedFloorY }) {
   )
 }
 
-function PlacedGLB({ url }) {
+function PlacedGLB({ url, tintColor, tintStrength = 0.14 }) {
   const { scene } = useGLTF(url)
-  const cloned = useMemo(() => scene.clone(true), [scene])
+
+  const cloned = useMemo(() => {
+    const root = scene.clone(true)
+    if (!tintColor) return root
+
+    const c = new Color(tintColor)
+    const strength = clamp01(Number(tintStrength))
+
+    root.traverse((obj) => {
+      if (!obj) return
+      // Only tint actual renderable meshes.
+      if (!obj.isMesh && !obj.isSkinnedMesh) return
+
+      const mat = obj.material
+      if (!mat) return
+
+      const tintMaterial = (m) => {
+        if (!m || !m.isMaterial) return m
+
+        const next = m.clone()
+
+        // Keep the model readable: lightly mix base color and add a subtle emissive push.
+        if (next.color) next.color.lerp(c, strength)
+        if (Object.prototype.hasOwnProperty.call(next, 'emissive') && next.emissive) {
+          next.emissive.copy(c)
+          next.emissiveIntensity = Math.max(Number(next.emissiveIntensity) || 0, 0.35)
+        }
+
+        next.needsUpdate = true
+        return next
+      }
+
+      obj.material = Array.isArray(mat) ? mat.map(tintMaterial) : tintMaterial(mat)
+    })
+
+    return root
+  }, [scene, tintColor, tintStrength])
+
   return (
     <Center>
       <primitive object={cloned} />
@@ -1053,7 +1090,13 @@ export default function DepartmentFloor3DViewer({
                 >
                   <ErrorBoundary fallback={() => <FallbackMarker selected={isSelected || isDragging} />}>
                     <Suspense fallback={<FallbackMarker selected={isSelected || isDragging} />}>
-                      {url ? <PlacedGLB url={url} /> : null}
+                      {url ? (
+                        <PlacedGLB
+                          url={url}
+                          tintColor={!fullScreen && el?.type === ELEMENT_TYPES.MACHINE ? markerColor : undefined}
+                          tintStrength={0.12}
+                        />
+                      ) : null}
                     </Suspense>
                   </ErrorBoundary>
 
