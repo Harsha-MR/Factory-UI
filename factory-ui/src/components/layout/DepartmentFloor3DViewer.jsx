@@ -195,6 +195,13 @@ export default function DepartmentFloor3DViewer({
 
   const orbitRef = useRef(null)
 
+  const setOrbitEnabledNow = (enabled) => {
+    const controls = orbitRef.current
+    if (!controls) return
+    if ('enabled' in controls) controls.enabled = !!enabled
+    if (typeof controls.update === 'function') controls.update()
+  }
+
   useEffect(() => {
     const controls = orbitRef.current
     if (!controls) return
@@ -245,6 +252,7 @@ export default function DepartmentFloor3DViewer({
     draggingNormRef.current = null
     setDraggingId('')
     setCursor('default')
+    setOrbitEnabledNow(true)
   }
 
   const isAddMode = typeof activeTool === 'string' && activeTool.startsWith('add:')
@@ -406,6 +414,7 @@ export default function DepartmentFloor3DViewer({
                     draggingNormRef.current = null
                     setDraggingId(id)
                     setCursor('grabbing')
+                    setOrbitEnabledNow(false)
                   }
                 }}
               >
@@ -463,6 +472,7 @@ export default function DepartmentFloor3DViewer({
                     draggingNormRef.current = null
                     setDraggingId(id)
                     setCursor('grabbing')
+                    setOrbitEnabledNow(false)
                   }
                 }}
               >
@@ -592,6 +602,7 @@ export default function DepartmentFloor3DViewer({
           onPointerUp={() => {
             stopDragging()
             setCursor('default')
+            setOrbitEnabledNow(true)
 
             if (!fullScreen) return
             if (!isAddMode) return
@@ -630,6 +641,7 @@ export default function DepartmentFloor3DViewer({
             stopDragging()
             clearAddDrag()
             setCursor('default')
+            setOrbitEnabledNow(true)
           }}
         >
           <planeGeometry args={[effectivePlaneSize, effectivePlaneSize]} />
@@ -672,6 +684,7 @@ export default function DepartmentFloor3DViewer({
                       draggingNormRef.current = null
                       setDraggingId(String(el.id))
                       setCursor('grabbing')
+                      setOrbitEnabledNow(false)
                     }
                   }}
                 >
