@@ -134,6 +134,7 @@ export default function Department3DLayoutPage() {
         const id = String(m.id || '')
         if (!id) continue
         out[id] = {
+          ...m,
           id,
           name: m?.name || id,
           status: m?.status || 'RUNNING',
@@ -142,6 +143,27 @@ export default function Department3DLayoutPage() {
     }
     return out
   }, [deptResult])
+
+  const onOpenMachineDetails = (machineId) => {
+    const mid = String(machineId || '')
+    if (!mid) return
+    const m = machineMetaById?.[mid] || null
+    if (!m?.id) return
+
+    navigate(`/departments/${departmentId}/machines/${m.id}`,
+      {
+        state: {
+          backgroundLocation: location,
+          machine: m,
+          context: {
+            department: deptResult?.department?.name || `Department ${departmentId}`,
+            plant: deptResult?.plant?.name || plantName,
+          },
+          fetchedAt: deptResult?.meta?.fetchedAt || '',
+        },
+      },
+    )
+  }
 
   const onCancel = () => {
     navigate(`/departments/${departmentId}`, { state: location.state || {} })
@@ -931,6 +953,7 @@ export default function Department3DLayoutPage() {
               showMachineMarkers={showMachineMarkers}
               showMachineLabels={showMachineLabels}
               machineMetaById={machineMetaById}
+              onOpenMachineDetails={!isFullscreen ? onOpenMachineDetails : undefined}
               machineStatusVisibility={machineStatusVisibility}
               fullScreen={isFullscreen}
               activeTool={isFullscreen ? activeTool : 'select'}

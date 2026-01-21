@@ -1,4 +1,4 @@
-import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { Center, Edges, Html, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
 import { Box3, MOUSE, Plane, Vector2, Vector3 } from 'three'
@@ -69,6 +69,7 @@ function abbreviateMachineName(raw) {
 function statusColor(status) {
   const s = String(status || '').toUpperCase()
   if (s === 'DOWN') return '#ef4444'
+  if (s === 'IDLE') return '#eab308'
   if (s === 'WARNING') return '#f59e0b'
   if (s === 'MAINTENANCE') return '#a855f7'
   if (s === 'OFFLINE') return '#94a3b8'
@@ -81,6 +82,29 @@ function zoneFillColor(colorKey) {
   if (k === 'orange') return '#f97316'
   if (k === 'yellow') return '#facc15'
   return '#14532d'
+}
+
+function computeMachineOeePct(machine) {
+  const time = machine?.timeMetrics || {}
+  const prod = machine?.productionMetrics || {}
+
+  const planned = Number(time.plannedProductionTime ?? NaN)
+  const runtime = Number(time.runTime ?? NaN)
+  const idealCycleTime = Number(prod.idealCycleTime ?? NaN)
+  const totalParts = Number(prod.totalPartsProduced ?? NaN)
+  const goodParts = Number(prod.goodParts ?? NaN)
+
+  if (!Number.isFinite(planned) || planned <= 0) return null
+  if (!Number.isFinite(runtime) || runtime <= 0) return null
+  if (!Number.isFinite(idealCycleTime) || idealCycleTime <= 0) return null
+  if (!Number.isFinite(totalParts) || totalParts <= 0) return null
+  if (!Number.isFinite(goodParts) || goodParts < 0) return null
+
+  const availability = runtime / planned
+  const performance = (idealCycleTime * totalParts) / runtime
+  const quality = goodParts / totalParts
+  const oee = clamp01(availability) * clamp01(performance) * clamp01(quality)
+  return oee * 100
 }
 
 function setCursor(cursor) {
@@ -213,6 +237,7 @@ export default function DepartmentFloor3DViewer({
   onAddElement,
   onMoveElement,
   onUpdateElement,
+  onOpenMachineDetails,
   showMachineMarkers = true,
   showMachineLabels = true,
   machineMetaById = null,
@@ -222,6 +247,7 @@ export default function DepartmentFloor3DViewer({
 }) {
   const [draggingId, setDraggingId] = useState('')
   const [hoverNorm, setHoverNorm] = useState(null)
+  const [hoveredMachineId, setHoveredMachineId] = useState('')
   const [isTransforming, setIsTransforming] = useState(false)
   const [isAddDrawing, setIsAddDrawing] = useState(false)
   const [addPreview, setAddPreview] = useState(null)
@@ -235,6 +261,7 @@ export default function DepartmentFloor3DViewer({
   const overlayLift = Math.max(0.002, effectivePlaneSize * 0.001)
 
   const orbitRef = useRef(null)
+  const cameraRef = useRef(null)
 
   const defaultMouseButtonsRef = useRef(null)
   const panDragPointerIdRef = useRef(null)
@@ -245,7 +272,8 @@ export default function DepartmentFloor3DViewer({
   const setOrbitEnabledNow = (enabled) => {
     const controls = orbitRef.current
     if (!controls) return
-    if ('enabled' in controls) controls.enabled = !!enabled
+    const next = fullScreen ? !!enabled : false
+    if ('enabled' in controls) controls.enabled = next
     if (typeof controls.update === 'function') controls.update()
   }
 
@@ -321,6 +349,12 @@ export default function DepartmentFloor3DViewer({
   const addPreviewRafRef = useRef(0)
   const hoverRafRef = useRef(0)
 
+  useEffect(() => {
+    return () => {
+      if (hoverRafRef.current) cancelAnimationFrame(hoverRafRef.current)
+    }
+  }, [])
+
   const clearAddDrag = () => {
     addDragRef.current = null
     setIsAddDrawing(false)
@@ -334,7 +368,85 @@ export default function DepartmentFloor3DViewer({
   const floorPlaneRef = useMemo(() => new Plane(new Vector3(0, 1, 0), 0), [])
   const floorHitRef = useMemo(() => new Vector3(), [])
 
-  const handleFloorMoveFromHit = (hitX, hitZ) => {
+  const previewCameraPosition = useMemo(() => {
+    const size = Math.max(4, effectivePlaneSize)
+    const z = size * 0.9
+    const y = size * 0.45
+    return [0, y, z]
+  }, [effectivePlaneSize])
+
+  const editingCameraPosition = useMemo(() => {
+    const size = Math.max(4, effectivePlaneSize)
+    const xy = size * 0.35
+    const y = size * 0.25
+    return [xy, y, xy]
+  }, [effectivePlaneSize])
+
+  const cameraPosition = fullScreen ? editingCameraPosition : previewCameraPosition
+
+  const isAddMode = typeof activeTool === 'string' && activeTool.startsWith('add:')
+  const addType = isAddMode ? activeTool.slice('add:'.length) : ''
+  const addElementType =
+    addType === 'floor'
+      ? null
+      : addType === 'zone'
+        ? ELEMENT_TYPES.ZONE
+      : addType === 'machine'
+        ? ELEMENT_TYPES.MACHINE
+        : addType === 'walkway'
+          ? ELEMENT_TYPES.WALKWAY
+          : addType === 'transporter'
+            ? ELEMENT_TYPES.TRANSPORTER
+            : null
+
+  const normalizedElements = Array.isArray(elements) ? elements.filter(Boolean) : []
+  const zoneElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE)
+  // Walkway is rendered as a 2D overlay on the floor.
+  const walkwayElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.WALKWAY)
+  // 3D placeables (GLBs)
+  const placeableElements = normalizedElements.filter((e) =>
+    [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
+  )
+
+  const visiblePlaceableElements = placeableElements.filter((el) => {
+    if (el?.type !== ELEMENT_TYPES.MACHINE) return true
+    const mid = String(el?.machineId || '')
+    const status = machineMetaById && mid && machineMetaById[mid]?.status ? machineMetaById[mid].status : 'RUNNING'
+    const v = machineStatusVisibility && typeof machineStatusVisibility === 'object'
+      ? machineStatusVisibility[String(status).toUpperCase()]
+      : undefined
+    return v !== false
+  })
+
+  const selectedElement = selectedId
+    ? normalizedElements.find((e) => String(e?.id) === String(selectedId))
+    : null
+
+  const addOverlayType =
+    addElementType === ELEMENT_TYPES.ZONE || addElementType === ELEMENT_TYPES.WALKWAY ? addElementType : null
+
+  const isOverlayAddToolActive = fullScreen && isAddMode && !!addOverlayType
+
+  const selectedObjectRef = useRef(null)
+  const controlsEnabled = fullScreen && !isOverlayAddToolActive && !draggingId && !isTransforming && !isAddDrawing
+
+  useEffect(() => {
+    const cam = cameraRef.current
+    if (!cam) return
+    const [cx, cy, cz] = cameraPosition
+    cam.position.set(cx, cy, cz)
+    const targetY = effectiveFloorY
+    cam.lookAt(0, targetY, 0)
+    cam.updateProjectionMatrix()
+
+    const controls = orbitRef.current
+    if (controls && controls.target) {
+      controls.target.set(0, targetY, 0)
+      if (typeof controls.update === 'function') controls.update()
+    }
+  }, [cameraPosition, effectiveFloorY])
+
+  const handleFloorMoveFromHit = useCallback((hitX, hitZ) => {
     const next = planeToNorm(hitX, hitZ, effectivePlaneSize)
 
     if (isAddMode) {
@@ -376,7 +488,7 @@ export default function DepartmentFloor3DViewer({
         obj.position.z = hitZ
       }
     }
-  }
+  }, [effectivePlaneSize, isAddMode, draggingId])
 
   const getFloorHitFromEvent = (e) => {
     const ray = e?.ray
@@ -464,51 +576,6 @@ export default function DepartmentFloor3DViewer({
     setOrbitEnabledNow(!isOverlayAddToolActive && !isTransforming && !isAddDrawing)
   }
 
-  const isAddMode = typeof activeTool === 'string' && activeTool.startsWith('add:')
-  const addType = isAddMode ? activeTool.slice('add:'.length) : ''
-  const addElementType =
-    addType === 'floor'
-      ? null
-      : addType === 'zone'
-        ? ELEMENT_TYPES.ZONE
-      : addType === 'machine'
-        ? ELEMENT_TYPES.MACHINE
-        : addType === 'walkway'
-          ? ELEMENT_TYPES.WALKWAY
-          : addType === 'transporter'
-            ? ELEMENT_TYPES.TRANSPORTER
-            : null
-
-  const normalizedElements = Array.isArray(elements) ? elements.filter(Boolean) : []
-  const zoneElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE)
-  // Walkway is rendered as a 2D overlay on the floor.
-  const walkwayElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.WALKWAY)
-  // 3D placeables (GLBs)
-  const placeableElements = normalizedElements.filter((e) =>
-    [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
-  )
-
-  const visiblePlaceableElements = placeableElements.filter((el) => {
-    if (el?.type !== ELEMENT_TYPES.MACHINE) return true
-    const mid = String(el?.machineId || '')
-    const status = machineMetaById && mid && machineMetaById[mid]?.status ? machineMetaById[mid].status : 'RUNNING'
-    const v = machineStatusVisibility && typeof machineStatusVisibility === 'object'
-      ? machineStatusVisibility[String(status).toUpperCase()]
-      : undefined
-    return v !== false
-  })
-
-  const selectedElement = selectedId
-    ? normalizedElements.find((e) => String(e?.id) === String(selectedId))
-    : null
-
-  const addOverlayType =
-    addElementType === ELEMENT_TYPES.ZONE || addElementType === ELEMENT_TYPES.WALKWAY ? addElementType : null
-
-  const isOverlayAddToolActive = fullScreen && isAddMode && !!addOverlayType
-
-  const selectedObjectRef = useRef(null)
-
   return (
     <div
       className="relative w-full overflow-hidden rounded-xl border bg-slate-950"
@@ -534,7 +601,15 @@ export default function DepartmentFloor3DViewer({
           </div>
         )}
       >
-        <Canvas camera={{ position: [3.5, 2.5, 3.5], fov: 45 }}>
+        <Canvas
+          camera={{ position: cameraPosition, fov: fullScreen ? 45 : 40 }}
+          onCreated={({ camera }) => {
+            cameraRef.current = camera
+            const [cx, cy, cz] = cameraPosition
+            camera.position.set(cx, cy, cz)
+            camera.lookAt(0, effectiveFloorY, 0)
+          }}
+        >
           <CanvasPointerTracker
             enabled={fullScreen && (draggingId || isAddMode)}
             floorY={effectiveFloorY}
@@ -884,6 +959,13 @@ export default function DepartmentFloor3DViewer({
               const machineStatus = machineMeta?.status || 'RUNNING'
               const markerColor = el?.type === ELEMENT_TYPES.MACHINE ? statusColor(machineStatus) : '#111827'
               const labelText = el?.type === ELEMENT_TYPES.MACHINE ? abbreviateMachineName(machineName) : ''
+              const oeePct = el?.type === ELEMENT_TYPES.MACHINE ? computeMachineOeePct(machineMeta) : null
+
+              const canOpenDetails =
+                !fullScreen &&
+                el?.type === ELEMENT_TYPES.MACHINE &&
+                !!machineId &&
+                typeof onOpenMachineDetails === 'function'
 
               const content = (
                 <group
@@ -894,6 +976,14 @@ export default function DepartmentFloor3DViewer({
                   onPointerDown={(e) => {
                     if (isAddMode) {
                       handleAddPointerDown(e)
+                      return
+                    }
+
+                    if (!fullScreen) {
+                      if (canOpenDetails) {
+                        e.stopPropagation()
+                        onOpenMachineDetails(machineId)
+                      }
                       return
                     }
                     if (!fullScreen) return
@@ -914,6 +1004,32 @@ export default function DepartmentFloor3DViewer({
                   }}
                   onPointerMove={(e) => {
                     handleFloorPointerMove(e)
+                  }}
+                  onPointerOver={(e) => {
+                    if (isAddMode) return
+                    if (canOpenDetails) {
+                      e.stopPropagation()
+                      setHoveredMachineId(machineId)
+                      setCursor('pointer')
+                      return
+                    }
+                    if (!fullScreen) return
+                    e.stopPropagation()
+                    setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
+                  }}
+                  onPointerOut={() => {
+                    if (canOpenDetails) {
+                      setHoveredMachineId((prev) => (prev === machineId ? '' : prev))
+                      setCursor('default')
+                      return
+                    }
+                    if (!fullScreen) return
+                    setCursor('default')
+                  }}
+                  onClick={(e) => {
+                    if (!canOpenDetails) return
+                    e.stopPropagation()
+                    onOpenMachineDetails(machineId)
                   }}
                 >
                   <ErrorBoundary fallback={() => <FallbackMarker selected={isSelected || isDragging} />}>
@@ -936,14 +1052,40 @@ export default function DepartmentFloor3DViewer({
                       position={[0, 0.35, 0]}
                       center
                       distanceFactor={10}
+                      zIndexRange={[10, 0]}
                       style={{ pointerEvents: 'none' }}
                     >
                       <div
-                        className="px-1 text-[11px] font-semibold text-white"
-                        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}
+                        className="px-1 text-[11px] font-semibold"
+                        style={{
+                          color: fullScreen ? '#ffffff' : markerColor,
+                          textShadow: '0 1px 2px rgba(0,0,0,0.9)',
+                        }}
                         title={`${machineName}${machineStatus ? ` • ${machineStatus}` : ''}`}
                       >
                         {labelText}
+                      </div>
+                    </Html>
+                  ) : null}
+
+                  {!fullScreen && canOpenDetails && hoveredMachineId === machineId ? (
+                    <Html
+                      position={[0, 0.55, 0]}
+                      center={false}
+                      distanceFactor={10}
+                      zIndexRange={[20, 0]}
+                      style={{ pointerEvents: 'none' }}
+                    >
+                      <div style={{ transform: 'translate(14px, calc(-100% - 10px))' }}>
+                        <div className="max-w-[260px] rounded-lg border bg-white/95 p-2 text-xs text-slate-800 shadow-lg">
+                          <div className="font-semibold">{machineName || 'Machine'}</div>
+                          <div className="mt-0.5 flex items-center gap-2 text-slate-600">
+                            <span>Status: {machineStatus || '—'}</span>
+                            <span>•</span>
+                            <span>OEE: {oeePct == null ? '—' : `${oeePct.toFixed(1)}%`}</span>
+                          </div>
+                          <div className="mt-1 text-[11px] text-slate-500">Click to open machine details</div>
+                        </div>
                       </div>
                     </Html>
                   ) : null}
@@ -1007,15 +1149,15 @@ export default function DepartmentFloor3DViewer({
 
           <OrbitControls
             ref={orbitRef}
-            enablePan
-            enableZoom
-            enableRotate
+            enablePan={fullScreen}
+            enableZoom={fullScreen}
+            enableRotate={fullScreen}
             mouseButtons={{ LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }}
             autoRotate={autoRotate}
             autoRotateSpeed={1.0}
             // Important: when adding Zone/Walkway we need click+drag on the floor to draw,
             // so disable OrbitControls drag handling in that mode.
-            enabled={!isOverlayAddToolActive && !draggingId && !isTransforming && !isAddDrawing}
+            enabled={controlsEnabled}
             onStart={() => {
               stopDragging()
               clearAddDrag()
@@ -1026,13 +1168,15 @@ export default function DepartmentFloor3DViewer({
       </ErrorBoundary>
 
       <div className="pointer-events-none absolute bottom-2 right-2 rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 backdrop-blur">
-        {isOverlayAddToolActive
-          ? 'Click + drag + release to draw • Camera drag disabled'
-          : isAddMode
-            ? 'Click to place'
-            : selectedId
-              ? 'Drag to move • Use gizmo to scale'
-              : 'Click to select • Drag to move'}
+        {!fullScreen
+          ? 'Hover machine for details • Click machine to open'
+          : isOverlayAddToolActive
+            ? 'Click + drag + release to draw • Camera drag disabled'
+            : isAddMode
+              ? 'Click to place'
+              : selectedId
+                ? 'Drag to move • Use gizmo to scale'
+                : 'Click to select • Drag to move'}
       </div>
     </div>
   )
