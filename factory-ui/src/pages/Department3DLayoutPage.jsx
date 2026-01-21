@@ -20,7 +20,7 @@ const MODEL_LIBRARY = {
   ],
   [ELEMENT_TYPES.TRANSPORTER]: [
     { label: 'Transporter', url: '/models/transporter.glb' },
-    { label: 'Tranporter (alt filename)', url: '/models/tranporter.glb' },
+    { label: 'Transporter (alt filename)', url: '/models/tranporter.glb' },
   ],
 }
 
