@@ -25,6 +25,7 @@ const MODEL_LIBRARY = {
 }
 
 function typeLabel(t) {
+  if (t === ELEMENT_TYPES.FLOOR) return 'Floor'
   if (t === ELEMENT_TYPES.MACHINE) return 'Machine'
   if (t === ELEMENT_TYPES.ZONE) return 'Zone'
   if (t === ELEMENT_TYPES.WALKWAY) return 'Walkway'
@@ -228,7 +229,13 @@ export default function Department3DLayoutPage() {
   const floorScale = Number(draft?.threeD?.floorModelScale) || 1
 
   const placeableElements = (draft?.elements || []).filter((e) =>
-    [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.ZONE, ELEMENT_TYPES.WALKWAY, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
+    [
+      ELEMENT_TYPES.FLOOR,
+      ELEMENT_TYPES.MACHINE,
+      ELEMENT_TYPES.ZONE,
+      ELEMENT_TYPES.WALKWAY,
+      ELEMENT_TYPES.TRANSPORTER,
+    ].includes(e?.type),
   )
   const selectedElement = selectedId
     ? (draft?.elements || []).find((e) => String(e?.id) === String(selectedId))
@@ -341,6 +348,22 @@ export default function Department3DLayoutPage() {
                 <button
                   type="button"
                   className={
+                    activeTool === 'add:floor'
+                      ? 'grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white'
+                      : 'grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50'
+                  }
+                  title="Add floor"
+                  onClick={() => setActiveTool('add:floor')}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 6h16v12H4V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                    <path d="M7 9h10M7 12h10M7 15h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  className={
                     activeTool === 'add:zone'
                       ? 'grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white'
                       : 'grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50'
@@ -438,6 +461,18 @@ export default function Department3DLayoutPage() {
                 <button
                   type="button"
                   className={
+                    activeTool === 'add:floor'
+                      ? 'rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white'
+                      : 'rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50'
+                  }
+                  onClick={() => setActiveTool('add:floor')}
+                >
+                  Add floor
+                </button>
+
+                <button
+                  type="button"
+                  className={
                     activeTool === 'add:zone'
                       ? 'rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white'
                       : 'rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50'
@@ -473,57 +508,11 @@ export default function Department3DLayoutPage() {
 
               <div className="mt-4 rounded-lg border p-2">
                 <div className="text-xs font-semibold text-slate-700">Floor</div>
-                <div className="mt-2 text-[11px] text-slate-500">Model</div>
-                <select
-                  className="mt-1 w-full rounded-lg border px-2 py-1 text-xs text-slate-700"
-                  value={draft?.threeD?.floorModelUrl || '/models/floor-model.glb'}
-                  onChange={(e) =>
-                    setDraft((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            threeD: {
-                              ...(prev.threeD || {}),
-                              floorModelUrl: e.target.value,
-                            },
-                          }
-                        : prev,
-                    )
-                  }
-                >
-                  {MODEL_LIBRARY.floor.map((m) => (
-                    <option key={m.url} value={m.url}>
-                      {m.label} ({m.url})
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-2 text-[11px] text-slate-500">
+                  Floor is a 2D white overlay rectangle. Use “Add floor”, then click + drag + release.
+                </div>
 
-                <label className="mt-3 block text-xs text-slate-600">
-                  Scale
-                  <input
-                    className="mt-2 w-full"
-                    type="range"
-                    min="0.25"
-                    max="10"
-                    step="0.05"
-                    value={String(floorScale)}
-                    onChange={(e) =>
-                      setDraft((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              threeD: {
-                                ...(prev.threeD || {}),
-                                floorModelScale: Number(e.target.value),
-                              },
-                            }
-                          : prev,
-                      )
-                    }
-                  />
-                </label>
-
-                <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                <label className="mt-3 flex items-center gap-2 text-xs text-slate-600">
                   <input
                     type="checkbox"
                     checked={!!draft?.threeD?.floorModelAutoRotate}
@@ -975,6 +964,9 @@ export default function Department3DLayoutPage() {
                       const label = `${typeLabel(t)} ${newId.slice(0, 4)}`
 
                       const defaultsForType = () => {
+                        if (t === ELEMENT_TYPES.FLOOR) {
+                          return { w: 0.9, h: 0.9 }
+                        }
                         if (t === ELEMENT_TYPES.ZONE) {
                           return { w: 0.35, h: 0.22, color: 'dark-green' }
                         }
@@ -993,13 +985,13 @@ export default function Department3DLayoutPage() {
 
                       const x = isDragRect
                         ? clamp(rawX, 0, 1)
-                        : t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
+                        : t === ELEMENT_TYPES.FLOOR || t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
                           ? clamp(rawX - (Number(defaults.w) || 0) / 2, 0, 1)
                           : rawX
 
                       const y = isDragRect
                         ? clamp(rawY, 0, 1)
-                        : t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
+                        : t === ELEMENT_TYPES.FLOOR || t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
                           ? clamp(rawY - (Number(defaults.h) || 0) / 2, 0, 1)
                           : rawY
 

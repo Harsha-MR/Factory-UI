@@ -1,6 +1,6 @@
-import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
-import { Center, Edges, Html, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
+import { Edges, Html, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
 import { Box3, Color, MOUSE, Plane, Vector2, Vector3 } from 'three'
 
 import { ELEMENT_TYPES } from './layoutTypes'
@@ -8,7 +8,7 @@ import { ELEMENT_TYPES } from './layoutTypes'
 const DEFAULT_PLANE_SIZE = 10
 
 const DEFAULT_MODEL_URLS = {
-  [ELEMENT_TYPES.MACHINE]: '/models/machine.glb',
+  [ELEMENT_TYPES.MACHINE]: '/models/machine_ultra_low.glb',
   [ELEMENT_TYPES.WALKWAY]: '/models/walkway.glb',
   [ELEMENT_TYPES.TRANSPORTER]: '/models/transporter.glb',
 }
@@ -132,51 +132,39 @@ function planeToNorm(x, z, planeSize) {
   return { x: xNorm, y: yNorm }
 }
 
-function FloorModel({ url, scale, onComputedPlaneSize, onComputedFloorY }) {
+function PlacedGLB({ url, tintColor, tintStrength = 0.14, fitW = 0, fitD = 0 }) {
   const { scene } = useGLTF(url)
 
-  // Clone so multiple renders don’t mutate the shared cached scene.
-  const cloned = useMemo(() => scene.clone(true), [scene])
+  const measured = useMemo(() => scene.clone(true), [scene])
 
-  useEffect(() => {
-    if (typeof onComputedPlaneSize !== 'function') return
-
+  const { fitScale, yOffset } = useMemo(() => {
     try {
-      cloned.updateMatrixWorld(true)
-      const box = new Box3().setFromObject(cloned)
+      const w = Number(fitW) || 0
+      const d = Number(fitD) || 0
+      const target = Math.max(0, Math.min(w, d))
+
+      const tmp = measured.clone(true)
+      tmp.position.set(0, 0, 0)
+      tmp.rotation.set(0, 0, 0)
+      tmp.scale.set(1, 1, 1)
+      tmp.updateMatrixWorld(true)
+      const box = new Box3().setFromObject(tmp)
       const size = new Vector3()
       box.getSize(size)
 
-      const x = Number(size.x) * (Number(scale) || 1)
-      const z = Number(size.z) * (Number(scale) || 1)
-      const next = Math.max(x, z)
+      const modelXZ = Math.max(Number(size.x) || 0, Number(size.z) || 0)
+      const minY = Number(box.min.y)
 
-      if (Number.isFinite(next) && next > 0.001) {
-        // Slightly pad so placing at the edge still feels reachable.
-        onComputedPlaneSize(next * 1.02)
-      }
+      const hasTarget = Number.isFinite(target) && target > 0
+      const hasModelXZ = Number.isFinite(modelXZ) && modelXZ > 0.000001
+      const computedFitScale = hasTarget && hasModelXZ ? clamp((target * 0.88) / modelXZ, 0.001, 100) : 1
+      const computedYOffset = Number.isFinite(minY) ? -minY * computedFitScale : 0
 
-      if (typeof onComputedFloorY === 'function') {
-        const y = Number(size.y) * (Number(scale) || 1)
-        // The model is wrapped in <Center>, so its bounds become centered at y=0.
-        // For a floor mesh, the visible surface is typically the TOP of the bounds.
-        const floorY = Number.isFinite(y) && y > 0 ? y / 2 : 0
-        onComputedFloorY(floorY)
-      }
+      return { fitScale: computedFitScale, yOffset: computedYOffset }
     } catch {
-      // ignore
+      return { fitScale: 1, yOffset: 0 }
     }
-  }, [cloned, scale, onComputedPlaneSize, onComputedFloorY])
-
-  return (
-    <Center>
-      <primitive object={cloned} scale={[scale, scale, scale]} />
-    </Center>
-  )
-}
-
-function PlacedGLB({ url, tintColor, tintStrength = 0.14 }) {
-  const { scene } = useGLTF(url)
+  }, [measured, fitW, fitD])
 
   const cloned = useMemo(() => {
     const root = scene.clone(true)
@@ -216,9 +204,9 @@ function PlacedGLB({ url, tintColor, tintStrength = 0.14 }) {
   }, [scene, tintColor, tintStrength])
 
   return (
-    <Center>
-      <primitive object={cloned} />
-    </Center>
+    <group position={[0, yOffset, 0]}>
+      <primitive object={cloned} scale={[fitScale, fitScale, fitScale]} />
+    </group>
   )
 }
 
@@ -272,7 +260,6 @@ function FallbackMarker({ selected }) {
 }
 
 export default function DepartmentFloor3DViewer({
-  modelUrl = '/models/floor-model.glb',
   scale = 1,
   autoRotate = false,
   elements = [],
@@ -296,14 +283,22 @@ export default function DepartmentFloor3DViewer({
   const [isTransforming, setIsTransforming] = useState(false)
   const [isAddDrawing, setIsAddDrawing] = useState(false)
   const [addPreview, setAddPreview] = useState(null)
-  const [floorPlaneSize, setFloorPlaneSize] = useState(0)
-  const [floorPlaneY, setFloorPlaneY] = useState(0)
-  const effectivePlaneSize = Number.isFinite(Number(floorPlaneSize)) && Number(floorPlaneSize) > 0
-    ? Number(floorPlaneSize)
-    : planeSize
+  // `planeSize` comes from auto-layout (zones/machines). `scale` is a global multiplier.
+  // For the overlay-based floor, `planeSize` controls camera + world scale only.
+  const effectivePlaneSize =
+    Math.max(0.01, Number(planeSize) || DEFAULT_PLANE_SIZE) * clamp(Number(scale) || 1, 0.01, 50)
 
-  const effectiveFloorY = Number.isFinite(Number(floorPlaneY)) ? Number(floorPlaneY) : 0
-  const overlayLift = Math.max(0.002, effectivePlaneSize * 0.001)
+  const effectiveFloorY = 0
+  // Keep lifts in world units. Use a larger machine lift to ensure the semi-transparent
+  // zone planes never visually occlude the GLBs due to depth sorting.
+  const overlayLift = 0.002
+  const placeableLift = 0.03
+
+  // DEBUG: force machines below the floor surface to validate whether we're dealing
+  // with a Y-reference/sign issue vs. occlusion.
+  // Flip to false once verified.
+  const FORCE_MACHINES_BELOW_FLOOR = false
+  const machineY = effectiveFloorY + (FORCE_MACHINES_BELOW_FLOOR ? -0.12 : placeableLift)
 
   const orbitRef = useRef(null)
   const cameraRef = useRef(null)
@@ -357,7 +352,8 @@ export default function DepartmentFloor3DViewer({
     if (isOverlayAddToolActive || isTransforming || isAddDrawing || draggingId) return false
 
     const ne = e?.nativeEvent
-    const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
+    // Use event timestamps to keep React hook purity/lint happy.
+    const now = Number(ne?.timeStamp) || Number(e?.timeStamp) || 0
     const x = Number(ne?.clientX) || 0
     const y = Number(ne?.clientY) || 0
 
@@ -410,8 +406,8 @@ export default function DepartmentFloor3DViewer({
     }
   }
 
-  const floorPlaneRef = useMemo(() => new Plane(new Vector3(0, 1, 0), 0), [])
-  const floorHitRef = useMemo(() => new Vector3(), [])
+  const floorPlaneRef = useRef(new Plane(new Vector3(0, 1, 0), 0))
+  const floorHitRef = useRef(new Vector3())
 
   const previewCameraPosition = useMemo(() => {
     const size = Math.max(4, effectivePlaneSize)
@@ -433,7 +429,7 @@ export default function DepartmentFloor3DViewer({
   const addType = isAddMode ? activeTool.slice('add:'.length) : ''
   const addElementType =
     addType === 'floor'
-      ? null
+      ? ELEMENT_TYPES.FLOOR
       : addType === 'zone'
         ? ELEMENT_TYPES.ZONE
       : addType === 'machine'
@@ -445,6 +441,7 @@ export default function DepartmentFloor3DViewer({
             : null
 
   const normalizedElements = Array.isArray(elements) ? elements.filter(Boolean) : []
+  const floorElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.FLOOR)
   const zoneElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE)
   // Walkway is rendered as a 2D overlay on the floor.
   const walkwayElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.WALKWAY)
@@ -463,12 +460,12 @@ export default function DepartmentFloor3DViewer({
     return v !== false
   })
 
-  const selectedElement = selectedId
-    ? normalizedElements.find((e) => String(e?.id) === String(selectedId))
-    : null
-
   const addOverlayType =
-    addElementType === ELEMENT_TYPES.ZONE || addElementType === ELEMENT_TYPES.WALKWAY ? addElementType : null
+    addElementType === ELEMENT_TYPES.FLOOR ||
+    addElementType === ELEMENT_TYPES.ZONE ||
+    addElementType === ELEMENT_TYPES.WALKWAY
+      ? addElementType
+      : null
 
   const isOverlayAddToolActive = fullScreen && isAddMode && !!addOverlayType
 
@@ -491,7 +488,7 @@ export default function DepartmentFloor3DViewer({
     }
   }, [cameraPosition, effectiveFloorY])
 
-  const handleFloorMoveFromHit = useCallback((hitX, hitZ) => {
+  const handleFloorMoveFromHit = (hitX, hitZ) => {
     const next = planeToNorm(hitX, hitZ, effectivePlaneSize)
 
     if (isAddMode) {
@@ -533,7 +530,7 @@ export default function DepartmentFloor3DViewer({
         obj.position.z = hitZ
       }
     }
-  }, [effectivePlaneSize, isAddMode, draggingId])
+  }
 
   const getFloorHitFromEvent = (e) => {
     const ray = e?.ray
@@ -542,10 +539,11 @@ export default function DepartmentFloor3DViewer({
     // Plane equation: y = effectiveFloorY + epsilon.
     // three.Plane uses: normal.dot(point) + constant = 0
     const y = (Number.isFinite(Number(effectiveFloorY)) ? Number(effectiveFloorY) : 0) + 0.001
-    floorPlaneRef.normal.set(0, 1, 0)
-    floorPlaneRef.constant = -y
+    const p = floorPlaneRef.current
+    p.normal.set(0, 1, 0)
+    p.constant = -y
 
-    const hit = ray.intersectPlane(floorPlaneRef, floorHitRef)
+    const hit = ray.intersectPlane(p, floorHitRef.current)
     if (!hit) return null
     return { x: hit.x, z: hit.z }
   }
@@ -671,49 +669,79 @@ export default function DepartmentFloor3DViewer({
             </>
           ) : null}
 
-          <ErrorBoundary
-            fallback={() => (
-              <Html center>
-                <div className="rounded-lg border bg-white/90 px-3 py-2 text-xs text-slate-700 shadow">
-                  Failed to load floor model
-                </div>
-              </Html>
-            )}
-          >
-            <Suspense
-              fallback={
-                <Html center>
-                  <div className="rounded-lg border bg-white/90 px-3 py-2 text-xs text-slate-700 shadow">
-                    Loading 3D model…
-                  </div>
-                </Html>
-              }
-            >
-              <FloorModel
-                url={modelUrl}
-                scale={scale}
-                onComputedPlaneSize={(next) => {
-                  // Avoid noisy re-renders if the computed size doesn’t really change.
-                  setFloorPlaneSize((prev) => {
-                    const p = Number(prev) || 0
-                    const n = Number(next) || 0
-                    if (!Number.isFinite(n) || n <= 0) return p
-                    if (Math.abs(p - n) < 0.001) return p
-                    return n
-                  })
-                }}
-                onComputedFloorY={(next) => {
-                  setFloorPlaneY((prev) => {
-                    const p = Number(prev) || 0
-                    const n = Number(next) || 0
-                    if (!Number.isFinite(n)) return p
-                    if (Math.abs(p - n) < 0.001) return p
-                    return n
-                  })
-                }}
-              />
-            </Suspense>
-          </ErrorBoundary>
+          {/* 2D base floor overlay (white). If no explicit FLOOR element exists, render a default floor covering the whole plane. */}
+          {(() => {
+            const list = floorElements.length ? floorElements : [{ id: '__default_floor__', x: 0.05, y: 0.05, w: 0.9, h: 0.9, rotationDeg: 0 }]
+
+            return list.slice(0, 1).map((el) => {
+              const id = String(el.id)
+              const isSelected = selectedId && String(selectedId) === id
+              const wNorm = clamp01(Number(el.w) || 0.9)
+              const hNorm = clamp01(Number(el.h) || 0.9)
+              const cx = clamp01((Number(el.x) || 0.05) + wNorm / 2)
+              const cy = clamp01((Number(el.y) || 0.05) + hNorm / 2)
+              const pos = normToPlane(cx, cy, effectivePlaneSize)
+              const w = Math.max(0.02, wNorm) * effectivePlaneSize
+              const d = Math.max(0.02, hNorm) * effectivePlaneSize
+              const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
+
+              return (
+                <group
+                  key={id}
+                  position={[pos.x, effectiveFloorY + 0.0005, pos.z]}
+                  rotation={[0, rot, 0]}
+                  onPointerDown={(e) => {
+                    if (!fullScreen) return
+                    if (id === '__default_floor__') return
+                    if (isAddMode) {
+                      handleAddPointerDown(e)
+                      return
+                    }
+                    e.stopPropagation()
+                    if (typeof onSelectElement === 'function') onSelectElement(id)
+
+                    if (isTransforming) return
+
+                    if (typeof onMoveElement === 'function' && activeTool === 'select') {
+                      draggingObjectRef.current = e.eventObject?.parent || null
+                      draggingNormRef.current = null
+                      setDraggingId(id)
+                      setCursor('grabbing')
+                      setOrbitEnabledNow(false)
+                      capturePointer(e)
+                    }
+                  }}
+                  onPointerMove={(e) => {
+                    handleFloorPointerMove(e)
+                  }}
+                >
+                  <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={0}>
+                    <planeGeometry args={[w, d]} />
+                    <meshStandardMaterial color="#ffffff" roughness={1} metalness={0} />
+                  </mesh>
+                  {id !== '__default_floor__' ? (
+                    <mesh
+                      rotation={[-Math.PI / 2, 0, 0]}
+                      renderOrder={5}
+                      onPointerOver={(e) => {
+                        if (!fullScreen) return
+                        e.stopPropagation()
+                        setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
+                      }}
+                      onPointerOut={() => {
+                        if (!fullScreen) return
+                        setCursor('default')
+                      }}
+                    >
+                      <planeGeometry args={[w, d]} />
+                      <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
+                      <Edges color={isSelected ? '#fdba74' : '#94a3b8'} />
+                    </mesh>
+                  ) : null}
+                </group>
+              )
+            })
+          })()}
 
           {/* 2D overlays: zones + walkways */}
           {zoneElements.map((el) => {
@@ -760,7 +788,7 @@ export default function DepartmentFloor3DViewer({
                   handleFloorPointerMove(e)
                 }}
               >
-                <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
                   <planeGeometry args={[w, d]} />
                   <meshBasicMaterial
                     color={fill}
@@ -786,7 +814,7 @@ export default function DepartmentFloor3DViewer({
                   }}
                 >
                   <planeGeometry args={[w, d]} />
-                  <meshBasicMaterial transparent opacity={0} />
+                  <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
                   {isSelected ? <Edges color="#fdba74" /> : <Edges color="#ffffff" />}
                 </mesh>
               </group>
@@ -834,7 +862,7 @@ export default function DepartmentFloor3DViewer({
                   handleFloorPointerMove(e)
                 }}
               >
-                <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
                   <planeGeometry args={[w, d]} />
                   <meshBasicMaterial
                     color="#000000"
@@ -860,7 +888,7 @@ export default function DepartmentFloor3DViewer({
                   }}
                 >
                   <planeGeometry args={[w, d]} />
-                  <meshBasicMaterial transparent opacity={0} />
+                  <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
                   <Edges color={isSelected ? '#fdba74' : '#ffffff'} />
                 </mesh>
               </group>
@@ -879,12 +907,22 @@ export default function DepartmentFloor3DViewer({
               const pos = normToPlane(cx, cy, effectivePlaneSize)
               const w = Math.max(0.02, wNorm) * effectivePlaneSize
               const d = Math.max(0.02, hNorm) * effectivePlaneSize
-              const color = addOverlayType === ELEMENT_TYPES.ZONE ? '#14532d' : '#000000'
-              const opacity = addOverlayType === ELEMENT_TYPES.ZONE ? 0.25 : 0.65
+              const color =
+                addOverlayType === ELEMENT_TYPES.FLOOR
+                  ? '#ffffff'
+                  : addOverlayType === ELEMENT_TYPES.ZONE
+                    ? '#14532d'
+                    : '#000000'
+              const opacity =
+                addOverlayType === ELEMENT_TYPES.FLOOR
+                  ? 0.6
+                  : addOverlayType === ELEMENT_TYPES.ZONE
+                    ? 0.25
+                    : 0.65
 
               return (
                 <group position={[pos.x, effectiveFloorY + overlayLift, pos.z]}>
-                  <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                  <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
                     <planeGeometry args={[w, d]} />
                     <meshBasicMaterial
                       color={color}
@@ -896,9 +934,9 @@ export default function DepartmentFloor3DViewer({
                       polygonOffsetUnits={-1}
                     />
                   </mesh>
-                  <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                  <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={10}>
                     <planeGeometry args={[w, d]} />
-                    <meshBasicMaterial transparent opacity={0} />
+                    <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
                     <Edges color="#fdba74" />
                   </mesh>
                 </group>
@@ -986,12 +1024,18 @@ export default function DepartmentFloor3DViewer({
           }}
         >
           <planeGeometry args={[effectivePlaneSize, effectivePlaneSize]} />
-          <meshStandardMaterial transparent opacity={0} />
+          <meshStandardMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
         </mesh>
 
           {showMachineMarkers
             ? visiblePlaceableElements.map((el) => {
-              const pos = normToPlane(el.x ?? 0.5, el.y ?? 0.5, effectivePlaneSize)
+              const wNorm = clamp01(Number(el.w) || 0.12)
+              const hNorm = clamp01(Number(el.h) || 0.12)
+              const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2)
+              const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2)
+              const pos = normToPlane(cx, cy, effectivePlaneSize)
+              const fitW = Math.max(0.02, wNorm) * effectivePlaneSize
+              const fitD = Math.max(0.02, hNorm) * effectivePlaneSize
               const isSelected = selectedId && String(selectedId) === String(el.id)
               const isDragging = draggingId && String(draggingId) === String(el.id)
 
@@ -1026,7 +1070,8 @@ export default function DepartmentFloor3DViewer({
               const content = (
                 <group
                   ref={isSelected ? selectedObjectRef : undefined}
-                  position={[pos.x, effectiveFloorY + 0.0, pos.z]}
+                  position={[pos.x, machineY, pos.z]}
+                  renderOrder={20}
                   scale={[uniformScale, uniformScale, uniformScale]}
                   rotation={[0, (Number(el.rotationDeg) || 0) * (Math.PI / 180), 0]}
                   onPointerDown={(e) => {
@@ -1095,6 +1140,8 @@ export default function DepartmentFloor3DViewer({
                           url={url}
                           tintColor={!fullScreen && el?.type === ELEMENT_TYPES.MACHINE ? markerColor : undefined}
                           tintStrength={0.12}
+                          fitW={fitW}
+                          fitD={fitD}
                         />
                       ) : null}
                     </Suspense>
@@ -1248,3 +1295,4 @@ useGLTF.preload('/models/floor-model.glb')
 useGLTF.preload('/models/machine-running.glb')
 useGLTF.preload('/models/machine-idle.glb')
 useGLTF.preload('/models/machine-down.glb')
+useGLTF.preload('/models/machine-blender.glb')
