@@ -756,6 +756,8 @@ export default function DepartmentFloor3DViewer({
             const d = Math.max(0.02, hNorm) * effectivePlaneSize
             const fill = zoneFillColor(el.color)
             const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
+            const zoneName = String(el.label || '').trim() || 'Zone'
+            const labelMargin = Math.min(w, d) * 0.08
 
             return (
               <group
@@ -817,6 +819,17 @@ export default function DepartmentFloor3DViewer({
                   <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
                   {isSelected ? <Edges color="#fdba74" /> : <Edges color="#ffffff" />}
                 </mesh>
+
+                <Html
+                  position={[-w / 2 + labelMargin, 0.02, -d / 2 + labelMargin]}
+                  transform
+                  occlude={false}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <div className="rounded-md bg-black/60 px-2 py-1 text-[11px] font-semibold text-white shadow">
+                    {zoneName}
+                  </div>
+                </Html>
               </group>
             )
           })}
