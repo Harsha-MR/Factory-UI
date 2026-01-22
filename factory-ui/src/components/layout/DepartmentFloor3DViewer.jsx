@@ -1,6 +1,6 @@
 import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
-import { Edges, Html, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
+import { Billboard, Edges, Html, OrbitControls, Text, TransformControls, useGLTF } from '@react-three/drei'
 import { Box3, Color, MOUSE, Plane, Vector2, Vector3 } from 'three'
 
 import { ELEMENT_TYPES } from './layoutTypes'
@@ -488,8 +488,25 @@ export default function DepartmentFloor3DViewer({
     }
   }, [cameraPosition, effectiveFloorY])
 
+  const SNAP_NORM_STEP = 0.01
+  const snap01 = (v) => {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return 0
+    const step = Number(SNAP_NORM_STEP)
+    if (!Number.isFinite(step) || step <= 0) return clamp01(n)
+    return clamp01(Math.round(n / step) * step)
+  }
+
+  const shouldSnapPointer = fullScreen && (draggingId || isAddMode)
+  const snapNormPoint = (p) => {
+    if (!p) return p
+    if (!shouldSnapPointer) return p
+    return { x: snap01(p.x), y: snap01(p.y) }
+  }
+
   const handleFloorMoveFromHit = (hitX, hitZ) => {
-    const next = planeToNorm(hitX, hitZ, effectivePlaneSize)
+    const raw = planeToNorm(hitX, hitZ, effectivePlaneSize)
+    const next = snapNormPoint(raw)
 
     if (isAddMode) {
       // Throttle hover updates to avoid React re-rendering on every pointermove
@@ -526,8 +543,9 @@ export default function DepartmentFloor3DViewer({
       draggingNormRef.current = next
       const obj = draggingObjectRef.current
       if (obj) {
-        obj.position.x = hitX
-        obj.position.z = hitZ
+        const pos = normToPlane(next.x, next.y, effectivePlaneSize)
+        obj.position.x = pos.x
+        obj.position.z = pos.z
       }
     }
   }
@@ -646,6 +664,8 @@ export default function DepartmentFloor3DViewer({
       >
         <Canvas
           camera={{ position: cameraPosition, fov: fullScreen ? 45 : 40 }}
+          dpr={[1, fullScreen ? 1.5 : 2]}
+          gl={{ antialias: false, powerPreference: 'high-performance' }}
           onCreated={({ camera }) => {
             cameraRef.current = camera
             const [cx, cy, cz] = cameraPosition
@@ -756,6 +776,8 @@ export default function DepartmentFloor3DViewer({
             const d = Math.max(0.02, hNorm) * effectivePlaneSize
             const fill = zoneFillColor(el.color)
             const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
+            const zoneName = String(el.label || '').trim() || 'Zone'
+            const labelMargin = Math.min(w, d) * 0.08
 
             return (
               <group
@@ -817,6 +839,17 @@ export default function DepartmentFloor3DViewer({
                   <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
                   {isSelected ? <Edges color="#fdba74" /> : <Edges color="#ffffff" />}
                 </mesh>
+
+                <Html
+                  position={[-w / 2 + labelMargin, 0.02, -d / 2 + labelMargin]}
+                  transform
+                  occlude={false}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <div className="rounded bg-black/10 px-1.0 py-0.1 tlext-[5px] font-small text-white shadow">
+                    {zoneName}
+                  </div>
+                </Html>
               </group>
             )
           })}
@@ -1157,24 +1190,21 @@ export default function DepartmentFloor3DViewer({
                   </mesh>
 
                   {showMachineLabels && el?.type === ELEMENT_TYPES.MACHINE && labelText ? (
-                    <Html
-                      position={[0, 0.35, 0]}
-                      center
-                      distanceFactor={10}
-                      zIndexRange={[10, 0]}
-                      style={{ pointerEvents: 'none' }}
-                    >
-                      <div
-                        className="px-1 text-[11px] font-semibold"
-                        style={{
-                          color: fullScreen ? '#ffffff' : markerColor,
-                          textShadow: '0 1px 2px rgba(0,0,0,0.9)',
-                        }}
-                        title={`${machineName}${machineStatus ? ` • ${machineStatus}` : ''}`}
+                    <Billboard follow lockX lockZ>
+                      <Text
+                        position={[0, 0.38, 0]}
+                        fontSize={0.14}
+                        color={fullScreen ? '#ffffff' : markerColor}
+                        outlineWidth={0.012}
+                        outlineColor="#000000"
+                        anchorX="center"
+                        anchorY="middle"
+                        material-depthTest={false}
+                        material-transparent
                       >
                         {labelText}
-                      </div>
-                    </Html>
+                      </Text>
+                    </Billboard>
                   ) : null}
 
                   {!fullScreen && canOpenDetails && hoveredMachineId === machineId ? (
