@@ -7,7 +7,7 @@ import { DepartmentZoneTickerCard, Select } from '../components/dashboard'
 export default function Dashboard() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
 
   const didAutoSelectFactoryRef = useRef(false)
   const didAutoSelectPlantRef = useRef(false)

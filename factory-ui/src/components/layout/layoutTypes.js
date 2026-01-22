@@ -1,4 +1,5 @@
 export const ELEMENT_TYPES = /** @type {const} */ ({
+  FLOOR: 'FLOOR',
   ZONE: 'ZONE',
   WALKWAY: 'WALKWAY',
   TRANSPORTER: 'TRANSPORTER',
@@ -23,6 +24,9 @@ export function normalizeElement(raw) {
   const id = String(raw.id || '').trim()
   if (!id) return null
 
+  const defaultW = type === ELEMENT_TYPES.FLOOR ? 0.9 : 0.15
+  const defaultH = type === ELEMENT_TYPES.FLOOR ? 0.9 : 0.12
+
   return {
     id,
     type,
@@ -32,8 +36,8 @@ export function normalizeElement(raw) {
     scale: Math.max(0.01, Math.min(50, coerceNum(raw.scale, 1))),
     x: clamp01(coerceNum(raw.x, 0.1)),
     y: clamp01(coerceNum(raw.y, 0.1)),
-    w: clamp01(coerceNum(raw.w, 0.15)),
-    h: clamp01(coerceNum(raw.h, 0.12)),
+    w: clamp01(coerceNum(raw.w, defaultW)),
+    h: clamp01(coerceNum(raw.h, defaultH)),
     rotationDeg: coerceNum(raw.rotationDeg, 0),
     color: raw.color ? String(raw.color) : undefined,
     iconSrc: raw.iconSrc ? String(raw.iconSrc) : undefined,
