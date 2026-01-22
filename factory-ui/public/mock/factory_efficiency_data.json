@@ -20,7 +20,7 @@
                     {
                       "machineId": "m1",
                       "machineName": "Machine-1",
-                      "status": "IDLE",
+                      "status": "DOWN",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 25344,
@@ -38,7 +38,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -61,7 +64,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-49"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -84,7 +90,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-20"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -107,11 +116,199 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-13"
-                      }
-                    }  
-                  ]
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m5",
+                      "machineName": "Machine-5",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25344,
+                        "idleTime": 2304,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 1.58,
+                        "actualCycleTime": 2.03,
+                        "totalPartsProduced": 16980,
+                        "goodParts": 16620,
+                        "rejectedParts": 360
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-31"
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m6",
+                      "machineName": "Machine-6",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24144,
+                        "idleTime": 2454,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 15100,
+                        "goodParts": 14860,
+                        "rejectedParts": 240
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-7"
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m7",
+                      "machineName": "Machine-7",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25344,
+                        "idleTime": 2604,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 15400,
+                        "goodParts": 15040,
+                        "rejectedParts": 360
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-8"
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m8",
+                      "machineName": "Machine-8",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25144,
+                        "idleTime": 2754,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 15700,
+                        "goodParts": 15700,
+                        "rejectedParts": 0
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-9"
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m9",
+                      "machineName": "Machine-9",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24944,
+                        "idleTime": 2904,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 13300,
+                        "goodParts": 13180,
+                        "rejectedParts": 120
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-10"
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m10",
+                      "machineName": "Machine-10",
+                      "status": "IDLE",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24744,
+                        "idleTime": 2304,
+                        "breakdownTime": 1200,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 13600,
+                        "goodParts": 13360,
+                        "rejectedParts": 240
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-11"
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m11",
+                      "machineName": "Machine-11",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24544,
+                        "idleTime": 2454,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 13900,
+                        "goodParts": 13540,
+                        "rejectedParts": 360
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-12"
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
+                    }
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
-                
                 {
                   "id": "d11-z2",
                   "name": "Zone B",
@@ -137,7 +334,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-13"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -160,7 +360,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-14"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m14",
@@ -183,7 +386,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-15"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m15",
@@ -206,10 +412,198 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-16"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m16",
+                      "machineName": "Machine-16",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24944,
+                        "idleTime": 2454,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 15400,
+                        "goodParts": 15400,
+                        "rejectedParts": 0
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-17"
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m17",
+                      "machineName": "Machine-17",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24744,
+                        "idleTime": 2604,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 15700,
+                        "goodParts": 15580,
+                        "rejectedParts": 120
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-18"
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m18",
+                      "machineName": "Machine-18",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24544,
+                        "idleTime": 2754,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 13300,
+                        "goodParts": 13060,
+                        "rejectedParts": 240
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-19"
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m19",
+                      "machineName": "Machine-19",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24344,
+                        "idleTime": 2904,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 13600,
+                        "goodParts": 13240,
+                        "rejectedParts": 360
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-20"
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m20",
+                      "machineName": "Machine-20",
+                      "status": "IDLE",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 24144,
+                        "idleTime": 2304,
+                        "breakdownTime": 1200,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 13900,
+                        "goodParts": 13900,
+                        "rejectedParts": 0
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-21"
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m21",
+                      "machineName": "Machine-21",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25344,
+                        "idleTime": 2454,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 14200,
+                        "goodParts": 14080,
+                        "rejectedParts": 120
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-22"
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
+                    },
+                    {
+                      "machineId": "m22",
+                      "machineName": "Machine-22",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25144,
+                        "idleTime": 2604,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 14500,
+                        "goodParts": 14260,
+                        "rejectedParts": 240
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-23"
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                   
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -242,7 +636,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-29"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m7",
@@ -265,7 +662,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-39"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -288,7 +688,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-29"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -311,7 +714,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-36"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -334,7 +740,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-3"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -357,7 +766,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-12"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -380,7 +792,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-13"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -403,7 +818,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-14"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -426,7 +844,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-15"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -449,7 +870,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-16"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -472,9 +896,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-17"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d12-z2",
@@ -501,7 +932,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-18"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -524,7 +958,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-19"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m14",
@@ -547,7 +984,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-20"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m15",
@@ -570,7 +1010,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-21"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m16",
@@ -593,7 +1036,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-22"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m17",
@@ -616,7 +1062,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-23"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m18",
@@ -639,7 +1088,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-24"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m19",
@@ -662,7 +1114,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-25"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m20",
@@ -685,7 +1140,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-26"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m21",
@@ -708,7 +1166,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-27"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m22",
@@ -731,9 +1192,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-28"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -766,7 +1234,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-17"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -789,7 +1260,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-30"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -812,7 +1286,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-21"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m14",
@@ -835,7 +1312,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-22"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m15",
@@ -858,7 +1338,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-2"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m16",
@@ -881,7 +1364,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-36"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m17",
@@ -904,7 +1390,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-24"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m18",
@@ -927,7 +1416,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-16"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -950,7 +1442,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-20"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -973,7 +1468,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-21"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -996,9 +1494,16 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-22"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d13-z2",
@@ -1025,7 +1530,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-23"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -1048,7 +1556,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-24"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -1071,7 +1582,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-25"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m7",
@@ -1094,7 +1608,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-26"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -1117,7 +1634,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-27"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -1140,7 +1660,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-28"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -1163,7 +1686,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-29"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m19",
@@ -1186,7 +1712,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-30"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m20",
@@ -1209,7 +1738,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-31"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m21",
@@ -1232,7 +1764,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-32"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m22",
@@ -1255,9 +1790,16 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-33"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -1290,7 +1832,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-42"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m20",
@@ -1313,7 +1858,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m21",
@@ -1336,7 +1884,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m22",
@@ -1359,7 +1910,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-26"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m23",
@@ -1382,7 +1936,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-34"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m24",
@@ -1405,7 +1962,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-22"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m25",
@@ -1428,7 +1988,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-32"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m26",
@@ -1451,7 +2014,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-1"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m27",
@@ -1474,7 +2040,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-33"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -1497,7 +2066,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-29"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -1520,9 +2092,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-30"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d14-z2",
@@ -1549,7 +2128,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-31"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -1572,7 +2154,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-32"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -1595,7 +2180,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-33"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -1618,7 +2206,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-34"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m7",
@@ -1641,7 +2232,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-35"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -1664,7 +2258,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-36"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -1687,7 +2284,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-37"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -1710,7 +2310,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -1733,7 +2336,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-39"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -1756,7 +2362,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-40"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -1779,9 +2388,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-41"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -1814,7 +2430,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-35"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m29",
@@ -1837,7 +2456,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-39"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m30",
@@ -1860,7 +2482,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-12"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m31",
@@ -1883,7 +2508,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-37"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m32",
@@ -1906,7 +2534,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-9"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m33",
@@ -1929,7 +2560,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-28"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m34",
@@ -1952,7 +2586,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-45"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m35",
@@ -1975,7 +2612,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-16"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m36",
@@ -1998,7 +2638,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-49"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -2021,7 +2664,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -2044,9 +2690,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-39"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d15-z2",
@@ -2073,7 +2726,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-40"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -2096,7 +2752,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-41"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -2119,7 +2778,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-42"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -2142,7 +2804,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-43"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m7",
@@ -2165,7 +2830,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-44"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -2188,7 +2856,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-45"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -2211,7 +2882,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-46"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -2234,7 +2908,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-47"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -2257,7 +2934,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-48"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -2280,7 +2960,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-49"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -2303,9 +2986,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-50"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -2338,7 +3028,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-7"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m38",
@@ -2361,7 +3054,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-12"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m39",
@@ -2384,7 +3080,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-20"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m40",
@@ -2407,7 +3106,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-19"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m41",
@@ -2430,7 +3132,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-3"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m42",
@@ -2453,7 +3158,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-8"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m43",
@@ -2476,7 +3184,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m44",
@@ -2499,7 +3210,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-45"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m45",
@@ -2522,7 +3236,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-20"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m46",
@@ -2545,7 +3262,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-7"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -2568,9 +3288,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-48"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d16-z2",
@@ -2597,7 +3324,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-49"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -2620,7 +3350,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-50"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -2643,7 +3376,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-51"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -2666,7 +3402,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-52"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -2689,7 +3428,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-53"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m7",
@@ -2712,7 +3454,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-54"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -2735,7 +3480,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-55"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -2758,7 +3506,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-56"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -2781,7 +3532,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-57"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -2804,7 +3558,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-58"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -2827,9 +3584,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-59"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             }
@@ -2868,7 +3632,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-60"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m2001",
@@ -2891,7 +3658,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-61"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m2002",
@@ -2914,7 +3684,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-62"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m2003",
@@ -2937,7 +3710,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-63"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m2004",
@@ -2960,7 +3736,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-64"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -2983,7 +3762,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-26"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -3006,7 +3788,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-27"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -3029,7 +3814,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-28"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -3052,7 +3840,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-29"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -3075,7 +3866,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-30"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -3098,9 +3892,16 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-31"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d1b1-z2",
@@ -3127,7 +3928,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-32"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -3150,7 +3954,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-33"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -3173,7 +3980,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-34"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -3196,7 +4006,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-35"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -3219,7 +4032,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-36"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -3242,7 +4058,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-37"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -3265,7 +4084,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m14",
@@ -3288,7 +4110,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-39"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m15",
@@ -3311,7 +4136,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-40"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m16",
@@ -3334,7 +4162,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-41"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m17",
@@ -3357,9 +4188,16 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-42"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -3392,7 +4230,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-70"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m2011",
@@ -3415,7 +4256,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-71"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m2012",
@@ -3438,7 +4282,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-72"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m2013",
@@ -3461,7 +4308,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-73"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m2014",
@@ -3484,7 +4334,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-74"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -3507,7 +4360,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-36"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -3530,7 +4386,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-37"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -3553,7 +4412,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -3576,7 +4438,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-39"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -3599,7 +4464,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-40"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -3622,9 +4490,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-41"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d1b2-z2",
@@ -3651,7 +4526,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-42"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -3674,7 +4552,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-43"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -3697,7 +4578,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-44"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -3720,7 +4604,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-45"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -3743,7 +4630,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-46"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -3766,7 +4656,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-47"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -3789,7 +4682,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-48"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m14",
@@ -3812,7 +4708,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-49"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m15",
@@ -3835,7 +4734,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-50"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m16",
@@ -3858,7 +4760,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-51"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m17",
@@ -3881,9 +4786,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-52"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             }
@@ -3928,7 +4840,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-42"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m48",
@@ -3951,7 +4866,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-39"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m49",
@@ -3974,7 +4892,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-50"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m50",
@@ -3997,7 +4918,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-3"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m51",
@@ -4020,7 +4944,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-49"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m52",
@@ -4043,7 +4970,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-7"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m53",
@@ -4066,7 +4996,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-1"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m54",
@@ -4089,7 +5022,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-36"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -4112,7 +5048,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-56"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -4135,7 +5074,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-57"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -4158,9 +5100,16 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-58"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d21-z2",
@@ -4187,7 +5136,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-59"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -4210,7 +5162,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-60"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -4233,7 +5188,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-1"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m7",
@@ -4256,7 +5214,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-2"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -4279,7 +5240,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-3"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -4302,7 +5266,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-4"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -4325,7 +5292,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-5"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -4348,7 +5318,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-6"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -4371,7 +5344,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-7"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -4394,7 +5370,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-8"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m14",
@@ -4417,9 +5396,16 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-9"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -4452,7 +5438,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-17"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m56",
@@ -4475,7 +5464,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-49"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m57",
@@ -4498,7 +5490,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-42"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m58",
@@ -4521,7 +5516,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-36"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m59",
@@ -4544,7 +5542,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-14"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m60",
@@ -4567,7 +5568,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-40"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m61",
@@ -4590,7 +5594,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-28"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -4613,7 +5620,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-3"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -4636,7 +5646,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-4"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -4659,7 +5672,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-5"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -4682,9 +5698,16 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-6"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d22-z2",
@@ -4711,7 +5734,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-7"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -4734,7 +5760,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-8"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m7",
@@ -4757,7 +5786,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-9"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -4780,7 +5812,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-10"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -4803,7 +5838,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-11"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -4826,7 +5864,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-12"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -4849,7 +5890,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-13"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -4872,7 +5916,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-14"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -4895,7 +5942,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-15"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m14",
@@ -4918,7 +5968,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-16"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m15",
@@ -4941,9 +5994,16 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-17"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -4976,7 +6036,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-30"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m63",
@@ -4999,7 +6062,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-41"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m64",
@@ -5022,7 +6088,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-44"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m65",
@@ -5045,7 +6114,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-37"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m66",
@@ -5068,7 +6140,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-40"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m67",
@@ -5091,7 +6166,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-16"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m68",
@@ -5114,7 +6192,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-49"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m69",
@@ -5137,7 +6218,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-19"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -5160,7 +6244,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-11"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -5183,7 +6270,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-12"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -5206,9 +6296,16 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-13"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d23-z2",
@@ -5235,7 +6332,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-14"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -5258,7 +6358,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-15"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -5281,7 +6384,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-16"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m7",
@@ -5304,7 +6410,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-17"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -5327,7 +6436,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-18"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -5350,7 +6462,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-19"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -5373,7 +6488,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-20"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -5396,7 +6514,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-21"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -5419,7 +6540,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-22"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -5442,7 +6566,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-23"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m14",
@@ -5465,9 +6592,16 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-24"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -5500,7 +6634,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-36"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m71",
@@ -5523,7 +6660,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-7"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m72",
@@ -5546,7 +6686,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-6"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m73",
@@ -5569,7 +6712,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-45"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m74",
@@ -5592,7 +6738,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-43"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m75",
@@ -5615,7 +6764,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-40"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m76",
@@ -5638,7 +6790,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-27"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m77",
@@ -5661,7 +6816,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-8"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m78",
@@ -5684,7 +6842,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-30"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m79",
@@ -5707,7 +6868,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-15"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -5730,9 +6894,16 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-21"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d24-z2",
@@ -5759,7 +6930,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-22"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -5782,7 +6956,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-23"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -5805,7 +6982,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-24"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -5828,7 +7008,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-25"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -5851,7 +7034,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-26"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m7",
@@ -5874,7 +7060,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-27"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -5897,7 +7086,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-28"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -5920,7 +7112,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-29"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -5943,7 +7138,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-30"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -5966,7 +7164,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-31"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -5989,9 +7190,16 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-32"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -6024,7 +7232,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-8"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m81",
@@ -6047,7 +7258,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-8"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m82",
@@ -6070,7 +7284,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-30"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m83",
@@ -6093,7 +7310,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-46"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m84",
@@ -6116,7 +7336,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-11"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m85",
@@ -6139,7 +7362,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-49"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m86",
@@ -6162,7 +7388,10 @@
                       "shiftInfo": {
                         "shiftId": "SH1",
                         "operatorName": "Operator-14"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m87",
@@ -6185,7 +7414,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-9"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m88",
@@ -6208,7 +7440,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m89",
@@ -6231,7 +7466,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-24"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -6254,9 +7492,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-31"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d25-z2",
@@ -6283,7 +7528,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-32"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -6306,7 +7554,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-33"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -6329,7 +7580,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-34"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -6352,7 +7606,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-35"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -6375,7 +7632,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-36"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m7",
@@ -6398,7 +7658,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-37"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -6421,7 +7684,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -6444,7 +7710,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-39"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -6467,7 +7736,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-40"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -6490,7 +7762,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-41"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -6513,9 +7788,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-42"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             },
@@ -6548,7 +7830,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-8"
-                      }
+                      },
+                      "x": 110,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m91",
@@ -6571,7 +7856,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-3"
-                      }
+                      },
+                      "x": 174,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m92",
@@ -6594,7 +7882,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-7"
-                      }
+                      },
+                      "x": 238,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m93",
@@ -6617,7 +7908,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-27"
-                      }
+                      },
+                      "x": 302,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m94",
@@ -6640,7 +7934,10 @@
                       "shiftInfo": {
                         "shiftId": "SH3",
                         "operatorName": "Operator-40"
-                      }
+                      },
+                      "x": 366,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m1",
@@ -6663,7 +7960,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-36"
-                      }
+                      },
+                      "x": 110,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m2",
@@ -6686,7 +7986,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-37"
-                      }
+                      },
+                      "x": 174,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m3",
@@ -6709,7 +8012,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-38"
-                      }
+                      },
+                      "x": 238,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m4",
@@ -6732,7 +8038,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-39"
-                      }
+                      },
+                      "x": 302,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m5",
@@ -6755,7 +8064,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-40"
-                      }
+                      },
+                      "x": 366,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m6",
@@ -6778,9 +8090,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-41"
-                      }
+                      },
+                      "x": 110,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 40,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 },
                 {
                   "id": "d26-z2",
@@ -6807,7 +8126,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-42"
-                      }
+                      },
+                      "x": 670,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m8",
@@ -6830,7 +8152,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-43"
-                      }
+                      },
+                      "x": 734,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m9",
@@ -6853,7 +8178,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-44"
-                      }
+                      },
+                      "x": 798,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m10",
@@ -6876,7 +8204,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-45"
-                      }
+                      },
+                      "x": 862,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m11",
@@ -6899,7 +8230,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-46"
-                      }
+                      },
+                      "x": 926,
+                      "y": 110,
+                      "r": 18
                     },
                     {
                       "machineId": "m12",
@@ -6922,7 +8256,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-47"
-                      }
+                      },
+                      "x": 670,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m13",
@@ -6945,7 +8282,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-48"
-                      }
+                      },
+                      "x": 734,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m14",
@@ -6968,7 +8308,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-49"
-                      }
+                      },
+                      "x": 798,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m15",
@@ -6991,7 +8334,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-50"
-                      }
+                      },
+                      "x": 862,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m16",
@@ -7014,7 +8360,10 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-51"
-                      }
+                      },
+                      "x": 926,
+                      "y": 166,
+                      "r": 18
                     },
                     {
                       "machineId": "m17",
@@ -7037,9 +8386,16 @@
                       "shiftInfo": {
                         "shiftId": "SH2",
                         "operatorName": "Operator-52"
-                      }
+                      },
+                      "x": 670,
+                      "y": 222,
+                      "r": 18
                     }
-                  ]
+                  ],
+                  "x": 600,
+                  "y": 40,
+                  "width": 520,
+                  "height": 300
                 }
               ]
             }
