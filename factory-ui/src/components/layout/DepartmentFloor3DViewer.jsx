@@ -8,7 +8,7 @@ import { ELEMENT_TYPES } from './layoutTypes'
 const DEFAULT_PLANE_SIZE = 10
 
 const DEFAULT_MODEL_URLS = {
-  [ELEMENT_TYPES.MACHINE]: '/models/machine.glb',
+  [ELEMENT_TYPES.MACHINE]: '/models/machine_ultra_low.glb',
   [ELEMENT_TYPES.WALKWAY]: '/models/walkway.glb',
   [ELEMENT_TYPES.TRANSPORTER]: '/models/transporter.glb',
 }
@@ -1248,3 +1248,4 @@ useGLTF.preload('/models/floor-model.glb')
 useGLTF.preload('/models/machine-running.glb')
 useGLTF.preload('/models/machine-idle.glb')
 useGLTF.preload('/models/machine-down.glb')
+useGLTF.preload('/models/machine-blender.glb')
