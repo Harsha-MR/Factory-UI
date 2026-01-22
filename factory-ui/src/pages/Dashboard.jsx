@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [factoryId, setFactoryId] = useState(() => searchParams.get('factoryId') || '')
   const [plantId, setPlantId] = useState(() => searchParams.get('plantId') || '')
   const [showDepartments, setShowDepartments] = useState(() => searchParams.get('show') === '1')
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState('')
 
   const [loadingLists, setLoadingLists] = useState(false)
   const [error, setError] = useState('')
@@ -34,13 +35,7 @@ export default function Dashboard() {
     return p?.name || ''
   }, [plants, plantId])
 
-  // Auto-focus (scroll) to the Departments section when it becomes visible.
-  useEffect(() => {
-    if (!showDepartments) return
-    const el = departmentsRef.current
-    if (!el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [showDepartments])
+  // Removed auto-focus on departments section.
 
   // If the user lands/navigates to a URL with query params, reflect them in state.
   // This ensures browser back/forward or manual URL navigation restores the expected view.
@@ -58,17 +53,7 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
-  // Keep URL in sync so back/refresh preserves state.
-  useEffect(() => {
-    const next = new URLSearchParams()
-    if (factoryId) next.set('factoryId', factoryId)
-    if (plantId) next.set('plantId', plantId)
-    if (showDepartments) next.set('show', '1')
-
-    const nextStr = next.toString()
-    const curStr = searchParams.toString()
-    if (nextStr !== curStr) setSearchParams(next, { replace: true })
-  }, [factoryId, plantId, showDepartments, searchParams, setSearchParams])
+  // Removed effect that syncs Dashboard state to URL query params.
 
   useEffect(() => {
     let cancelled = false
@@ -208,10 +193,22 @@ export default function Dashboard() {
     }
   }, [plantId])
 
+  // Only navigate to selected department's non-fullscreen canvas on Get
   function onGet() {
-    if (!factoryId || !plantId) return
-    setError('')
-    setShowDepartments(true)
+    if (!factoryId || !plantId) return;
+    setError('');
+    if (departments.length === 0) {
+      setShowDepartments(true);
+      setError('No departments available');
+      return;
+    }
+    const selectedDepartment = departments.find(d => d.id === selectedDepartmentId);
+    if (!selectedDepartment?.id) {
+      setShowDepartments(true);
+      setError('Select a department');
+      return;
+    }
+    navigate(`/departments/${selectedDepartment.id}/layout-3d`);
   }
 
   function openMachineFromTicker(dept, machine) {
@@ -234,7 +231,7 @@ export default function Dashboard() {
       </div>
 
       <div className="rounded border bg-white p-4">
-        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 md:items-end">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-4 md:items-end">
           <Select
             label="Factory"
             value={factoryId}
@@ -248,6 +245,14 @@ export default function Dashboard() {
             onChange={setPlantId}
             options={plants}
             disabled={!factoryId || loadingLists}
+          />
+
+          <Select
+            label="Department"
+            value={selectedDepartmentId}
+            onChange={setSelectedDepartmentId}
+            options={departments}
+            disabled={!plantId || loadingLists || departments.length === 0}
           />
 
           <div className="flex flex-col">
