@@ -417,9 +417,14 @@ export default function DepartmentFloor3DViewer({
 
   const previewCameraPosition = useMemo(() => {
     const size = Math.max(4, effectivePlaneSize)
-    const z = size * 0.9
-    const y = size * 0.45
-    return [0, y, z]
+    // Preview (non-fullScreen) should feel "zoomed in" by default.
+    // Keep it closer than the full-screen editing view so machines/zones are readable.
+    // const z = size * 0.70
+    // const y = size * 0.35
+    // return [0, y, z]
+    const xy = size * 0.60
+    const y = size * 0.25
+    return [0, y, xy]
   }, [effectivePlaneSize])
 
   const editingCameraPosition = useMemo(() => {
@@ -670,7 +675,7 @@ export default function DepartmentFloor3DViewer({
         )}
       >
         <Canvas
-          camera={{ position: cameraPosition, fov: fullScreen ? 45 : 40 }}
+          camera={{ position: cameraPosition, fov: fullScreen ? 45 : 34 }}
           // Keep DPR consistent across modes; higher DPR in preview makes interactions feel less smooth.
           dpr={[1, 1.5]}
           gl={{ antialias: false, powerPreference: 'high-performance' }}
@@ -1298,6 +1303,9 @@ export default function DepartmentFloor3DViewer({
             enablePan={fullScreen}
             enableZoom={true}
             enableRotate={true}
+            // Keep preview zoom range tighter so it looks like the desired default.
+            minDistance={fullScreen ? effectivePlaneSize * 0.25 : effectivePlaneSize * 0.18}
+            maxDistance={fullScreen ? effectivePlaneSize * 3.0 : effectivePlaneSize * 1.25}
             mouseButtons={{
               LEFT: MOUSE.ROTATE,
               MIDDLE: MOUSE.DOLLY,

@@ -8,6 +8,7 @@ import { createDefaultLayoutForDepartment } from '../components/layout/defaultLa
 import { ELEMENT_TYPES, normalizeLayout } from '../components/layout/layoutTypes'
 import {
   deleteDepartmentCustomLayout,
+  fetchDepartmentCustomLayoutVersions,
   saveDepartmentCustomLayout,
 } from '../services/layoutStorage'
 
@@ -78,7 +79,23 @@ export default function Department3DLayoutPage() {
   const [selectedId, setSelectedId] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  const [layoutVersions, setLayoutVersions] = useState({ current: null, previous: null })
+  const [layoutView, setLayoutView] = useState('current')
+
   const plantName = location.state?.plantName || ''
+
+  const layoutCtx = useMemo(() => {
+    return {
+      factoryId: deptResult?.factory?.id || '',
+      plantId: deptResult?.plant?.id || '',
+      departmentId: departmentId || '',
+    }
+  }, [deptResult, departmentId])
+
+  useEffect(() => {
+    const v = location.state?.layoutView
+    if (v === 'previous' || v === 'current') setLayoutView(v)
+  }, [location.state?.layoutView])
 
   useEffect(() => {
     if (!departmentId) return
@@ -93,7 +110,21 @@ export default function Department3DLayoutPage() {
 
         setDeptResult(result)
 
-        const base = result?.customLayout || createDefaultLayoutForDepartment(result?.department)
+        const versions = await fetchDepartmentCustomLayoutVersions({
+          factoryId: result?.factory?.id || '',
+          plantId: result?.plant?.id || '',
+          departmentId: departmentId || '',
+        })
+        setLayoutVersions(versions)
+
+        const requested = location.state?.layoutView
+        const initialView = requested === 'previous' ? 'previous' : 'current'
+        setLayoutView(initialView)
+
+        const base =
+          (initialView === 'previous' ? versions?.previous : versions?.current) ||
+          result?.customLayout ||
+          createDefaultLayoutForDepartment(result?.department)
         setDraft(withThreeDDefaults(base))
       } catch (e) {
         if (!cancelled) setError(e?.message || 'Failed to load department')
@@ -108,6 +139,18 @@ export default function Department3DLayoutPage() {
   }, [departmentId])
 
   useEffect(() => {
+    if (!layoutCtx?.departmentId) return
+    let cancelled = false
+    ;(async () => {
+      const versions = await fetchDepartmentCustomLayoutVersions(layoutCtx)
+      if (!cancelled) setLayoutVersions(versions)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [layoutCtx])
+
+  useEffect(() => {
     const onFsChange = () => {
       const isFs = typeof document !== 'undefined' && !!document.fullscreenElement
       setIsFullscreen(isFs)
@@ -117,14 +160,6 @@ export default function Department3DLayoutPage() {
     onFsChange()
     return () => document.removeEventListener('fullscreenchange', onFsChange)
   }, [])
-
-  const layoutCtx = useMemo(() => {
-    return {
-      factoryId: deptResult?.factory?.id || '',
-      plantId: deptResult?.plant?.id || '',
-      departmentId: departmentId || '',
-    }
-  }, [deptResult, departmentId])
 
   const machineMetaById = useMemo(() => {
     const zones = deptResult?.department?.zones || []
@@ -190,6 +225,7 @@ export default function Department3DLayoutPage() {
   const onSave = () => {
     if (!draft) return
     saveDepartmentCustomLayout(layoutCtx, draft)
+    setLayoutView('current')
     navigate(`/departments/${departmentId}`, { state: location.state || {} })
   }
 
@@ -197,6 +233,18 @@ export default function Department3DLayoutPage() {
     deleteDepartmentCustomLayout(layoutCtx)
     const base = createDefaultLayoutForDepartment(deptResult?.department)
     setDraft(withThreeDDefaults(base))
+    setLayoutVersions({ current: null, previous: null })
+    setLayoutView('current')
+  }
+
+  const applyLayoutView = (next) => {
+    const v = next === 'previous' ? 'previous' : 'current'
+    setLayoutView(v)
+    const chosen = v === 'previous' ? layoutVersions?.previous : layoutVersions?.current
+    const base = chosen || deptResult?.customLayout || createDefaultLayoutForDepartment(deptResult?.department)
+    setDraft(withThreeDDefaults(base))
+    setSelectedId('')
+    setActiveTool('select')
   }
 
   if (loading && !draft) {
@@ -262,6 +310,48 @@ export default function Department3DLayoutPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <div
+              className={
+                isFullscreen
+                  ? 'mr-1 inline-flex items-center gap-1 rounded-lg border bg-white px-1 py-1'
+                  : 'mr-1 inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/40 px-1 py-1'
+              }
+              title="Switch between saved layouts"
+            >
+              <button
+                type="button"
+                className={
+                  layoutView === 'current'
+                    ? (isFullscreen
+                        ? 'rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white'
+                        : 'rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white')
+                    : (isFullscreen
+                        ? 'rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50'
+                        : 'rounded-md px-2.5 py-1 text-xs text-slate-200 hover:bg-white/5')
+                }
+                onClick={() => applyLayoutView('current')}
+              >
+                Current
+              </button>
+              <button
+                type="button"
+                className={
+                  layoutView === 'previous'
+                    ? (isFullscreen
+                        ? 'rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white'
+                        : 'rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white')
+                    : (isFullscreen
+                        ? 'rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50'
+                        : 'rounded-md px-2.5 py-1 text-xs text-slate-200 hover:bg-white/5')
+                }
+                onClick={() => applyLayoutView('previous')}
+                disabled={!layoutVersions?.previous}
+                title={layoutVersions?.previous ? 'View previous saved layout' : 'No previous saved layout yet'}
+              >
+                Previous
+              </button>
+            </div>
+
             <button
               type="button"
               className={neutralBtnClass}

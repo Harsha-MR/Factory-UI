@@ -7,6 +7,7 @@ import DepartmentFloorLayoutEditor from '../components/layout/DepartmentFloorLay
 import { createDefaultLayoutForDepartment } from '../components/layout/defaultLayout'
 import {
   deleteDepartmentCustomLayout,
+  fetchDepartmentCustomLayoutVersions,
   saveDepartmentCustomLayout,
 } from '../services/layoutStorage'
 
@@ -26,6 +27,9 @@ export default function DepartmentLayoutPage() {
   const [deptResult, setDeptResult] = useState(null)
   const [editingLayout, setEditingLayout] = useState(false)
   const [editorSeedLayout, setEditorSeedLayout] = useState(null)
+
+  const [layoutView, setLayoutView] = useState('current')
+  const [layoutVersions, setLayoutVersions] = useState({ current: null, previous: null })
 
   const [floorZoom, setFloorZoom] = useState(1)
 
@@ -58,8 +62,9 @@ export default function DepartmentLayoutPage() {
   const effectiveLayout = useMemo(() => {
     const dept = deptResult?.department
     if (!dept) return null
-    return deptResult?.customLayout || createDefaultLayoutForDepartment(dept)
-  }, [deptResult])
+    const v = layoutView === 'previous' ? layoutVersions?.previous : layoutVersions?.current
+    return v || deptResult?.customLayout || createDefaultLayoutForDepartment(dept)
+  }, [deptResult, layoutView, layoutVersions])
 
   useEffect(() => {
     if (!departmentId) return
@@ -168,6 +173,18 @@ export default function DepartmentLayoutPage() {
     }
   }, [deptResult, departmentId])
 
+  useEffect(() => {
+    if (!layoutCtx?.departmentId) return
+    let cancelled = false
+    ;(async () => {
+      const versions = await fetchDepartmentCustomLayoutVersions(layoutCtx)
+      if (!cancelled) setLayoutVersions(versions)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [layoutCtx, deptResult?.customLayout?.updatedAt])
+
   const onStartCustomizeLayout = () => {
     setAutoRotateEnabled(false)
     navigate(`/departments/${departmentId}/layout-3d`, {
@@ -175,13 +192,17 @@ export default function DepartmentLayoutPage() {
         ...(location.state || {}),
         plantName: deptResult?.plant?.name || plantName || '',
         fromDashboard: location.state?.fromDashboard || true,
+        layoutView,
       },
     })
   }
 
   const onStartCustomizeLayout2d = () => {
     setAutoRotateEnabled(false)
-    const base = deptResult?.customLayout || createDefaultLayoutForDepartment(deptResult?.department)
+    const base =
+      (layoutView === 'previous' ? layoutVersions?.previous : layoutVersions?.current) ||
+      deptResult?.customLayout ||
+      createDefaultLayoutForDepartment(deptResult?.department)
     setEditorSeedLayout(base)
     setEditingLayout(true)
   }
@@ -194,6 +215,8 @@ export default function DepartmentLayoutPage() {
   const onSaveCustomizeLayout = (layout) => {
     saveDepartmentCustomLayout(layoutCtx, layout)
     setDeptResult((prev) => (prev ? { ...prev, customLayout: layout } : prev))
+    void fetchDepartmentCustomLayoutVersions(layoutCtx).then((v) => setLayoutVersions(v))
+    setLayoutView('current')
     setEditingLayout(false)
     setEditorSeedLayout(null)
   }
@@ -201,6 +224,8 @@ export default function DepartmentLayoutPage() {
   const onResetCustomizeLayout = () => {
     deleteDepartmentCustomLayout(layoutCtx)
     setDeptResult((prev) => (prev ? { ...prev, customLayout: null } : prev))
+    setLayoutVersions({ current: null, previous: null })
+    setLayoutView('current')
     setEditingLayout(false)
     setEditorSeedLayout(null)
   }
@@ -310,6 +335,33 @@ export default function DepartmentLayoutPage() {
             <div className="flex flex-wrap items-center gap-2">
               {!editingLayout ? (
                 <>
+                  <div className="mr-1 inline-flex items-center gap-1 rounded-lg border bg-white px-1 py-1" title="Switch between saved layouts">
+                    <button
+                      type="button"
+                      className={
+                        layoutView === 'current'
+                          ? 'rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white'
+                          : 'rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50'
+                      }
+                      onClick={() => setLayoutView('current')}
+                    >
+                      Current
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        layoutView === 'previous'
+                          ? 'rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white'
+                          : 'rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50'
+                      }
+                      onClick={() => setLayoutView('previous')}
+                      disabled={!layoutVersions?.previous}
+                      title={layoutVersions?.previous ? 'View previous saved layout' : 'No previous saved layout yet'}
+                    >
+                      Previous
+                    </button>
+                  </div>
+
                   <label className="flex items-center gap-2 text-xs text-slate-600">
                     <input
                       type="checkbox"

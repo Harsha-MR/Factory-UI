@@ -1,4 +1,4 @@
-import { getDepartmentCustomLayout } from './layoutStorage'
+import { fetchDepartmentCustomLayoutVersions } from './layoutStorage'
 
 const NETWORK_MS = 350
 
@@ -326,11 +326,12 @@ export async function getDepartmentLayout(departmentId) {
 
   const summary = computeDepartmentSummary(found.department)
 
-  const customLayout = getDepartmentCustomLayout({
+  const versions = await fetchDepartmentCustomLayoutVersions({
     factoryId: found.factory?.id,
     plantId: found.plant?.id,
     departmentId: found.department?.id,
   })
+  const customLayout = versions?.current || null
 
   // Return a copy to avoid UI accidentally mutating live state
   return {
