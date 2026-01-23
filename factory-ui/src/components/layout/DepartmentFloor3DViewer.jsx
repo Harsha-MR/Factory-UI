@@ -333,8 +333,14 @@ export default function DepartmentFloor3DViewer({
 
     if ('enableDamping' in controls) controls.enableDamping = true
     if ('dampingFactor' in controls) controls.dampingFactor = 0.12
+
+    // Make movement speeds identical in both modes
+    if ('rotateSpeed' in controls) controls.rotateSpeed = 1.0
+    if ('zoomSpeed' in controls) controls.zoomSpeed = 1.0
+    if ('panSpeed' in controls) controls.panSpeed = 1.0
+
     if (typeof controls.update === 'function') controls.update()
-  }, [])
+  }, [fullScreen])
 
   const setOrbitMouseModeNow = (mode) => {
     const controls = orbitRef.current
@@ -470,7 +476,8 @@ export default function DepartmentFloor3DViewer({
   const isOverlayAddToolActive = fullScreen && isAddMode && !!addOverlayType
 
   const selectedObjectRef = useRef(null)
-  const controlsEnabled = fullScreen && !isOverlayAddToolActive && !draggingId && !isTransforming && !isAddDrawing
+  // Enable controls for both fullScreen and non-fullScreen, but restrict features in non-fullScreen
+  const controlsEnabled = (!isOverlayAddToolActive && !draggingId && !isTransforming && !isAddDrawing)
 
   useEffect(() => {
     const cam = cameraRef.current
@@ -664,7 +671,8 @@ export default function DepartmentFloor3DViewer({
       >
         <Canvas
           camera={{ position: cameraPosition, fov: fullScreen ? 45 : 40 }}
-          dpr={[1, fullScreen ? 1.5 : 2]}
+          // Keep DPR consistent across modes; higher DPR in preview makes interactions feel less smooth.
+          dpr={[1, 1.5]}
           gl={{ antialias: false, powerPreference: 'high-performance' }}
           onCreated={({ camera }) => {
             cameraRef.current = camera
@@ -705,13 +713,15 @@ export default function DepartmentFloor3DViewer({
               const d = Math.max(0.02, hNorm) * effectivePlaneSize
               const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
 
+              // Disable all editing interactions in non-fullScreen
+              const allowEdit = fullScreen
+
               return (
                 <group
                   key={id}
                   position={[pos.x, effectiveFloorY + 0.0005, pos.z]}
                   rotation={[0, rot, 0]}
-                  onPointerDown={(e) => {
-                    if (!fullScreen) return
+                  onPointerDown={allowEdit ? (e) => {
                     if (id === '__default_floor__') return
                     if (isAddMode) {
                       handleAddPointerDown(e)
@@ -730,10 +740,10 @@ export default function DepartmentFloor3DViewer({
                       setOrbitEnabledNow(false)
                       capturePointer(e)
                     }
-                  }}
-                  onPointerMove={(e) => {
+                  } : undefined}
+                  onPointerMove={allowEdit ? (e) => {
                     handleFloorPointerMove(e)
-                  }}
+                  } : undefined}
                 >
                   <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={0}>
                     <planeGeometry args={[w, d]} />
@@ -743,15 +753,13 @@ export default function DepartmentFloor3DViewer({
                     <mesh
                       rotation={[-Math.PI / 2, 0, 0]}
                       renderOrder={5}
-                      onPointerOver={(e) => {
-                        if (!fullScreen) return
+                      onPointerOver={allowEdit ? (e) => {
                         e.stopPropagation()
                         setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
-                      }}
-                      onPointerOut={() => {
-                        if (!fullScreen) return
+                      } : undefined}
+                      onPointerOut={allowEdit ? () => {
                         setCursor('default')
-                      }}
+                      } : undefined}
                     >
                       <planeGeometry args={[w, d]} />
                       <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
@@ -777,15 +785,16 @@ export default function DepartmentFloor3DViewer({
             const fill = zoneFillColor(el.color)
             const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
             const zoneName = String(el.label || '').trim() || 'Zone'
-            const labelMargin = Math.min(w, d) * 0.08
+            const zoneLabelY = 0.85
 
+            // Disable all editing interactions in non-fullScreen
+            const allowEdit = fullScreen
             return (
               <group
                 key={id}
                 position={[pos.x, effectiveFloorY + overlayLift, pos.z]}
                 rotation={[0, rot, 0]}
-                onPointerDown={(e) => {
-                  if (!fullScreen) return
+                onPointerDown={allowEdit ? (e) => {
                   if (isAddMode) {
                     handleAddPointerDown(e)
                     return
@@ -804,11 +813,11 @@ export default function DepartmentFloor3DViewer({
                     setOrbitEnabledNow(false)
                     capturePointer(e)
                   }
-                }}
-                onPointerMove={(e) => {
+                } : undefined}
+                onPointerMove={allowEdit ? (e) => {
                   // Keep add preview + dragging responsive even when hovering existing meshes.
                   handleFloorPointerMove(e)
-                }}
+                } : undefined}
               >
                 <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
                   <planeGeometry args={[w, d]} />
@@ -825,15 +834,13 @@ export default function DepartmentFloor3DViewer({
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
                   renderOrder={10}
-                  onPointerOver={(e) => {
-                    if (!fullScreen) return
+                  onPointerOver={allowEdit ? (e) => {
                     e.stopPropagation()
                     setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
-                  }}
-                  onPointerOut={() => {
-                    if (!fullScreen) return
+                  } : undefined}
+                  onPointerOut={allowEdit ? () => {
                     setCursor('default')
-                  }}
+                  } : undefined}
                 >
                   <planeGeometry args={[w, d]} />
                   <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
@@ -841,15 +848,28 @@ export default function DepartmentFloor3DViewer({
                 </mesh>
 
                 <Html
-                  position={[-w / 2 + labelMargin, 0.02, -d / 2 + labelMargin]}
-                  transform
-                  occlude={false}
-                  style={{ pointerEvents: 'none' }}
-                >
-                  <div className="rounded bg-black/10 px-1.0 py-0.1 tlext-[5px] font-small text-white shadow">
+                  // Keep Html label disabled; use 3D text instead for correct layering.
+                  position={[0, 0, 0]}
+                  style={{ display: 'none' }}
+                />
+
+                {/* Zone name centered and always above machine labels */}
+                <Billboard follow lockX lockZ>
+                  <Text
+                    position={[0, zoneLabelY, 0]}
+                    fontSize={0.22}
+                    color="#ffffff"
+                    outlineWidth={0.02}
+                    outlineColor="#000000"
+                    anchorX="center"
+                    anchorY="middle"
+                    renderOrder={100}
+                    material-depthTest={false}
+                    material-transparent
+                  >
                     {zoneName}
-                  </div>
-                </Html>
+                  </Text>
+                </Billboard>
               </group>
             )
           })}
@@ -866,13 +886,14 @@ export default function DepartmentFloor3DViewer({
             const d = Math.max(0.02, hNorm) * effectivePlaneSize
             const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
 
+            // Disable all editing interactions in non-fullScreen
+            const allowEdit = fullScreen
             return (
               <group
                 key={id}
                 position={[pos.x, effectiveFloorY + overlayLift, pos.z]}
                 rotation={[0, rot, 0]}
-                onPointerDown={(e) => {
-                  if (!fullScreen) return
+                onPointerDown={allowEdit ? (e) => {
                   if (isAddMode) {
                     handleAddPointerDown(e)
                     return
@@ -890,10 +911,10 @@ export default function DepartmentFloor3DViewer({
                     setOrbitEnabledNow(false)
                     capturePointer(e)
                   }
-                }}
-                onPointerMove={(e) => {
+                } : undefined}
+                onPointerMove={allowEdit ? (e) => {
                   handleFloorPointerMove(e)
-                }}
+                } : undefined}
               >
                 <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
                   <planeGeometry args={[w, d]} />
@@ -910,15 +931,13 @@ export default function DepartmentFloor3DViewer({
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
                   renderOrder={10}
-                  onPointerOver={(e) => {
-                    if (!fullScreen) return
+                  onPointerOver={allowEdit ? (e) => {
                     e.stopPropagation()
                     setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
-                  }}
-                  onPointerOut={() => {
-                    if (!fullScreen) return
+                  } : undefined}
+                  onPointerOut={allowEdit ? () => {
                     setCursor('default')
-                  }}
+                  } : undefined}
                 >
                   <planeGeometry args={[w, d]} />
                   <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
@@ -1094,6 +1113,8 @@ export default function DepartmentFloor3DViewer({
               const labelText = el?.type === ELEMENT_TYPES.MACHINE ? abbreviateMachineName(machineName) : ''
               const oeePct = el?.type === ELEMENT_TYPES.MACHINE ? computeMachineOeePct(machineMeta) : null
 
+              // Disable all editing interactions in non-fullScreen
+              const allowEdit = fullScreen
               const canOpenDetails =
                 !fullScreen &&
                 el?.type === ELEMENT_TYPES.MACHINE &&
@@ -1107,20 +1128,12 @@ export default function DepartmentFloor3DViewer({
                   renderOrder={20}
                   scale={[uniformScale, uniformScale, uniformScale]}
                   rotation={[0, (Number(el.rotationDeg) || 0) * (Math.PI / 180), 0]}
-                  onPointerDown={(e) => {
+                  onPointerDown={allowEdit ? (e) => {
                     if (isAddMode) {
                       handleAddPointerDown(e)
                       return
                     }
 
-                    if (!fullScreen) {
-                      if (canOpenDetails) {
-                        e.stopPropagation()
-                        onOpenMachineDetails(machineId)
-                      }
-                      return
-                    }
-                    if (!fullScreen) return
                     e.stopPropagation()
 
                     if (isTransforming) return
@@ -1135,36 +1148,32 @@ export default function DepartmentFloor3DViewer({
                       setOrbitEnabledNow(false)
                       capturePointer(e)
                     }
-                  }}
-                  onPointerMove={(e) => {
-                    handleFloorPointerMove(e)
-                  }}
-                  onPointerOver={(e) => {
-                    if (isAddMode) return
-                    if (canOpenDetails) {
-                      e.stopPropagation()
-                      setHoveredMachineId(machineId)
-                      setCursor('pointer')
-                      return
-                    }
-                    if (!fullScreen) return
-                    e.stopPropagation()
-                    setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
-                  }}
-                  onPointerOut={() => {
-                    if (canOpenDetails) {
-                      setHoveredMachineId((prev) => (prev === machineId ? '' : prev))
-                      setCursor('default')
-                      return
-                    }
-                    if (!fullScreen) return
-                    setCursor('default')
-                  }}
-                  onClick={(e) => {
-                    if (!canOpenDetails) return
+                  } : (canOpenDetails ? (e) => {
                     e.stopPropagation()
                     onOpenMachineDetails(machineId)
-                  }}
+                  } : undefined)}
+                  onPointerMove={allowEdit ? (e) => {
+                    handleFloorPointerMove(e)
+                  } : undefined}
+                  onPointerOver={allowEdit ? (e) => {
+                    if (isAddMode) return
+                    e.stopPropagation()
+                    setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
+                  } : (canOpenDetails ? (e) => {
+                    e.stopPropagation()
+                    setHoveredMachineId(machineId)
+                    setCursor('pointer')
+                  } : undefined)}
+                  onPointerOut={allowEdit ? () => {
+                    setCursor('default')
+                  } : (canOpenDetails ? () => {
+                    setHoveredMachineId((prev) => (prev === machineId ? '' : prev))
+                    setCursor('default')
+                  } : undefined)}
+                  onClick={canOpenDetails ? (e) => {
+                    e.stopPropagation()
+                    onOpenMachineDetails(machineId)
+                  } : undefined}
                 >
                   <ErrorBoundary fallback={() => <FallbackMarker selected={isSelected || isDragging} />}>
                     <Suspense fallback={<FallbackMarker selected={isSelected || isDragging} />}>
@@ -1229,16 +1238,14 @@ export default function DepartmentFloor3DViewer({
                     </Html>
                   ) : null}
 
-                  {isSelected ? (
+                  {isSelected && allowEdit ? (
                     <mesh
                       position={[0, 0.08, 0]}
                       onPointerOver={(ev) => {
-                        if (!fullScreen) return
                         ev.stopPropagation()
                         setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
                       }}
                       onPointerOut={() => {
-                        if (!fullScreen) return
                         setCursor('default')
                       }}
                     >
@@ -1249,7 +1256,7 @@ export default function DepartmentFloor3DViewer({
                 </group>
               )
 
-              return isSelected ? (
+              return isSelected && allowEdit ? (
                 <TransformControls
                   key={String(el.id)}
                   mode="scale"
@@ -1274,7 +1281,7 @@ export default function DepartmentFloor3DViewer({
             })
             : null}
 
-        {showMachineMarkers && isAddMode && hoverNorm && addElementType ? (
+          {showMachineMarkers && isAddMode && hoverNorm && addElementType ? (
           (() => {
             const pos = normToPlane(hoverNorm.x, hoverNorm.y, effectivePlaneSize)
             return (
@@ -1289,13 +1296,15 @@ export default function DepartmentFloor3DViewer({
           <OrbitControls
             ref={orbitRef}
             enablePan={fullScreen}
-            enableZoom={fullScreen}
-            enableRotate={fullScreen}
-            mouseButtons={{ LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }}
+            enableZoom={true}
+            enableRotate={true}
+            mouseButtons={{
+              LEFT: MOUSE.ROTATE,
+              MIDDLE: MOUSE.DOLLY,
+              RIGHT: fullScreen ? MOUSE.PAN : MOUSE.ROTATE
+            }}
             autoRotate={autoRotate}
             autoRotateSpeed={1.0}
-            // Important: when adding Zone/Walkway we need click+drag on the floor to draw,
-            // so disable OrbitControls drag handling in that mode.
             enabled={controlsEnabled}
             onStart={() => {
               stopDragging()
