@@ -1,5 +1,23 @@
 const STORAGE_PREFIX = 'factory-ui:dept-layout'
 
+function resolveUserId() {
+  // This app currently has no auth provider. When you add login,
+  // replace this with the logged-in user's stable identifier.
+  try {
+    // Allow an injected global in case the host app sets it.
+    const globalId = typeof window !== 'undefined' ? window.__FACTORY_UI_USER_ID__ : ''
+    if (globalId) return String(globalId).trim() || 'shared'
+
+    // Fallback for local testing:
+    // localStorage.setItem('factory-ui:userId', 'employee-123')
+    const ls = typeof localStorage !== 'undefined' ? localStorage.getItem('factory-ui:userId') : ''
+    if (ls) return String(ls).trim() || 'shared'
+  } catch {
+    // ignore
+  }
+  return 'shared'
+}
+
 function buildKey({ factoryId, plantId, departmentId }) {
   const dept = String(departmentId || '').trim()
   if (!dept) throw new Error('departmentId is required')
@@ -38,7 +56,8 @@ function normalizeStoredBundle(raw) {
 
 function canUseDevApi() {
   try {
-    return !!import.meta?.env?.DEV
+    // Treat the API as the primary storage in all modes.
+    return true
   } catch {
     return false
   }
@@ -109,78 +128,64 @@ export function getDepartmentCustomLayoutVersions(ctx) {
 }
 
 export async function fetchDepartmentCustomLayoutVersions(ctx) {
-  // Prefer dev API-backed JSON file storage when available.
-  if (canUseDevApi()) {
-    try {
-      const url = new URL('/api/layouts', window.location.origin)
-      url.searchParams.set('factoryId', String(ctx?.factoryId || ''))
-      url.searchParams.set('plantId', String(ctx?.plantId || ''))
-      url.searchParams.set('departmentId', String(ctx?.departmentId || ''))
-      const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } })
-      if (res.ok) {
-        const json = await res.json()
-        const bundle = normalizeStoredBundle(json)
-        writeBundleToLocalStorage(ctx, bundle)
-        return bundle
-      }
-    } catch {
-      // ignore and fall back
+  if (!canUseDevApi()) return getDepartmentCustomLayoutVersions(ctx)
+
+  try {
+    const url = new URL('/api/layouts', window.location.origin)
+    url.searchParams.set('factoryId', String(ctx?.factoryId || ''))
+    url.searchParams.set('plantId', String(ctx?.plantId || ''))
+    url.searchParams.set('departmentId', String(ctx?.departmentId || ''))
+    url.searchParams.set('userId', resolveUserId())
+
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } })
+    if (res.ok) {
+      const json = await res.json()
+      const bundle = normalizeStoredBundle(json)
+      // Intentionally do NOT cache in localStorage (per requirement).
+      return bundle
     }
+  } catch {
+    // ignore and fall back
   }
 
   return getDepartmentCustomLayoutVersions(ctx)
 }
 
 export function saveDepartmentCustomLayout(ctx, layout) {
-  if (typeof localStorage === 'undefined') return
-  const key = buildKey(ctx)
-
-  const existing = normalizeStoredBundle(safeJsonParse(localStorage.getItem(key)))
   const nextCurrent = sanitizeDepartmentLayout({
     ...layout,
     updatedAt: new Date().toISOString(),
   })
 
-  // On each save, shift: current -> previous, new -> current.
-  const bundle = {
-    current: nextCurrent,
-    previous: existing.current || null,
-  }
+  // Persist to backend API (best-effort). No browser storage.
+  if (!canUseDevApi()) return
+  try {
+    const url = new URL('/api/layouts', window.location.origin)
+    url.searchParams.set('factoryId', String(ctx?.factoryId || ''))
+    url.searchParams.set('plantId', String(ctx?.plantId || ''))
+    url.searchParams.set('departmentId', String(ctx?.departmentId || ''))
+    url.searchParams.set('userId', resolveUserId())
 
-  localStorage.setItem(key, JSON.stringify(bundle))
-
-  // Also persist to dev JSON file via Vite middleware (best-effort).
-  if (canUseDevApi()) {
-    try {
-      const url = new URL('/api/layouts', window.location.origin)
-      url.searchParams.set('factoryId', String(ctx?.factoryId || ''))
-      url.searchParams.set('plantId', String(ctx?.plantId || ''))
-      url.searchParams.set('departmentId', String(ctx?.departmentId || ''))
-      void fetch(url.toString(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layout: nextCurrent }),
-      }).catch(() => {})
-    } catch {
-      // ignore
-    }
+    void fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layout: nextCurrent }),
+    }).catch(() => {})
+  } catch {
+    // ignore
   }
 }
 
 export function deleteDepartmentCustomLayout(ctx) {
-  if (typeof localStorage === 'undefined') return
-  const key = buildKey(ctx)
-  localStorage.removeItem(key)
-
-  if (canUseDevApi()) {
-    try {
-      const url = new URL('/api/layouts', window.location.origin)
-      url.searchParams.set('factoryId', String(ctx?.factoryId || ''))
-      url.searchParams.set('plantId', String(ctx?.plantId || ''))
-      url.searchParams.set('departmentId', String(ctx?.departmentId || ''))
-      void fetch(url.toString(), { method: 'DELETE' }).catch(() => {})
-    } catch {
-      // ignore
-    }
+  if (!canUseDevApi()) return
+  try {
+    const url = new URL('/api/layouts', window.location.origin)
+    url.searchParams.set('factoryId', String(ctx?.factoryId || ''))
+    url.searchParams.set('plantId', String(ctx?.plantId || ''))
+    url.searchParams.set('departmentId', String(ctx?.departmentId || ''))
+    url.searchParams.set('userId', resolveUserId())
+    void fetch(url.toString(), { method: 'DELETE' }).catch(() => {})
+  } catch {
+    // ignore
   }
 }
