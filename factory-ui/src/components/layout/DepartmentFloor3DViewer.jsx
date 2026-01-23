@@ -1,6 +1,6 @@
 import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
-import { Billboard, Edges, Html, OrbitControls, Text, TransformControls, useGLTF } from '@react-three/drei'
+import { Billboard, Edges, OrbitControls, Text, TransformControls, useGLTF } from '@react-three/drei'
 import { Box3, Color, MOUSE, Plane, Vector2, Vector3 } from 'three'
 
 import { ELEMENT_TYPES } from './layoutTypes'
@@ -118,6 +118,89 @@ function machineModelUrlForStatus(status) {
 function setCursor(cursor) {
   if (typeof document === 'undefined') return
   document.body.style.cursor = cursor || 'default'
+}
+
+function noRaycast() {
+  // Disable pointer hit-testing for helper meshes/text.
+}
+
+function MachineHoverTooltip3D({ title, status, oeePct, accentColor }) {
+  const safeTitle = String(title || 'Machine')
+  const safeStatus = String(status || '—')
+  const oeeText = oeePct == null ? '—' : `${Number(oeePct).toFixed(1)}%`
+  const accent = accentColor || '#22c55e'
+
+  // Static sizing in world units; works well for the fixed preview camera.
+  const w = 1.55
+  const h = 0.62
+  const padX = 0.09
+  const z = 0.012
+
+  // Very high renderOrder so it stays above zone labels/text.
+  const TOP = 10000
+
+  return (
+    <Billboard follow lockX lockZ>
+      <group renderOrder={TOP}>
+        <mesh raycast={noRaycast} position={[w / 2, 0, 0]} renderOrder={TOP}>
+          <planeGeometry args={[w, h]} />
+          <meshBasicMaterial color="#0b1020" transparent opacity={0.92} depthWrite={false} depthTest={false} />
+        </mesh>
+        <mesh raycast={noRaycast} position={[0.08, 0.12, z]} renderOrder={TOP + 1}>
+          <circleGeometry args={[0.05, 16]} />
+          <meshBasicMaterial color={accent} transparent opacity={0.95} depthWrite={false} depthTest={false} />
+        </mesh>
+
+        <Text
+          raycast={noRaycast}
+          position={[padX + 0.14, 0.16, z]}
+          fontSize={0.12}
+          color="#e2e8f0"
+          anchorX="left"
+          anchorY="middle"
+          maxWidth={w - (padX * 2 + 0.18)}
+          textAlign="left"
+          renderOrder={TOP + 2}
+          material-depthTest={false}
+          material-transparent
+        >
+          {safeTitle}
+        </Text>
+
+        <Text
+          raycast={noRaycast}
+          position={[padX + 0.14, -0.02, z]}
+          fontSize={0.095}
+          color="#94a3b8"
+          anchorX="left"
+          anchorY="middle"
+          maxWidth={w - (padX * 2 + 0.18)}
+          textAlign="left"
+          renderOrder={TOP + 2}
+          material-depthTest={false}
+          material-transparent
+        >
+          {`Status: ${safeStatus}   •   OEE: ${oeeText}`}
+        </Text>
+
+        <Text
+          raycast={noRaycast}
+          position={[padX + 0.14, -0.2, z]}
+          fontSize={0.085}
+          color="#cbd5e1"
+          anchorX="left"
+          anchorY="middle"
+          maxWidth={w - (padX * 2 + 0.18)}
+          textAlign="left"
+          renderOrder={TOP + 2}
+          material-depthTest={false}
+          material-transparent
+        >
+          Click to open machine details
+        </Text>
+      </group>
+    </Billboard>
+  )
 }
 
 function normToPlane(xNorm, yNorm, planeSize) {
@@ -677,8 +760,10 @@ export default function DepartmentFloor3DViewer({
         <Canvas
           camera={{ position: cameraPosition, fov: fullScreen ? 45 : 34 }}
           // Keep DPR consistent across modes; higher DPR in preview makes interactions feel less smooth.
-          dpr={[1, 1.5]}
+          dpr={fullScreen ? [1, 1.5] : 1}
           gl={{ antialias: false, powerPreference: 'high-performance' }}
+          // Preview mode is mostly static; render on demand to keep hover/modal interactions snappy.
+          frameloop={fullScreen ? 'always' : 'demand'}
           onCreated={({ camera }) => {
             cameraRef.current = camera
             const [cx, cy, cz] = cameraPosition
@@ -851,12 +936,6 @@ export default function DepartmentFloor3DViewer({
                   <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
                   {isSelected ? <Edges color="#fdba74" /> : <Edges color="#ffffff" />}
                 </mesh>
-
-                <Html
-                  // Keep Html label disabled; use 3D text instead for correct layering.
-                  position={[0, 0, 0]}
-                  style={{ display: 'none' }}
-                />
 
                 {/* Zone name centered and always above machine labels */}
                 <Billboard follow lockX lockZ>
@@ -1164,17 +1243,19 @@ export default function DepartmentFloor3DViewer({
                     if (isAddMode) return
                     e.stopPropagation()
                     setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
-                  } : (canOpenDetails ? (e) => {
-                    e.stopPropagation()
-                    setHoveredMachineId(machineId)
-                    setCursor('pointer')
-                  } : undefined)}
+                  } : undefined}
                   onPointerOut={allowEdit ? () => {
                     setCursor('default')
-                  } : (canOpenDetails ? () => {
+                  } : undefined}
+                  onPointerEnter={canOpenDetails ? (e) => {
+                    e.stopPropagation()
+                    setHoveredMachineId((prev) => (prev === machineId ? prev : machineId))
+                    setCursor('pointer')
+                  } : undefined}
+                  onPointerLeave={canOpenDetails ? () => {
                     setHoveredMachineId((prev) => (prev === machineId ? '' : prev))
                     setCursor('default')
-                  } : undefined)}
+                  } : undefined}
                   onClick={canOpenDetails ? (e) => {
                     e.stopPropagation()
                     onOpenMachineDetails(machineId)
@@ -1222,25 +1303,22 @@ export default function DepartmentFloor3DViewer({
                   ) : null}
 
                   {!fullScreen && canOpenDetails && hoveredMachineId === machineId ? (
-                    <Html
-                      position={[0, 0.55, 0]}
-                      center={false}
-                      distanceFactor={10}
-                      zIndexRange={[20, 0]}
-                      style={{ pointerEvents: 'none' }}
+                    // Cancel the machine model's rotation so the tooltip offset doesn't
+                    // feel "aligned" to the machine orientation.
+                    <group
+                      position={[0, 0.78, 0]}
+                      rotation={[0, -((Number(el.rotationDeg) || 0) * (Math.PI / 180)), 0]}
+                      renderOrder={10000}
                     >
-                      <div style={{ transform: 'translate(14px, calc(-100% - 10px))' }}>
-                        <div className="max-w-[260px] rounded-lg border bg-white/95 p-2 text-xs text-slate-800 shadow-lg">
-                          <div className="font-semibold">{machineName || 'Machine'}</div>
-                          <div className="mt-0.5 flex items-center gap-2 text-slate-600">
-                            <span>Status: {machineStatus || '—'}</span>
-                            <span>•</span>
-                            <span>OEE: {oeePct == null ? '—' : `${oeePct.toFixed(1)}%`}</span>
-                          </div>
-                          <div className="mt-1 text-[11px] text-slate-500">Click to open machine details</div>
-                        </div>
-                      </div>
-                    </Html>
+                      <group position={[0.25, 0, 0]}>
+                        <MachineHoverTooltip3D
+                          title={machineName || 'Machine'}
+                          status={machineStatus || '—'}
+                          oeePct={oeePct}
+                          accentColor={markerColor}
+                        />
+                      </group>
+                    </group>
                   ) : null}
 
                   {isSelected && allowEdit ? (
