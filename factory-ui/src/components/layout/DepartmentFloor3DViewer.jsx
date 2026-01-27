@@ -841,24 +841,13 @@ export default function DepartmentFloor3DViewer({
                   position={[pos.x, effectiveFloorY + 0.0005, pos.z]}
                   rotation={[0, rot, 0]}
                   onPointerDown={allowEdit ? (e) => {
-                    if (id === '__default_floor__') return
                     if (isAddMode) {
                       handleAddPointerDown(e)
                       return
                     }
+                    if (id === '__default_floor__') return
                     e.stopPropagation()
                     if (typeof onSelectElement === 'function') onSelectElement(id)
-
-                    if (isTransforming) return
-
-                    if (typeof onMoveElement === 'function' && activeTool === 'select') {
-                      draggingObjectRef.current = e.eventObject?.parent || null
-                      draggingNormRef.current = null
-                      setDraggingId(id)
-                      setCursor('grabbing')
-                      setOrbitEnabledNow(false)
-                      capturePointer(e)
-                    }
                   } : undefined}
                   onPointerMove={allowEdit ? (e) => {
                     handleFloorPointerMove(e)
@@ -927,6 +916,20 @@ export default function DepartmentFloor3DViewer({
                     // eventObject is one of the meshes; move its parent group.
                     draggingObjectRef.current = e.eventObject?.parent || null
                     draggingNormRef.current = null
+                    if (typeof getFloorHitFromEvent === 'function') {
+                      const hit = getFloorHitFromEvent(e)
+                      if (hit) {
+                        const pointerNorm = planeToNorm(hit.x, hit.z, effectivePlaneSize)
+                        draggingOffsetRef.current = {
+                          x: clamp01(cx) - pointerNorm.x,
+                          y: clamp01(cy) - pointerNorm.y,
+                        }
+                      } else {
+                        draggingOffsetRef.current = null
+                      }
+                    } else {
+                      draggingOffsetRef.current = null
+                    }
                     setDraggingId(id)
                     setCursor('grabbing')
                     setOrbitEnabledNow(false)
@@ -1019,7 +1022,20 @@ export default function DepartmentFloor3DViewer({
                   if (typeof onMoveElement === 'function' && activeTool === 'select') {
                     draggingObjectRef.current = e.eventObject?.parent || null
                     draggingNormRef.current = null
-                    draggingOffsetRef.current = null
+                    if (typeof getFloorHitFromEvent === 'function') {
+                      const hit = getFloorHitFromEvent(e)
+                      if (hit) {
+                        const pointerNorm = planeToNorm(hit.x, hit.z, effectivePlaneSize)
+                        draggingOffsetRef.current = {
+                          x: clamp01(cx) - pointerNorm.x,
+                          y: clamp01(cy) - pointerNorm.y,
+                        }
+                      } else {
+                        draggingOffsetRef.current = null
+                      }
+                    } else {
+                      draggingOffsetRef.current = null
+                    }
                     setDraggingId(id)
                     setCursor('grabbing')
                     setOrbitEnabledNow(false)
