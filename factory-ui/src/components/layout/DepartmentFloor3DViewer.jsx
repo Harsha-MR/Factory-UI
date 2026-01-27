@@ -360,6 +360,7 @@ export default function DepartmentFloor3DViewer({
   planeSize = DEFAULT_PLANE_SIZE,
   fullScreen = false,
 }) {
+  const containerRef = useRef(null)
   const [draggingId, setDraggingId] = useState('')
   const [hoverNorm, setHoverNorm] = useState(null)
   const [hoveredMachineId, setHoveredMachineId] = useState('')
@@ -565,7 +566,8 @@ export default function DepartmentFloor3DViewer({
 
   const selectedObjectRef = useRef(null)
   // Enable controls for both fullScreen and non-fullScreen, but restrict features in non-fullScreen
-  const controlsEnabled = (!isOverlayAddToolActive && !draggingId && !isTransforming && !isAddDrawing)
+  // Disable controls (pan/zoom) while adding or dragging zones/walkways
+  const controlsEnabled = (!isOverlayAddToolActive && !isTransforming && !isAddDrawing && !draggingId)
 
   useEffect(() => {
     const cam = cameraRef.current
@@ -732,13 +734,31 @@ export default function DepartmentFloor3DViewer({
     setOrbitEnabledNow(!isOverlayAddToolActive && !isTransforming && !isAddDrawing)
   }
 
+  // In preview mode, prevent the page from scrolling while the user zooms the canvas.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const onWheel = (e) => {
+      // Only lock page scroll for the embedded (non-fullscreen) viewer.
+      // Fullscreen already captures focus and users may still want normal wheel behavior
+      // depending on browser/device.
+      if (fullScreen) return
+      e.preventDefault()
+    }
+
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [fullScreen])
+
   return (
     <div
+      ref={containerRef}
       className="relative w-full overflow-hidden rounded-xl border bg-slate-950"
       style={
         fullScreen
           ? { height: '100%', minHeight: 0 }
-          : { height: '60vh', maxHeight: 560, minHeight: 320 }
+          : { height: '60vh', maxHeight: 560, minHeight: 320, overscrollBehavior: 'contain' }
       }
     >
       <ErrorBoundary
@@ -764,6 +784,7 @@ export default function DepartmentFloor3DViewer({
           gl={{ antialias: false, powerPreference: 'high-performance' }}
           // Preview mode is mostly static; render on demand to keep hover/modal interactions snappy.
           frameloop={fullScreen ? 'always' : 'demand'}
+          // frameloop={'always'}
           onCreated={({ camera }) => {
             cameraRef.current = camera
             const [cx, cy, cz] = cameraPosition
@@ -1380,7 +1401,8 @@ export default function DepartmentFloor3DViewer({
             ref={orbitRef}
             enablePan={fullScreen}
             enableZoom={true}
-            enableRotate={true}
+            // Keep preview mode mostly static: allow zoom, but no rotate.
+            enableRotate={fullScreen}
             // Keep preview zoom range tighter so it looks like the desired default.
             minDistance={fullScreen ? effectivePlaneSize * 0.25 : effectivePlaneSize * 0.18}
             maxDistance={fullScreen ? effectivePlaneSize * 3.0 : effectivePlaneSize * 1.25}

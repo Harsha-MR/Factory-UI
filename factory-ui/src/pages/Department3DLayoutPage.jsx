@@ -79,6 +79,8 @@ export default function Department3DLayoutPage() {
   const [selectedId, setSelectedId] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  const [toast, setToast] = useState(null)
+
   const [layoutVersions, setLayoutVersions] = useState({ current: null, previous: null })
   const [layoutView, setLayoutView] = useState('current')
 
@@ -161,6 +163,20 @@ export default function Department3DLayoutPage() {
     return () => document.removeEventListener('fullscreenchange', onFsChange)
   }, [])
 
+  useEffect(() => {
+    const t = location.state?.toast
+    if (!t?.ts) return
+
+    setToast({
+      kind: t.kind || 'success',
+      message: t.message || 'Saved',
+      ts: t.ts,
+    })
+
+    const timer = setTimeout(() => setToast(null), 2200)
+    return () => clearTimeout(timer)
+  }, [location.state?.toast?.ts])
+
   const machineMetaById = useMemo(() => {
     const zones = deptResult?.department?.zones || []
     const out = {}
@@ -202,7 +218,14 @@ export default function Department3DLayoutPage() {
   }
 
   const onCancel = () => {
-    navigate(`/departments/${departmentId}`, { state: location.state || {} })
+    // With the 2D department page removed, prefer going back to where the user came from.
+    // If this page was opened directly, fall back to the dashboard.
+    if (location.state?.fromDashboard) {
+      navigate(-1)
+      return
+    }
+
+    navigate('/dashboard')
   }
 
   const toggleFullscreen = async () => {
@@ -226,7 +249,19 @@ export default function Department3DLayoutPage() {
     if (!draft) return
     saveDepartmentCustomLayout(layoutCtx, draft)
     setLayoutView('current')
-    navigate(`/departments/${departmentId}`, { state: location.state || {} })
+    // Stay on the 3D layout route after saving.
+    navigate(`/departments/${departmentId}/layout-3d`, {
+      replace: true,
+      state: {
+        ...(location.state || {}),
+        layoutView: 'current',
+        toast: {
+          kind: 'success',
+          message: 'Department layout saved',
+          ts: Date.now(),
+        },
+      },
+    })
   }
 
   const onReset = () => {
@@ -296,9 +331,25 @@ export default function Department3DLayoutPage() {
         className={
           isFullscreen
             ? 'relative h-screen w-screen bg-white p-4 flex flex-col'
-            : 'rounded-2xl border bg-slate-950 p-4 shadow-sm'
+            : 'relative rounded-2xl border bg-slate-950 p-4 shadow-sm'
         }
       >
+        {toast ? (
+          <div className="absolute right-4 top-4 z-[9999]">
+            <div
+              className={
+                toast.kind === 'success'
+                  ? 'rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 shadow-sm'
+                  : 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm'
+              }
+              role="status"
+              aria-live="polite"
+            >
+              {toast.message}
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className={isFullscreen ? 'text-2xl font-semibold text-slate-900' : 'text-2xl font-semibold text-slate-100'}>
@@ -360,13 +411,7 @@ export default function Department3DLayoutPage() {
             >
               {isFullscreen ? 'Exit full screen' : 'Full screen'}
             </button>
-            <button
-              type="button"
-              className={neutralBtnClass}
-              onClick={onCancel}
-            >
-              Cancel
-            </button>
+            
             <button
               type="button"
               className={neutralBtnClass}

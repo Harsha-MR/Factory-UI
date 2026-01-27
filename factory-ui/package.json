@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "node server/index.js",
-    "dev:full": "concurrently -k -n api,ui -c blue,green \"npm:dev:api\" \"npm:dev\"",
+    "start": "concurrently -k -n api,ui -c blue,green \"npm:dev:api\" \"npm:dev\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
