@@ -154,6 +154,7 @@ export default function Department3DLayoutPage() {
   const { departmentId } = useParams()
 
   const fullscreenRef = useRef(null)
+  const lastPointerRef = useRef({ x: 0.5, y: 0.5 })
   const toastTimerRef = useRef(0)
 
   const [loading, setLoading] = useState(false)
@@ -171,12 +172,20 @@ export default function Department3DLayoutPage() {
   })
   const [machineForm, setMachineForm] = useState({ zoneName: '', machineName: '' })
   const [machineFormError, setMachineFormError] = useState('')
+  const [pendingMachinePlacement, setPendingMachinePlacement] = useState(null)
 
   const [activeTool, setActiveTool] = useState('select')
   const [selectedId, setSelectedId] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const requestedLayoutView = location.state?.layoutView
+  const handlePointerPositionChange = useCallback((pos) => {
+    if (!pos) return
+    const x = clamp(pos.x, 0, 1)
+    const y = clamp(pos.y, 0, 1)
+    lastPointerRef.current = { x, y }
+  }, [])
+
   const navToast = location.state?.toast
 
   const [toast, setToast] = useState(null)
@@ -267,6 +276,18 @@ export default function Department3DLayoutPage() {
     onFsChange()
     return () => document.removeEventListener('fullscreenchange', onFsChange)
   }, [])
+
+  useEffect(() => {
+    if (!pendingMachinePlacement) return
+    if (activeTool === 'add:machine') return
+    setPendingMachinePlacement(null)
+  }, [activeTool, pendingMachinePlacement])
+
+  useEffect(() => {
+    if (!pendingMachinePlacement) return
+    if (isFullscreen) return
+    setPendingMachinePlacement(null)
+  }, [isFullscreen, pendingMachinePlacement])
 
   useEffect(() => {
     if (!navToast?.ts) return
@@ -404,6 +425,11 @@ export default function Department3DLayoutPage() {
       return
     }
 
+    if (pendingMachinePlacement) {
+      setMachineFormError('Finish placing the current machine before adding another.')
+      return
+    }
+
     const zoneName = machineForm.zoneName.trim()
     const machineName = machineForm.machineName.trim()
     if (!zoneName || !machineName) {
@@ -412,19 +438,17 @@ export default function Department3DLayoutPage() {
     }
 
     const machineId = `${layoutCtx?.departmentId || 'dept'}-${nanoid(6)}`
-    const newId = nanoid(8)
     const defaultModelUrl = MODEL_LIBRARY[ELEMENT_TYPES.MACHINE]?.[0]?.url || '/models/machine.glb'
-    const nextElement = {
-      id: newId,
-      type: ELEMENT_TYPES.MACHINE,
+    const pointer = lastPointerRef.current || { x: 0.5, y: 0.5 }
+
+    setPendingMachinePlacement({
       machineId,
-      label: machineName,
-      x: 0.5,
-      y: 0.5,
-      w: 0.12,
-      h: 0.12,
-      rotationDeg: 0,
+      machineName,
+      zoneName,
+      w: 0.08,
+      h: 0.08,
       scale: 1,
+      rotationDeg: 0,
       modelUrl: defaultModelUrl,
       meta: {
         plantId: layoutCtx?.plantId || '',
@@ -433,23 +457,15 @@ export default function Department3DLayoutPage() {
         machineName,
         createdAt: new Date().toISOString(),
       },
-    }
-
-    setDraft((prev) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        elements: [...(prev.elements || []), nextElement],
-      }
+      pointer,
     })
 
     setMachineForm({ zoneName: '', machineName: '' })
     setMachineFormError('')
-    setSelectedId(newId)
-    setActiveTool('select')
+    setActiveTool('add:machine')
     pushToast({
       kind: 'info',
-      message: 'Machine added — drag to adjust placement.',
+      message: 'Move the cursor over the floor and click when the cyan preview aligns with your target spot.',
       ts: Date.now(),
     })
   }
@@ -505,10 +521,13 @@ export default function Department3DLayoutPage() {
   const selectedElement = selectedId
     ? (draft?.elements || []).find((e) => String(e?.id) === String(selectedId))
     : null
+  const machinePlacementArmed = isFullscreen && activeTool === 'add:machine' && !!pendingMachinePlacement
   const viewerActiveTool = isFullscreen
-    ? activeTool === 'add:machine'
-      ? 'select'
-      : activeTool
+    ? machinePlacementArmed
+      ? 'add:machine'
+      : activeTool === 'add:machine'
+        ? 'select'
+        : activeTool
     : 'select'
 
   return (
@@ -873,15 +892,23 @@ export default function Department3DLayoutPage() {
 
                   {machineFormError ? (
                     <div className="mt-2 text-[11px] text-red-600">{machineFormError}</div>
+                  ) : pendingMachinePlacement ? (
+                    <div className="mt-2 text-[11px] text-emerald-600">
+                      Placement armed for{' '}
+                      <span className="font-semibold">{pendingMachinePlacement.machineName || 'Machine'}</span>. Move the cursor inside
+                      the 3D canvas and click when the cyan preview is exactly where you want it.
+                    </div>
                   ) : (
-                    <div className="mt-2 text-[11px] text-slate-500">Fill both fields, then place the machine.</div>
+                    <div className="mt-2 text-[11px] text-slate-500">
+                      Fill both fields, click "Add machine to canvas", then click on the highlighted preview inside the 3D view.
+                    </div>
                   )}
 
                   <button
                     type="button"
                     className="mt-3 w-full rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
                     onClick={addMachineFromSidebar}
-                    disabled={!machineForm.zoneName.trim() || !machineForm.machineName.trim()}
+                    disabled={!machineForm.zoneName.trim() || !machineForm.machineName.trim() || !!pendingMachinePlacement}
                   >
                     Add machine to canvas
                   </button>
@@ -1326,6 +1353,7 @@ export default function Department3DLayoutPage() {
               machineMetaById={machineMetaById}
               onOpenMachineDetails={!isFullscreen ? onOpenMachineDetails : undefined}
               machineStatusVisibility={machineStatusVisibility}
+              onPointerPositionChange={isFullscreen ? handlePointerPositionChange : undefined}
               fullScreen={isFullscreen}
               activeTool={viewerActiveTool}
               selectedId={isFullscreen ? selectedId : ''}
@@ -1343,7 +1371,9 @@ export default function Department3DLayoutPage() {
                       const t = String(type)
                       const newId = nanoid(8)
                       const defaultModelUrl = MODEL_LIBRARY[t]?.[0]?.url
-                      const label = `${typeLabel(t)} ${newId.slice(0, 4)}`
+                      const machineSeed =
+                        t === ELEMENT_TYPES.MACHINE && pendingMachinePlacement ? pendingMachinePlacement : null
+                      const label = machineSeed?.machineName || `${typeLabel(t)} ${newId.slice(0, 4)}`
 
                       const defaultsForType = () => {
                         if (t === ELEMENT_TYPES.FLOOR) {
@@ -1355,32 +1385,72 @@ export default function Department3DLayoutPage() {
                         if (t === ELEMENT_TYPES.WALKWAY) {
                           return { w: 0.3, h: 0.06 }
                         }
+                        if (t === ELEMENT_TYPES.MACHINE) {
+                          return {
+                            w: machineSeed?.w ?? 0.12,
+                            h: machineSeed?.h ?? 0.12,
+                            scale: machineSeed?.scale ?? 1,
+                            modelUrl: machineSeed?.modelUrl ?? defaultModelUrl,
+                          }
+                        }
+                        if (t === ELEMENT_TYPES.TRANSPORTER) {
+                          return { w: 0.18, h: 0.08, scale: 1, modelUrl: defaultModelUrl }
+                        }
                         return { w: 0.12, h: 0.12, scale: 1, modelUrl: defaultModelUrl }
                       }
 
                       const defaults = defaultsForType()
 
-                      // Viewer can pass either a center point ({x,y}) or a drag-sized rect ({x,y,w,h}).
-                      const isDragRect = pos && typeof pos === 'object' && Number.isFinite(Number(pos.w)) && Number.isFinite(Number(pos.h))
-                      const rawX = pos?.x ?? 0.5
-                      const rawY = pos?.y ?? 0.5
+                      const isDragRect =
+                        pos && typeof pos === 'object' && Number.isFinite(Number(pos.w)) && Number.isFinite(Number(pos.h))
+                      const rawX = clamp(pos?.x ?? 0.5, 0, 1)
+                      const rawY = clamp(pos?.y ?? 0.5, 0, 1)
 
-                      const x = isDragRect
-                        ? clamp(rawX, 0, 1)
-                        : t === ELEMENT_TYPES.FLOOR || t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
-                          ? clamp(rawX - (Number(defaults.w) || 0) / 2, 0, 1)
-                          : rawX
+                      const baseW = Number(defaults.w)
+                      const baseH = Number(defaults.h)
+                      const fallbackW = Number.isFinite(baseW) && baseW > 0 ? baseW : 0.12
+                      const fallbackH = Number.isFinite(baseH) && baseH > 0 ? baseH : 0.12
 
-                      const y = isDragRect
-                        ? clamp(rawY, 0, 1)
-                        : t === ELEMENT_TYPES.FLOOR || t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY
-                          ? clamp(rawY - (Number(defaults.h) || 0) / 2, 0, 1)
-                          : rawY
+                      const finalW = clamp(isDragRect ? Number(pos?.w) : fallbackW, 0.02, 1)
+                      const finalH = clamp(isDragRect ? Number(pos?.h) : fallbackH, 0.02, 1)
 
-                      const w = isDragRect ? clamp(pos?.w, 0.02, 1) : defaults.w
-                      const h = isDragRect ? clamp(pos?.h, 0.02, 1) : defaults.h
+                      const shouldCenter =
+                        !isDragRect &&
+                        (t === ELEMENT_TYPES.FLOOR ||
+                          t === ELEMENT_TYPES.ZONE ||
+                          t === ELEMENT_TYPES.WALKWAY ||
+                          t === ELEMENT_TYPES.MACHINE ||
+                          t === ELEMENT_TYPES.TRANSPORTER)
+
+                      const finalX = isDragRect
+                        ? clamp(rawX, 0, 1 - finalW)
+                        : shouldCenter
+                          ? clamp(rawX - finalW / 2, 0, 1 - finalW)
+                          : clamp(rawX, 0, 1 - finalW)
+
+                      const finalY = isDragRect
+                        ? clamp(rawY, 0, 1 - finalH)
+                        : shouldCenter
+                          ? clamp(rawY - finalH / 2, 0, 1 - finalH)
+                          : clamp(rawY, 0, 1 - finalH)
+
                       const color = t === ELEMENT_TYPES.ZONE ? (pos?.color || defaults.color || 'dark-green') : undefined
                       const rotationDeg = Number.isFinite(Number(pos?.rotationDeg)) ? Number(pos.rotationDeg) : 0
+
+                      const machineId =
+                        t === ELEMENT_TYPES.MACHINE
+                          ? machineSeed?.machineId || `${layoutCtx?.departmentId || 'dept'}-${nanoid(6)}`
+                          : undefined
+                      const machineMeta =
+                        t === ELEMENT_TYPES.MACHINE
+                          ? {
+                              plantId: machineSeed?.meta?.plantId || layoutCtx?.plantId || '',
+                              departmentId: machineSeed?.meta?.departmentId || layoutCtx?.departmentId || '',
+                              zoneName: machineSeed?.meta?.zoneName || machineSeed?.zoneName || '',
+                              machineName: machineSeed?.meta?.machineName || machineSeed?.machineName || label,
+                              createdAt: machineSeed?.meta?.createdAt || new Date().toISOString(),
+                            }
+                          : null
 
                       setDraft((prev) =>
                         prev
@@ -1392,13 +1462,15 @@ export default function Department3DLayoutPage() {
                                   id: newId,
                                   type: t,
                                   label,
-                                  x,
-                                  y,
+                                  x: finalX,
+                                  y: finalY,
                                   ...defaults,
-                                  w,
-                                  h,
+                                  w: finalW,
+                                  h: finalH,
                                   rotationDeg,
                                   ...(color ? { color } : null),
+                                  ...(machineId ? { machineId } : null),
+                                  ...(machineId ? { meta: machineMeta } : null),
                                 },
                               ],
                             }
@@ -1406,6 +1478,14 @@ export default function Department3DLayoutPage() {
                       )
                       setSelectedId(newId)
                       setActiveTool('select')
+                      if (machineSeed) {
+                        setPendingMachinePlacement(null)
+                        pushToast({
+                          kind: 'success',
+                          message: 'Machine placed on the highlighted preview mark.',
+                          ts: Date.now(),
+                        })
+                      }
                     }
                   : undefined
               }
