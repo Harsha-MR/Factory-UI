@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { nanoid } from 'nanoid'
 import { getDepartmentLayout } from '../services/mockApi'
@@ -54,12 +54,107 @@ function withThreeDDefaults(layout) {
   }
 }
 
+function mergeLayoutWithDepartment(layout, department) {
+  const dept = department && typeof department === 'object' ? department : null
+  const base = withThreeDDefaults(layout)
+
+  // If we don't have department data, nothing to sync against.
+  if (!dept) return base
+
+  // Generate the current auto-layout from the department so we can borrow positions
+  // for any newly-added zones/machines.
+  const auto = withThreeDDefaults(createDefaultLayoutForDepartment(dept))
+
+  const baseElements = Array.isArray(base.elements) ? base.elements : []
+  const autoElements = Array.isArray(auto.elements) ? auto.elements : []
+
+  const autoById = new Map(autoElements.map((e) => [String(e.id), e]))
+  const autoMachineById = new Map(
+    autoElements
+      .filter((e) => e?.type === ELEMENT_TYPES.MACHINE && e?.machineId)
+      .map((e) => [String(e.machineId), e]),
+  )
+
+  const hasFloor = baseElements.some((e) => e?.type === ELEMENT_TYPES.FLOOR)
+  const existingZoneElementIds = new Set(
+    baseElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE).map((e) => String(e.id)),
+  )
+  const existingMachineIds = new Set(
+    baseElements
+      .filter((e) => e?.type === ELEMENT_TYPES.MACHINE && e?.machineId)
+      .map((e) => String(e.machineId)),
+  )
+
+  const toAdd = []
+
+  if (!hasFloor) {
+    const floor = autoElements.find((e) => e?.type === ELEMENT_TYPES.FLOOR) || autoById.get('floor-1')
+    if (floor) toAdd.push(floor)
+  }
+
+  const zones = Array.isArray(dept?.zones) ? dept.zones : []
+  for (let zi = 0; zi < zones.length; zi += 1) {
+    const z = zones[zi]
+    const zoneId = String(z?.id || '').trim()
+    if (!zoneId) continue
+
+    // Our default layout uses ids like: `zone-${zone.id}`.
+    const zoneElementId = `zone-${zoneId}`
+    if (!existingZoneElementIds.has(zoneElementId)) {
+      const fromAuto = autoById.get(zoneElementId)
+      toAdd.push(
+        fromAuto || {
+          id: zoneElementId,
+          type: ELEMENT_TYPES.ZONE,
+          label: z?.name || `Zone ${zi + 1}`,
+          x: 0.12,
+          y: 0.12,
+          w: 0.22,
+          h: 0.18,
+          rotationDeg: 0,
+          color: 'dark-green',
+        },
+      )
+    }
+
+    const machines = Array.isArray(z?.machines) ? z.machines : []
+    for (const m of machines) {
+      const mid = String(m?.id || '').trim()
+      if (!mid) continue
+      if (existingMachineIds.has(mid)) continue
+
+      const fromAuto = autoMachineById.get(mid)
+      toAdd.push(
+        fromAuto || {
+          id: `machine-${mid}`,
+          type: ELEMENT_TYPES.MACHINE,
+          machineId: mid,
+          x: 0.16,
+          y: 0.16,
+          w: 0.06,
+          h: 0.06,
+          rotationDeg: 0,
+        },
+      )
+    }
+  }
+
+  if (!toAdd.length) return base
+
+  // Normalize again to ensure any synthesized elements match expected shape.
+  return withThreeDDefaults({
+    ...base,
+    elements: [...baseElements, ...toAdd],
+  })
+}
+
 export default function Department3DLayoutPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { departmentId } = useParams()
 
   const fullscreenRef = useRef(null)
+  const toastTimerRef = useRef(0)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -74,12 +169,23 @@ export default function Department3DLayoutPage() {
     MAINTENANCE: true,
     OFFLINE: true,
   })
+  const [machineForm, setMachineForm] = useState({ zoneName: '', machineName: '' })
+  const [machineFormError, setMachineFormError] = useState('')
 
   const [activeTool, setActiveTool] = useState('select')
   const [selectedId, setSelectedId] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  const requestedLayoutView = location.state?.layoutView
+  const navToast = location.state?.toast
+
   const [toast, setToast] = useState(null)
+  const pushToast = useCallback((payload) => {
+    if (!payload) return
+    setToast(payload)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => setToast(null), 2200)
+  }, [])
 
   const [layoutVersions, setLayoutVersions] = useState({ current: null, previous: null })
   const [layoutView, setLayoutView] = useState('current')
@@ -119,15 +225,14 @@ export default function Department3DLayoutPage() {
         })
         setLayoutVersions(versions)
 
-        const requested = location.state?.layoutView
-        const initialView = requested === 'previous' ? 'previous' : 'current'
+        const initialView = requestedLayoutView === 'previous' ? 'previous' : 'current'
         setLayoutView(initialView)
 
         const base =
           (initialView === 'previous' ? versions?.previous : versions?.current) ||
           result?.customLayout ||
           createDefaultLayoutForDepartment(result?.department)
-        setDraft(withThreeDDefaults(base))
+        setDraft(mergeLayoutWithDepartment(base, result?.department))
       } catch (e) {
         if (!cancelled) setError(e?.message || 'Failed to load department')
       } finally {
@@ -138,7 +243,7 @@ export default function Department3DLayoutPage() {
     return () => {
       cancelled = true
     }
-  }, [departmentId])
+  }, [departmentId, requestedLayoutView])
 
   useEffect(() => {
     if (!layoutCtx?.departmentId) return
@@ -164,18 +269,19 @@ export default function Department3DLayoutPage() {
   }, [])
 
   useEffect(() => {
-    const t = location.state?.toast
-    if (!t?.ts) return
-
-    setToast({
-      kind: t.kind || 'success',
-      message: t.message || 'Saved',
-      ts: t.ts,
+    if (!navToast?.ts) return
+    pushToast({
+      kind: navToast.kind || 'success',
+      message: navToast.message || 'Saved',
+      ts: navToast.ts,
     })
+  }, [navToast, pushToast])
 
-    const timer = setTimeout(() => setToast(null), 2200)
-    return () => clearTimeout(timer)
-  }, [location.state?.toast?.ts])
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    }
+  }, [])
 
   const machineMetaById = useMemo(() => {
     const zones = deptResult?.department?.zones || []
@@ -190,11 +296,31 @@ export default function Department3DLayoutPage() {
           id,
           name: m?.name || id,
           status: m?.status || 'RUNNING',
+          zoneName: z?.name || '',
         }
       }
     }
+
+    const fallbackPlantId = layoutCtx?.plantId || ''
+    const fallbackDepartmentId = layoutCtx?.departmentId || ''
+    for (const el of draft?.elements || []) {
+      if (!el || el.type !== ELEMENT_TYPES.MACHINE) continue
+      const machineId = String(el.machineId || '').trim()
+      if (!machineId || out[machineId]) continue
+
+      const meta = el.meta && typeof el.meta === 'object' ? el.meta : {}
+      out[machineId] = {
+        id: machineId,
+        name: meta.machineName || el.label || machineId,
+        status: meta.status || 'RUNNING',
+        zoneName: meta.zoneName || '',
+        plantId: meta.plantId || fallbackPlantId,
+        departmentId: meta.departmentId || fallbackDepartmentId,
+      }
+    }
+
     return out
-  }, [deptResult])
+  }, [deptResult, draft, layoutCtx])
 
   const onOpenMachineDetails = (machineId) => {
     const mid = String(machineId || '')
@@ -272,12 +398,68 @@ export default function Department3DLayoutPage() {
     setLayoutView('current')
   }
 
+  const addMachineFromSidebar = () => {
+    if (!draft) {
+      setMachineFormError('Layout is still loading. Please try again in a second.')
+      return
+    }
+
+    const zoneName = machineForm.zoneName.trim()
+    const machineName = machineForm.machineName.trim()
+    if (!zoneName || !machineName) {
+      setMachineFormError('Enter both the zone name and machine name.')
+      return
+    }
+
+    const machineId = `${layoutCtx?.departmentId || 'dept'}-${nanoid(6)}`
+    const newId = nanoid(8)
+    const defaultModelUrl = MODEL_LIBRARY[ELEMENT_TYPES.MACHINE]?.[0]?.url || '/models/machine.glb'
+    const nextElement = {
+      id: newId,
+      type: ELEMENT_TYPES.MACHINE,
+      machineId,
+      label: machineName,
+      x: 0.5,
+      y: 0.5,
+      w: 0.12,
+      h: 0.12,
+      rotationDeg: 0,
+      scale: 1,
+      modelUrl: defaultModelUrl,
+      meta: {
+        plantId: layoutCtx?.plantId || '',
+        departmentId: layoutCtx?.departmentId || '',
+        zoneName,
+        machineName,
+        createdAt: new Date().toISOString(),
+      },
+    }
+
+    setDraft((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        elements: [...(prev.elements || []), nextElement],
+      }
+    })
+
+    setMachineForm({ zoneName: '', machineName: '' })
+    setMachineFormError('')
+    setSelectedId(newId)
+    setActiveTool('select')
+    pushToast({
+      kind: 'info',
+      message: 'Machine added — drag to adjust placement.',
+      ts: Date.now(),
+    })
+  }
+
   const applyLayoutView = (next) => {
     const v = next === 'previous' ? 'previous' : 'current'
     setLayoutView(v)
     const chosen = v === 'previous' ? layoutVersions?.previous : layoutVersions?.current
     const base = chosen || deptResult?.customLayout || createDefaultLayoutForDepartment(deptResult?.department)
-    setDraft(withThreeDDefaults(base))
+    setDraft(mergeLayoutWithDepartment(base, deptResult?.department))
     setSelectedId('')
     setActiveTool('select')
   }
@@ -323,6 +505,11 @@ export default function Department3DLayoutPage() {
   const selectedElement = selectedId
     ? (draft?.elements || []).find((e) => String(e?.id) === String(selectedId))
     : null
+  const viewerActiveTool = isFullscreen
+    ? activeTool === 'add:machine'
+      ? 'select'
+      : activeTool
+    : 'select'
 
   return (
     <div className="space-y-3">
@@ -640,6 +827,66 @@ export default function Department3DLayoutPage() {
                   Add transporter
                 </button>
               </div>
+
+              {activeTool === 'add:machine' ? (
+                <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="text-xs font-semibold text-slate-800">Enter machine details</div>
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    Plant and department IDs are filled in automatically.
+                  </div>
+                  <div className="mt-2 space-y-1 text-[11px] text-slate-600">
+                    <div className="rounded-md bg-slate-50 px-2 py-1">
+                      <span className="font-semibold">Plant ID:</span> {layoutCtx?.plantId || '—'}
+                    </div>
+                    <div className="rounded-md bg-slate-50 px-2 py-1">
+                      <span className="font-semibold">Department ID:</span> {layoutCtx?.departmentId || '—'}
+                    </div>
+                  </div>
+
+                  <label className="mt-3 block text-xs text-slate-600">
+                    Zone name
+                    <input
+                      className="mt-1 w-full rounded-md border px-2 py-1 text-xs"
+                      value={machineForm.zoneName}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setMachineForm((prev) => ({ ...prev, zoneName: value }))
+                        if (machineFormError) setMachineFormError('')
+                      }}
+                      placeholder="e.g. Assembly"
+                    />
+                  </label>
+
+                  <label className="mt-2 block text-xs text-slate-600">
+                    Machine name
+                    <input
+                      className="mt-1 w-full rounded-md border px-2 py-1 text-xs"
+                      value={machineForm.machineName}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setMachineForm((prev) => ({ ...prev, machineName: value }))
+                        if (machineFormError) setMachineFormError('')
+                      }}
+                      placeholder="e.g. CNC-07"
+                    />
+                  </label>
+
+                  {machineFormError ? (
+                    <div className="mt-2 text-[11px] text-red-600">{machineFormError}</div>
+                  ) : (
+                    <div className="mt-2 text-[11px] text-slate-500">Fill both fields, then place the machine.</div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="mt-3 w-full rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                    onClick={addMachineFromSidebar}
+                    disabled={!machineForm.zoneName.trim() || !machineForm.machineName.trim()}
+                  >
+                    Add machine to canvas
+                  </button>
+                </div>
+              ) : null}
 
               <div className="mt-4 rounded-lg border p-2">
                 <div className="text-xs font-semibold text-slate-700">Floor</div>
@@ -1080,7 +1327,7 @@ export default function Department3DLayoutPage() {
               onOpenMachineDetails={!isFullscreen ? onOpenMachineDetails : undefined}
               machineStatusVisibility={machineStatusVisibility}
               fullScreen={isFullscreen}
-              activeTool={isFullscreen ? activeTool : 'select'}
+              activeTool={viewerActiveTool}
               selectedId={isFullscreen ? selectedId : ''}
               onSelectElement={
                 isFullscreen
