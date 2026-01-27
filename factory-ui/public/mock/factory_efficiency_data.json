@@ -111,7 +111,104 @@
                     }  
                   ]
                 },
-                
+                {
+                  "id": "d11-z1",
+                  "name": "Zone C",
+                  "machines": [
+                    {
+                      "machineId": "m1",
+                      "machineName": "Machine-1",
+                      "status": "IDLE",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25344,
+                        "idleTime": 2304,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.86,
+                        "actualCycleTime": 1.67,
+                        "totalPartsProduced": 13300,
+                        "goodParts": 13080,
+                        "rejectedParts": 220
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-38"
+                      }
+                    },
+                    {
+                      "machineId": "m2",
+                      "machineName": "Machine-2",
+                      "status": "RUNNING",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25344,
+                        "idleTime": 2304,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 1.59,
+                        "actualCycleTime": 1.29,
+                        "totalPartsProduced": 7700,
+                        "goodParts": 7400,
+                        "rejectedParts": 300
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH2",
+                        "operatorName": "Operator-49"
+                      }
+                    },
+                    {
+                      "machineId": "m3",
+                      "machineName": "Machine-3",
+                      "status": "IDLE",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25344,
+                        "idleTime": 2304,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 0.84,
+                        "actualCycleTime": 1.54,
+                        "totalPartsProduced": 8410,
+                        "goodParts": 8120,
+                        "rejectedParts": 290
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH1",
+                        "operatorName": "Operator-20"
+                      }
+                    },
+                    {
+                      "machineId": "m4",
+                      "machineName": "Machine-4",
+                      "status": "DOWN",
+                      "timeMetrics": {
+                        "plannedProductionTime": 28800,
+                        "runTime": 25344,
+                        "idleTime": 2304,
+                        "breakdownTime": 0,
+                        "offTime": 1152
+                      },
+                      "productionMetrics": {
+                        "idealCycleTime": 1.15,
+                        "actualCycleTime": 1.73,
+                        "totalPartsProduced": 11090,
+                        "goodParts": 10650,
+                        "rejectedParts": 440
+                      },
+                      "shiftInfo": {
+                        "shiftId": "SH3",
+                        "operatorName": "Operator-13"
+                      }
+                    }  
+                  ]
+                },
                 {
                   "id": "d11-z2",
                   "name": "Zone B",
@@ -211,8 +308,6 @@
                    
                   ]
                 }
-                
-                
               ]
             },
             {
@@ -2574,6 +2669,7 @@
               "departmentId": "d16",
               "departmentName": "Department 6",
               "zones": [
+                
                 {
                   "id": "d16-z1",
                   "name": "Zone A",

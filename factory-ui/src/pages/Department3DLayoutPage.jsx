@@ -54,6 +54,100 @@ function withThreeDDefaults(layout) {
   }
 }
 
+function mergeLayoutWithDepartment(layout, department) {
+  const dept = department && typeof department === 'object' ? department : null
+  const base = withThreeDDefaults(layout)
+
+  // If we don't have department data, nothing to sync against.
+  if (!dept) return base
+
+  // Generate the current auto-layout from the department so we can borrow positions
+  // for any newly-added zones/machines.
+  const auto = withThreeDDefaults(createDefaultLayoutForDepartment(dept))
+
+  const baseElements = Array.isArray(base.elements) ? base.elements : []
+  const autoElements = Array.isArray(auto.elements) ? auto.elements : []
+
+  const autoById = new Map(autoElements.map((e) => [String(e.id), e]))
+  const autoMachineById = new Map(
+    autoElements
+      .filter((e) => e?.type === ELEMENT_TYPES.MACHINE && e?.machineId)
+      .map((e) => [String(e.machineId), e]),
+  )
+
+  const hasFloor = baseElements.some((e) => e?.type === ELEMENT_TYPES.FLOOR)
+  const existingZoneElementIds = new Set(
+    baseElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE).map((e) => String(e.id)),
+  )
+  const existingMachineIds = new Set(
+    baseElements
+      .filter((e) => e?.type === ELEMENT_TYPES.MACHINE && e?.machineId)
+      .map((e) => String(e.machineId)),
+  )
+
+  const toAdd = []
+
+  if (!hasFloor) {
+    const floor = autoElements.find((e) => e?.type === ELEMENT_TYPES.FLOOR) || autoById.get('floor-1')
+    if (floor) toAdd.push(floor)
+  }
+
+  const zones = Array.isArray(dept?.zones) ? dept.zones : []
+  for (let zi = 0; zi < zones.length; zi += 1) {
+    const z = zones[zi]
+    const zoneId = String(z?.id || '').trim()
+    if (!zoneId) continue
+
+    // Our default layout uses ids like: `zone-${zone.id}`.
+    const zoneElementId = `zone-${zoneId}`
+    if (!existingZoneElementIds.has(zoneElementId)) {
+      const fromAuto = autoById.get(zoneElementId)
+      toAdd.push(
+        fromAuto || {
+          id: zoneElementId,
+          type: ELEMENT_TYPES.ZONE,
+          label: z?.name || `Zone ${zi + 1}`,
+          x: 0.12,
+          y: 0.12,
+          w: 0.22,
+          h: 0.18,
+          rotationDeg: 0,
+          color: 'dark-green',
+        },
+      )
+    }
+
+    const machines = Array.isArray(z?.machines) ? z.machines : []
+    for (const m of machines) {
+      const mid = String(m?.id || '').trim()
+      if (!mid) continue
+      if (existingMachineIds.has(mid)) continue
+
+      const fromAuto = autoMachineById.get(mid)
+      toAdd.push(
+        fromAuto || {
+          id: `machine-${mid}`,
+          type: ELEMENT_TYPES.MACHINE,
+          machineId: mid,
+          x: 0.16,
+          y: 0.16,
+          w: 0.06,
+          h: 0.06,
+          rotationDeg: 0,
+        },
+      )
+    }
+  }
+
+  if (!toAdd.length) return base
+
+  // Normalize again to ensure any synthesized elements match expected shape.
+  return withThreeDDefaults({
+    ...base,
+    elements: [...baseElements, ...toAdd],
+  })
+}
+
 export default function Department3DLayoutPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -78,6 +172,9 @@ export default function Department3DLayoutPage() {
   const [activeTool, setActiveTool] = useState('select')
   const [selectedId, setSelectedId] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const requestedLayoutView = location.state?.layoutView
+  const navToast = location.state?.toast
 
   const [toast, setToast] = useState(null)
 
@@ -119,15 +216,14 @@ export default function Department3DLayoutPage() {
         })
         setLayoutVersions(versions)
 
-        const requested = location.state?.layoutView
-        const initialView = requested === 'previous' ? 'previous' : 'current'
+        const initialView = requestedLayoutView === 'previous' ? 'previous' : 'current'
         setLayoutView(initialView)
 
         const base =
           (initialView === 'previous' ? versions?.previous : versions?.current) ||
           result?.customLayout ||
           createDefaultLayoutForDepartment(result?.department)
-        setDraft(withThreeDDefaults(base))
+        setDraft(mergeLayoutWithDepartment(base, result?.department))
       } catch (e) {
         if (!cancelled) setError(e?.message || 'Failed to load department')
       } finally {
@@ -138,7 +234,7 @@ export default function Department3DLayoutPage() {
     return () => {
       cancelled = true
     }
-  }, [departmentId])
+  }, [departmentId, requestedLayoutView])
 
   useEffect(() => {
     if (!layoutCtx?.departmentId) return
@@ -164,18 +260,17 @@ export default function Department3DLayoutPage() {
   }, [])
 
   useEffect(() => {
-    const t = location.state?.toast
-    if (!t?.ts) return
+    if (!navToast?.ts) return
 
     setToast({
-      kind: t.kind || 'success',
-      message: t.message || 'Saved',
-      ts: t.ts,
+      kind: navToast.kind || 'success',
+      message: navToast.message || 'Saved',
+      ts: navToast.ts,
     })
 
     const timer = setTimeout(() => setToast(null), 2200)
     return () => clearTimeout(timer)
-  }, [location.state?.toast?.ts])
+  }, [navToast])
 
   const machineMetaById = useMemo(() => {
     const zones = deptResult?.department?.zones || []
@@ -277,7 +372,7 @@ export default function Department3DLayoutPage() {
     setLayoutView(v)
     const chosen = v === 'previous' ? layoutVersions?.previous : layoutVersions?.current
     const base = chosen || deptResult?.customLayout || createDefaultLayoutForDepartment(deptResult?.department)
-    setDraft(withThreeDDefaults(base))
+    setDraft(mergeLayoutWithDepartment(base, deptResult?.department))
     setSelectedId('')
     setActiveTool('select')
   }
