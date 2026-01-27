@@ -89,7 +89,7 @@
                     {
                       "machineId": "m4",
                       "machineName": "Machine-4",
-                      "status": "DOWN",
+                      "status": "IDLE",
                       "timeMetrics": {
                         "plannedProductionTime": 28800,
                         "runTime": 25344,
@@ -111,7 +111,7 @@
                     }  
                   ]
                 },
-                
+               
                 {
                   "id": "d11-z2",
                   "name": "Zone B",
@@ -211,8 +211,6 @@
                    
                   ]
                 }
-                
-                
               ]
             },
             {
@@ -2574,6 +2572,7 @@
               "departmentId": "d16",
               "departmentName": "Department 6",
               "zones": [
+                
                 {
                   "id": "d16-z1",
                   "name": "Zone A",

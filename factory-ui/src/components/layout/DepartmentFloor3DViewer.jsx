@@ -353,6 +353,7 @@ export default function DepartmentFloor3DViewer({
   onMoveElement,
   onUpdateElement,
   onOpenMachineDetails,
+  onPointerPositionChange,
   showMachineMarkers = true,
   showMachineLabels = true,
   machineMetaById = null,
@@ -360,6 +361,7 @@ export default function DepartmentFloor3DViewer({
   planeSize = DEFAULT_PLANE_SIZE,
   fullScreen = false,
 }) {
+  const containerRef = useRef(null)
   const [draggingId, setDraggingId] = useState('')
   const [hoverNorm, setHoverNorm] = useState(null)
   const [hoveredMachineId, setHoveredMachineId] = useState('')
@@ -475,6 +477,7 @@ export default function DepartmentFloor3DViewer({
 
   const draggingObjectRef = useRef(null)
   const draggingNormRef = useRef(null)
+  const draggingOffsetRef = useRef(null)
   const addDragRef = useRef(null)
   const addPreviewRafRef = useRef(0)
   const hoverRafRef = useRef(0)
@@ -565,7 +568,8 @@ export default function DepartmentFloor3DViewer({
 
   const selectedObjectRef = useRef(null)
   // Enable controls for both fullScreen and non-fullScreen, but restrict features in non-fullScreen
-  const controlsEnabled = (!isOverlayAddToolActive && !draggingId && !isTransforming && !isAddDrawing)
+  // Disable controls (pan/zoom) while adding or dragging zones/walkways
+  const controlsEnabled = (!isOverlayAddToolActive && !isTransforming && !isAddDrawing && !draggingId)
 
   useEffect(() => {
     const cam = cameraRef.current
@@ -603,7 +607,11 @@ export default function DepartmentFloor3DViewer({
     const raw = planeToNorm(hitX, hitZ, effectivePlaneSize)
     const next = snapNormPoint(raw)
 
-    if (isAddMode) {
+      if (typeof onPointerPositionChange === 'function') {
+        onPointerPositionChange(next)
+      }
+
+      if (isAddMode) {
       // Throttle hover updates to avoid React re-rendering on every pointermove
       // (helps on low-end GPUs/CPUs).
       if (!hoverRafRef.current) {
@@ -635,10 +643,18 @@ export default function DepartmentFloor3DViewer({
     }
 
     if (draggingId) {
-      draggingNormRef.current = next
+      let targetNorm = next
+      if (draggingOffsetRef.current) {
+        targetNorm = {
+          x: clamp01(next.x + draggingOffsetRef.current.x),
+          y: clamp01(next.y + draggingOffsetRef.current.y),
+        }
+      }
+
+      draggingNormRef.current = targetNorm
       const obj = draggingObjectRef.current
       if (obj) {
-        const pos = normToPlane(next.x, next.y, effectivePlaneSize)
+        const pos = normToPlane(targetNorm.x, targetNorm.y, effectivePlaneSize)
         obj.position.x = pos.x
         obj.position.z = pos.z
       }
@@ -712,19 +728,18 @@ export default function DepartmentFloor3DViewer({
       const dragged = normalizedElements.find((e) => String(e?.id) === String(draggingId))
       const nextCenter = draggingNormRef.current
 
-      if (dragged?.type === ELEMENT_TYPES.ZONE || dragged?.type === ELEMENT_TYPES.WALKWAY) {
-        const wNorm = clamp01(Number(dragged?.w) || 0.2)
-        const hNorm = clamp01(Number(dragged?.h) || 0.12)
-        onMoveElement(String(draggingId), {
-          x: clamp01((Number(nextCenter?.x) || 0) - wNorm / 2),
-          y: clamp01((Number(nextCenter?.y) || 0) - hNorm / 2),
-        })
-      } else {
-        onMoveElement(String(draggingId), nextCenter)
+      const wNorm = clamp01(Number(dragged?.w) || 0.12)
+      const hNorm = clamp01(Number(dragged?.h) || 0.12)
+      const patch = {
+        x: clamp01((Number(nextCenter?.x) || 0) - wNorm / 2),
+        y: clamp01((Number(nextCenter?.y) || 0) - hNorm / 2),
       }
+
+      onMoveElement(String(draggingId), patch)
     }
     draggingObjectRef.current = null
     draggingNormRef.current = null
+    draggingOffsetRef.current = null
     setDraggingId('')
     setCursor('default')
     // Re-enable camera only if current mode allows it.
@@ -732,13 +747,31 @@ export default function DepartmentFloor3DViewer({
     setOrbitEnabledNow(!isOverlayAddToolActive && !isTransforming && !isAddDrawing)
   }
 
+  // In preview mode, prevent the page from scrolling while the user zooms the canvas.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const onWheel = (e) => {
+      // Only lock page scroll for the embedded (non-fullscreen) viewer.
+      // Fullscreen already captures focus and users may still want normal wheel behavior
+      // depending on browser/device.
+      if (fullScreen) return
+      e.preventDefault()
+    }
+
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [fullScreen])
+
   return (
     <div
+      ref={containerRef}
       className="relative w-full overflow-hidden rounded-xl border bg-slate-950"
       style={
         fullScreen
           ? { height: '100%', minHeight: 0 }
-          : { height: '60vh', maxHeight: 560, minHeight: 320 }
+          : { height: '60vh', maxHeight: 560, minHeight: 320, overscrollBehavior: 'contain' }
       }
     >
       <ErrorBoundary
@@ -764,6 +797,7 @@ export default function DepartmentFloor3DViewer({
           gl={{ antialias: false, powerPreference: 'high-performance' }}
           // Preview mode is mostly static; render on demand to keep hover/modal interactions snappy.
           frameloop={fullScreen ? 'always' : 'demand'}
+          // frameloop={'always'}
           onCreated={({ camera }) => {
             cameraRef.current = camera
             const [cx, cy, cz] = cameraPosition
@@ -812,24 +846,13 @@ export default function DepartmentFloor3DViewer({
                   position={[pos.x, effectiveFloorY + 0.0005, pos.z]}
                   rotation={[0, rot, 0]}
                   onPointerDown={allowEdit ? (e) => {
-                    if (id === '__default_floor__') return
                     if (isAddMode) {
                       handleAddPointerDown(e)
                       return
                     }
+                    if (id === '__default_floor__') return
                     e.stopPropagation()
                     if (typeof onSelectElement === 'function') onSelectElement(id)
-
-                    if (isTransforming) return
-
-                    if (typeof onMoveElement === 'function' && activeTool === 'select') {
-                      draggingObjectRef.current = e.eventObject?.parent || null
-                      draggingNormRef.current = null
-                      setDraggingId(id)
-                      setCursor('grabbing')
-                      setOrbitEnabledNow(false)
-                      capturePointer(e)
-                    }
                   } : undefined}
                   onPointerMove={allowEdit ? (e) => {
                     handleFloorPointerMove(e)
@@ -898,6 +921,20 @@ export default function DepartmentFloor3DViewer({
                     // eventObject is one of the meshes; move its parent group.
                     draggingObjectRef.current = e.eventObject?.parent || null
                     draggingNormRef.current = null
+                    if (typeof getFloorHitFromEvent === 'function') {
+                      const hit = getFloorHitFromEvent(e)
+                      if (hit) {
+                        const pointerNorm = planeToNorm(hit.x, hit.z, effectivePlaneSize)
+                        draggingOffsetRef.current = {
+                          x: clamp01(cx) - pointerNorm.x,
+                          y: clamp01(cy) - pointerNorm.y,
+                        }
+                      } else {
+                        draggingOffsetRef.current = null
+                      }
+                    } else {
+                      draggingOffsetRef.current = null
+                    }
                     setDraggingId(id)
                     setCursor('grabbing')
                     setOrbitEnabledNow(false)
@@ -990,6 +1027,20 @@ export default function DepartmentFloor3DViewer({
                   if (typeof onMoveElement === 'function' && activeTool === 'select') {
                     draggingObjectRef.current = e.eventObject?.parent || null
                     draggingNormRef.current = null
+                    if (typeof getFloorHitFromEvent === 'function') {
+                      const hit = getFloorHitFromEvent(e)
+                      if (hit) {
+                        const pointerNorm = planeToNorm(hit.x, hit.z, effectivePlaneSize)
+                        draggingOffsetRef.current = {
+                          x: clamp01(cx) - pointerNorm.x,
+                          y: clamp01(cy) - pointerNorm.y,
+                        }
+                      } else {
+                        draggingOffsetRef.current = null
+                      }
+                    } else {
+                      draggingOffsetRef.current = null
+                    }
                     setDraggingId(id)
                     setCursor('grabbing')
                     setOrbitEnabledNow(false)
@@ -1227,6 +1278,26 @@ export default function DepartmentFloor3DViewer({
                     if (typeof onMoveElement === 'function' && activeTool === 'select') {
                       draggingObjectRef.current = e.eventObject
                       draggingNormRef.current = null
+                      if (typeof getFloorHitFromEvent === 'function') {
+                        const hit = getFloorHitFromEvent(e)
+                        if (hit) {
+                          const pointerNorm = planeToNorm(hit.x, hit.z, effectivePlaneSize)
+                          const wNorm = clamp01(Number(el.w) || 0.12)
+                          const hNorm = clamp01(Number(el.h) || 0.12)
+                          const center = {
+                            x: clamp01((Number(el.x) || 0) + wNorm / 2),
+                            y: clamp01((Number(el.y) || 0) + hNorm / 2),
+                          }
+                          draggingOffsetRef.current = {
+                            x: center.x - pointerNorm.x,
+                            y: center.y - pointerNorm.y,
+                          }
+                        } else {
+                          draggingOffsetRef.current = null
+                        }
+                      } else {
+                        draggingOffsetRef.current = null
+                      }
                       setDraggingId(String(el.id))
                       setCursor('grabbing')
                       setOrbitEnabledNow(false)
@@ -1380,7 +1451,8 @@ export default function DepartmentFloor3DViewer({
             ref={orbitRef}
             enablePan={fullScreen}
             enableZoom={true}
-            enableRotate={true}
+            // Keep preview mode mostly static: allow zoom, but no rotate.
+            enableRotate={fullScreen}
             // Keep preview zoom range tighter so it looks like the desired default.
             minDistance={fullScreen ? effectivePlaneSize * 0.25 : effectivePlaneSize * 0.18}
             maxDistance={fullScreen ? effectivePlaneSize * 3.0 : effectivePlaneSize * 1.25}
