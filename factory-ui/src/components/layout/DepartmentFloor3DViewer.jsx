@@ -353,6 +353,7 @@ export default function DepartmentFloor3DViewer({
   onMoveElement,
   onUpdateElement,
   onOpenMachineDetails,
+  onPointerPositionChange,
   showMachineMarkers = true,
   showMachineLabels = true,
   machineMetaById = null,
@@ -606,7 +607,11 @@ export default function DepartmentFloor3DViewer({
     const raw = planeToNorm(hitX, hitZ, effectivePlaneSize)
     const next = snapNormPoint(raw)
 
-    if (isAddMode) {
+      if (typeof onPointerPositionChange === 'function') {
+        onPointerPositionChange(next)
+      }
+
+      if (isAddMode) {
       // Throttle hover updates to avoid React re-rendering on every pointermove
       // (helps on low-end GPUs/CPUs).
       if (!hoverRafRef.current) {
