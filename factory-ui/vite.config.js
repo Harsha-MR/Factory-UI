@@ -8,7 +8,7 @@ export default defineConfig({
     // Forward /api/* to the local Node+MongoDB API during development.
     proxy: {
       '/api': {
-        target: 'http://localhost:5174',
+        target: 'http://localhost:3000',
         changeOrigin: true,
       },
     },

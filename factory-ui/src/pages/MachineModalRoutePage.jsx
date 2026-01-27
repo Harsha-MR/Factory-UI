@@ -66,7 +66,7 @@ export default function MachineModalRoutePage() {
       return
     }
     // Direct URL entry: fall back to department page.
-    navigate(`/departments/${departmentId}`)
+    navigate(`/departments/${departmentId}/layout-3d`)
   }
 
   const modalContext = useMemo(() => {
