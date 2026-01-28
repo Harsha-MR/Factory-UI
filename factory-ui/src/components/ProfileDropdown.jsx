@@ -24,18 +24,21 @@ export default function ProfileDropdown() {
 
   return (
     <div className="relative" ref={dropdownRef}>
+      {/* PROFILE BUTTON (FIXED HEIGHT) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors duration-200"
+        className="flex items-center gap-2 h-8 px-2 rounded-md bg-slate-700 hover:bg-slate-600 transition-colors duration-200"
         aria-label="Profile menu"
       >
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm">
+        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-xs">
           W
         </div>
-        <div className="hidden lg:flex flex-col items-start">
-          <span className="text-sm font-medium text-white">Wimera</span>
-          <span className="text-xs text-slate-400">Admin</span>
+
+        <div className="hidden lg:flex flex-col justify-center leading-none">
+          <span className="text-xs font-medium text-white">Wimera</span>
+          <span className="text-[10px] text-slate-400">Admin</span>
         </div>
+
         <ChevronDown
           className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -43,6 +46,7 @@ export default function ProfileDropdown() {
         />
       </button>
 
+      {/* DROPDOWN (UNCHANGED) */}
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-slate-800 rounded-lg shadow-xl border border-slate-700 py-2 z-50 animate-in fade-in slide-in-from-top-2">
           <div className="px-4 py-3 border-b border-slate-700">

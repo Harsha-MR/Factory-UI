@@ -9,7 +9,8 @@ export default function AppShell() {
       <GlobalDownMachineAlerts />
       <Header />
 
-      <main className="flex-1 py-4 sm:py-6">
+      {/* REMOVE TOP/BOTTOM PADDING HERE */}
+      <main className="flex-1 pt-0 pb-0">
         <div className="app-container">
           <Outlet />
         </div>

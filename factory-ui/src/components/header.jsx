@@ -1,6 +1,7 @@
 import { Factory, Menu, X } from "lucide-react";
 import { useState } from "react";
 import ProfileDropdown from "./ProfileDropdown";
+
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -12,70 +13,53 @@ export default function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 shadow-lg border-b border-slate-700">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-12">
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="bg-gradient-to-br from-blue-500 to-cyan-500 p-1.5 rounded-md">
-              <Factory className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex flex-col">
-              <h1 className="text-lg font-semibold text-white tracking-tight leading-none">
-                Factory UI
-              </h1>
-              <p className="text-xs text-slate-400">Production Management</p>
-            </div>
+    <header className="sticky top-0 z-50 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
+      {/* FULL WIDTH HEADER — NO PADDING, NO BORDER, NO SHADOW */}
+      <div className="flex items-center h-12 w-full">
+        {/* EXTREME LEFT — FACTORY */}
+        <div className="flex items-center gap-3">
+          <div className="bg-gradient-to-br from-blue-500 to-cyan-500 p-1.5 rounded-md">
+            <Factory className="w-5 h-5 text-white" />
           </div>
-
-          <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="px-2 py-1.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all duration-200"
-              >
-                {link.label}
-              </a>
-            ))}
-          </nav>
-
-          <div className="hidden md:flex items-center gap-4">
-            <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors duration-200">
-              Help
-            </button>
-            <ProfileDropdown />
+          <div className="flex flex-col">
+            <h1 className="text-lg font-semibold text-white leading-none">
+              Factory UI
+            </h1>
+            <p className="text-xs text-slate-400 leading-none">
+              Production Management
+            </p>
           </div>
-
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors"
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
         </div>
 
-        {mobileMenuOpen && (
-          <nav className="md:hidden pb-4 border-t border-slate-700 pt-4 animate-in fade-in slide-in-from-top-2">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="block px-3 py-2 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all duration-200"
-              >
-                {link.label}
-              </a>
-            ))}
-            {/*Mobile Profile Dropdown */}
-            <div className="mt-4 pt-4 border-t border-slate-700">
-              <ProfileDropdown />
-            </div>
-          </nav>
-        )}
+        {/* CENTER NAV */}
+        <nav className="hidden md:flex items-center gap-1 mx-auto">
+          {navLinks.map((link) => (
+            <a
+              key={link.label}
+              href={link.href}
+              className="px-2 py-1.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition"
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
+
+        {/* EXTREME RIGHT — HELP + PROFILE */}
+        <div className="hidden md:flex items-center gap-3 ml-auto">
+          <button className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium">
+            Help
+          </button>
+          <ProfileDropdown />
+        </div>
+
+        {/* MOBILE MENU */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden ml-auto p-2 text-slate-300 hover:bg-slate-700 rounded-md"
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? <X /> : <Menu />}
+        </button>
       </div>
     </header>
   );
