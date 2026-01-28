@@ -6,7 +6,7 @@ import makeAuthRoutes from './routes/auth.js'
 
 dotenv.config()
 
-const PORT = Number(process.env.PORT || process.env.API_PORT || 5174)
+const PORT = Number(process.env.PORT || 3000)
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017'
 const MONGODB_DB = process.env.MONGODB_DB || 'factory_ui'
 
