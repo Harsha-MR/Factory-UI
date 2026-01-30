@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { login } from '../services/api';
 
 export default function LoginPage() {
   const [userId, setUserId] = useState('');
@@ -17,22 +18,10 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, password })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Login failed');
-        setLoading(false);
-        return;
-      }
-      localStorage.setItem('factory-ui:userId', data.userId);
-      localStorage.setItem('factory-ui:token', data.token);
-      navigate('/dashboard');
+      await login(userId, password);
+      navigate('/');
     } catch (err) {
-      setError('Network error');
+      setError(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
