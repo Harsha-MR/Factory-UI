@@ -62,7 +62,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {Object.entries(footerLinks).map(([title, links]) => (
+          {Object.entries(footerLinks).map(([title, links], idx) => (
             <div key={title}>
               <h4 className="text-sm font-semibold text-white mb-4">{title}</h4>
               <ul className="space-y-2">
@@ -79,53 +79,28 @@ export default function Footer() {
               </ul>
             </div>
           ))}
-        </div>
-
-        <div className="border-t border-slate-700 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <Mail className="w-5 h-5 text-blue-500 mt-0.5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-200">Email</p>
-                <a
-                  href="mailto:support@factoryui.com"
-                  className="text-sm text-slate-400 hover:text-white"
-                >
-                  support@factoryui.com
-                </a>
-              </div>
+          {/* Contact info column to the left of Legal */}
+          <div className="flex flex-col gap-5 justify-start">
+            <h4 className="text-sm font-semibold text-white ">Contact</h4>
+            <div className="flex gap-2 items-center">
+              <Mail className="w-4 h-4 text-blue-500" />
+              <span className="text-xs font-medium text-slate-200">Email:</span>
+              <a href="mailto:support@factoryui.com" className="text-xs text-slate-400 hover:text-white">support@factoryui.com</a>
             </div>
-
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <Phone className="w-5 h-5 text-blue-500 mt-0.5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-200">Phone</p>
-                <a
-                  href="tel:+1234567890"
-                  className="text-sm text-slate-400 hover:text-white"
-                >
-                  +1 (234) 567-890
-                </a>
-              </div>
+            <div className="flex gap-2 items-center">
+              <Phone className="w-4 h-4 text-blue-500" />
+              <span className="text-xs font-medium text-slate-200">Phone:</span>
+              <a href="tel:+1234567890" className="text-xs text-slate-400 hover:text-white">+1 (234) 567-890</a>
             </div>
-
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <MapPin className="w-5 h-5 text-blue-500 mt-0.5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-200">Location</p>
-                <p className="text-sm text-slate-400">
-                  123 Industrial Way, Tech City, TC 12345
-                </p>
-              </div>
+            <div className="flex gap-2 items-center">
+              <MapPin className="w-4 h-4 text-blue-500" />
+              <span className="text-xs font-medium text-slate-200">Location:</span>
+              <span className="text-xs text-slate-400">123 Industrial Way, Tech City, TC 12345</span>
             </div>
           </div>
         </div>
+
+        {/* Contact info moved to Legal column above */}
 
         <div className="border-t border-slate-700 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-slate-400">
