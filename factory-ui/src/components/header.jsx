@@ -15,9 +15,9 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
       {/* FULL WIDTH HEADER — NO PADDING, NO BORDER, NO SHADOW */}
-      <div className="flex items-center h-12 w-full">
+      <div className="flex items-center h-12 w-full ">
         {/* EXTREME LEFT — FACTORY */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 pl-6">
           <div className="bg-gradient-to-br from-blue-500 to-cyan-500 p-1.5 rounded-md">
             <Factory className="w-5 h-5 text-white" />
           </div>
@@ -32,7 +32,7 @@ export default function Header() {
         </div>
 
         {/* CENTER NAV */}
-        <nav className="hidden md:flex items-center gap-1 mx-auto">
+        <nav className="hidden md:flex items-center gap-5 mx-auto">
           {navLinks.map((link) => (
             <a
               key={link.label}
@@ -45,21 +45,23 @@ export default function Header() {
         </nav>
 
         {/* EXTREME RIGHT — HELP + PROFILE */}
-        <div className="hidden md:flex items-center gap-3 ml-auto">
+        <div className="hidden md:flex items-center gap-3 ml-auto pr-6 ">
           <button className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium">
             Help
           </button>
           <ProfileDropdown />
         </div>
 
-        {/* MOBILE MENU */}
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden ml-auto p-2 text-slate-300 hover:bg-slate-700 rounded-md"
-          aria-label="Toggle menu"
-        >
-          {mobileMenuOpen ? <X /> : <Menu />}
-        </button>
+          {/* MOBILE MENU */}
+        
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden ml-auto p-2 text-slate-300 hover:bg-slate-700 rounded-md "
+            aria-label="Toggle menu"
+            >
+            {mobileMenuOpen ? <X /> : <Menu />}
+          </button>
+        
       </div>
     </header>
   );

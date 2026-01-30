@@ -242,7 +242,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-3">
       <div>
-        <h1 className="text-xl font-semibold text-white m-0 leading-none">
+        <h1 className="text-xl font-semibold text-white m-0 leading-none pt-2">
           Dashboard
         </h1>
       </div>
