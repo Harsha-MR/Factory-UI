@@ -7,11 +7,11 @@ import { useNavigate } from 'react-router-dom'
 
 export default function AppShell() {
   const navigate = useNavigate();
-  const userId = typeof localStorage !== 'undefined' ? localStorage.getItem('factory-ui:userId') : '';
+  const userId = typeof localStorage !== 'undefined' ? localStorage.getItem('user') : '';
 
   const handleLogout = () => {
     if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('factory-ui:userId');
+      localStorage.removeItem('user');
     }
     navigate('/login');
   };
