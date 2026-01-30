@@ -1,21 +1,9 @@
 const STORAGE_PREFIX = 'factory-ui:dept-layout'
 
-function resolveUserId() {
-  // This app currently has no auth provider. When you add login,
-  // replace this with the logged-in user's stable identifier.
-  try {
-    // Allow an injected global in case the host app sets it.
-    const globalId = typeof window !== 'undefined' ? window.__FACTORY_UI_USER_ID__ : ''
-    if (globalId) return String(globalId).trim() || 'shared'
 
-    // Fallback for local testing:
-    // localStorage.setItem('factory-ui:userId', 'employee-123')
-    const ls = typeof localStorage !== 'undefined' ? localStorage.getItem('factory-ui:userId') : ''
-    if (ls) return String(ls).trim() || 'shared'
-  } catch {
-    // ignore
-  }
-  return 'shared'
+function getAuthHeaders() {
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('factory-ui:token') : '';
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
 function buildKey({ factoryId, plantId, departmentId }) {
@@ -128,63 +116,53 @@ export function getDepartmentCustomLayoutVersions(ctx) {
 }
 
 export async function fetchDepartmentCustomLayoutVersions(ctx) {
-  if (!canUseDevApi()) return getDepartmentCustomLayoutVersions(ctx)
-
+  if (!canUseDevApi()) return getDepartmentCustomLayoutVersions(ctx);
   try {
-    const url = new URL('/api/layouts', window.location.origin)
-    url.searchParams.set('factoryId', String(ctx?.factoryId || ''))
-    url.searchParams.set('plantId', String(ctx?.plantId || ''))
-    url.searchParams.set('departmentId', String(ctx?.departmentId || ''))
-    url.searchParams.set('userId', resolveUserId())
-
-    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } })
+    const url = new URL('/api/layouts', window.location.origin);
+    url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
+    url.searchParams.set('plantId', String(ctx?.plantId || ''));
+    url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json', ...getAuthHeaders() } });
     if (res.ok) {
-      const json = await res.json()
-      const bundle = normalizeStoredBundle(json)
-      // Intentionally do NOT cache in localStorage (per requirement).
-      return bundle
+      const json = await res.json();
+      const bundle = normalizeStoredBundle(json);
+      return bundle;
     }
   } catch {
     // ignore and fall back
   }
-
-  return getDepartmentCustomLayoutVersions(ctx)
+  return getDepartmentCustomLayoutVersions(ctx);
 }
 
 export function saveDepartmentCustomLayout(ctx, layout) {
   const nextCurrent = sanitizeDepartmentLayout({
     ...layout,
     updatedAt: new Date().toISOString(),
-  })
-
-  // Persist to backend API (best-effort). No browser storage.
-  if (!canUseDevApi()) return
+  });
+  if (!canUseDevApi()) return;
   try {
-    const url = new URL('/api/layouts', window.location.origin)
-    url.searchParams.set('factoryId', String(ctx?.factoryId || ''))
-    url.searchParams.set('plantId', String(ctx?.plantId || ''))
-    url.searchParams.set('departmentId', String(ctx?.departmentId || ''))
-    url.searchParams.set('userId', resolveUserId())
-
+    const url = new URL('/api/layouts', window.location.origin);
+    url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
+    url.searchParams.set('plantId', String(ctx?.plantId || ''));
+    url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
     void fetch(url.toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ layout: nextCurrent }),
-    }).catch(() => {})
+    }).catch(() => {});
   } catch {
     // ignore
   }
 }
 
 export function deleteDepartmentCustomLayout(ctx) {
-  if (!canUseDevApi()) return
+  if (!canUseDevApi()) return;
   try {
-    const url = new URL('/api/layouts', window.location.origin)
-    url.searchParams.set('factoryId', String(ctx?.factoryId || ''))
-    url.searchParams.set('plantId', String(ctx?.plantId || ''))
-    url.searchParams.set('departmentId', String(ctx?.departmentId || ''))
-    url.searchParams.set('userId', resolveUserId())
-    void fetch(url.toString(), { method: 'DELETE' }).catch(() => {})
+    const url = new URL('/api/layouts', window.location.origin);
+    url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
+    url.searchParams.set('plantId', String(ctx?.plantId || ''));
+    url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
+    void fetch(url.toString(), { method: 'DELETE', headers: getAuthHeaders() }).catch(() => {});
   } catch {
     // ignore
   }
