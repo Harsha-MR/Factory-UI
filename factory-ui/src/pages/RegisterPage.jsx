@@ -47,24 +47,29 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100">
       <form className="w-full max-w-xs rounded-lg bg-white p-6 shadow" onSubmit={handleRegister}>
-        <h2 className="mb-4 text-xl font-bold text-slate-800">Register</h2>
+        <div className="flex flex-col items-center justify-center flex-1">
+          <h2 className="mb-6 text-2xl font-bold text-slate-800">Register</h2>
+        </div>
         <label className="block mb-2 text-sm font-medium text-slate-700">User ID</label>
         <input
-          className="mb-4 w-full rounded border px-3 py-2 text-sm"
+          className="mb-4 w-full rounded border px-3 py-2 text-sm text-black "
+          placeholder="Enter your user ID"
           value={userId}
           onChange={e => setUserId(e.target.value)}
           autoFocus
         />
         <label className="block mb-2 text-sm font-medium text-slate-700">Password</label>
         <input
-          className="mb-4 w-full rounded border px-3 py-2 text-sm"
+          className="mb-4 w-full rounded border px-3 py-2 text-sm text-black "
+          placeholder='Enter your password'
           type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
         />
         <label className="block mb-2 text-sm font-medium text-slate-700">Confirm Password</label>
         <input
-          className="mb-4 w-full rounded border px-3 py-2 text-sm"
+          className="mb-4 w-full rounded border px-3 py-2 text-sm text-black "
+          placeholder="Confirm your password"
           type="password"
           value={confirm}
           onChange={e => setConfirm(e.target.value)}

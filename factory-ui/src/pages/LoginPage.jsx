@@ -29,18 +29,22 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100">
-      <form className="w-full max-w-xs rounded-lg bg-white p-6 shadow" onSubmit={handleLogin}>
-        <h2 className="mb-4 text-xl font-bold text-slate-800">Login</h2>
+      <form className="w-full max-w-xs rounded-lg bg-white p-6 shadow flex flex-col justify-center min-h-[200px]" onSubmit={handleLogin}>
+        <div className="flex flex-col items-center justify-center flex-1">
+          <h2 className="mb-6 text-2xl font-bold text-slate-800">Login</h2>
+        </div>
         <label className="block mb-2 text-sm font-medium text-slate-700">User ID</label>
         <input
-          className="mb-4 w-full rounded border px-3 py-2 text-sm"
+          className="mb-4 w-full rounded border px-3 py-2 text-sm text-black placeholder-gray-400"
+          placeholder="Enter your userID"
           value={userId}
           onChange={e => setUserId(e.target.value)}
           autoFocus
         />
         <label className="block mb-2 text-sm font-medium text-slate-700">Password</label>
         <input
-          className="mb-4 w-full rounded border px-3 py-2 text-sm"
+          className="mb-4 w-full rounded border px-3 py-2 text-sm text-black placeholder-gray-400"
+          placeholder="Enter your password"
           type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
