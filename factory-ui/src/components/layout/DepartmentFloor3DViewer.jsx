@@ -1,26 +1,41 @@
-import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
-import { Billboard, Edges, OrbitControls, Text, TransformControls, useGLTF } from '@react-three/drei'
-import { Box3, Color, MOUSE, Plane, Vector2, Vector3 } from 'three'
+import {
+  Component,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Canvas, useThree } from "@react-three/fiber";
+import {
+  Billboard,
+  Edges,
+  OrbitControls,
+  Text,
+  TransformControls,
+  useGLTF,
+} from "@react-three/drei";
+import { Box3, Color, MOUSE, Plane, Vector2, Vector3 } from "three";
 
-import { ELEMENT_TYPES } from './layoutTypes'
+import { ELEMENT_TYPES } from "./layoutTypes";
 
-const DEFAULT_PLANE_SIZE = 10
+const DEFAULT_PLANE_SIZE = 10;
 
 const DEFAULT_MODEL_URLS = {
-  [ELEMENT_TYPES.MACHINE]: '/models/machine.glb',
-  [ELEMENT_TYPES.WALKWAY]: '/models/walkway.glb',
-  [ELEMENT_TYPES.TRANSPORTER]: '/models/transporter.glb',
-}
+  [ELEMENT_TYPES.MACHINE]: "/models/machine.glb",
+  [ELEMENT_TYPES.WALKWAY]: "/models/walkway.glb",
+  [ELEMENT_TYPES.TRANSPORTER]: "/models/transporter.glb",
+};
+const CAMERA_TARGET_LIFT = 0.15;
 
 class ErrorBoundary extends Component {
   constructor(props) {
-    super(props)
-    this.state = { hasError: false }
+    super(props);
+    this.state = { hasError: false };
   }
 
   static getDerivedStateFromError() {
-    return { hasError: true }
+    return { hasError: true };
   }
 
   componentDidCatch() {
@@ -29,95 +44,98 @@ class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
-      return typeof this.props.fallback === 'function' ? this.props.fallback() : this.props.fallback || null
+      return typeof this.props.fallback === "function"
+        ? this.props.fallback()
+        : this.props.fallback || null;
     }
-    return this.props.children
+    return this.props.children;
   }
 }
 
 function clamp(n, min, max) {
-  if (!Number.isFinite(n)) return min
-  return Math.max(min, Math.min(max, n))
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
 }
 
 function clamp01(n) {
-  if (!Number.isFinite(n)) return 0
-  return Math.min(1, Math.max(0, n))
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(1, Math.max(0, n));
 }
 
 function abbreviateMachineName(raw) {
-  const name = String(raw || '').trim()
-  if (!name) return 'MA'
+  const name = String(raw || "").trim();
+  if (!name) return "MA";
 
   // Match: "Machine 1", "Machine-1", "MACHINE_01" -> MA-1
-  const m = name.match(/\bmachine\b\s*[-_]?\s*(\d+)/i)
-  if (m) return `MA-${Number.parseInt(m[1], 10)}`
+  const m = name.match(/\bmachine\b\s*[-_]?\s*(\d+)/i);
+  if (m) return `MA-${Number.parseInt(m[1], 10)}`;
 
   // Generic: take an uppercase prefix + trailing number
-  const parts = name.split(/\s*[-_\s]+\s*/).filter(Boolean)
-  const head = parts[0] || name
-  const last = parts[parts.length - 1] || ''
-  const numMatch = last.match(/(\d+)/)
+  const parts = name.split(/\s*[-_\s]+\s*/).filter(Boolean);
+  const head = parts[0] || name;
+  const last = parts[parts.length - 1] || "";
+  const numMatch = last.match(/(\d+)/);
 
-  const isAllCapsShort = /^[A-Z0-9]{2,4}$/.test(head)
-  const prefix = isAllCapsShort ? head : head.slice(0, 2).toUpperCase()
+  const isAllCapsShort = /^[A-Z0-9]{2,4}$/.test(head);
+  const prefix = isAllCapsShort ? head : head.slice(0, 2).toUpperCase();
 
-  if (numMatch) return `${prefix}-${Number.parseInt(numMatch[1], 10)}`
-  return prefix
+  if (numMatch) return `${prefix}-${Number.parseInt(numMatch[1], 10)}`;
+  return prefix;
 }
 
 function statusColor(status) {
-  const s = String(status || '').toUpperCase()
-  if (s === 'DOWN') return '#ef4444'
-  if (s === 'IDLE') return '#eab308'
-  if (s === 'WARNING') return '#f59e0b'
-  if (s === 'MAINTENANCE') return '#a855f7'
-  if (s === 'OFFLINE') return '#94a3b8'
-  return '#22c55e' // RUNNING (default)
+  const s = String(status || "").toUpperCase();
+  if (s === "DOWN") return "#ef4444";
+  if (s === "IDLE") return "#eab308";
+  if (s === "WARNING") return "#f59e0b";
+  if (s === "MAINTENANCE") return "#a855f7";
+  if (s === "OFFLINE") return "#94a3b8";
+  return "#22c55e"; // RUNNING (default)
 }
 
 function zoneFillColor(colorKey) {
-  const k = String(colorKey || '').toLowerCase()
-  if (k === 'dark-green' || k === 'darkgreen' || k === 'green') return '#14532d'
-  if (k === 'orange') return '#f97316'
-  if (k === 'yellow') return '#facc15'
-  return '#14532d'
+  const k = String(colorKey || "").toLowerCase();
+  if (k === "dark-green" || k === "darkgreen" || k === "green")
+    return "#14532d";
+  if (k === "orange") return "#f97316";
+  if (k === "yellow") return "#facc15";
+  return "#14532d";
 }
 
 function computeMachineOeePct(machine) {
-  const time = machine?.timeMetrics || {}
-  const prod = machine?.productionMetrics || {}
+  const time = machine?.timeMetrics || {};
+  const prod = machine?.productionMetrics || {};
 
-  const planned = Number(time.plannedProductionTime ?? NaN)
-  const runtime = Number(time.runTime ?? NaN)
-  const idealCycleTime = Number(prod.idealCycleTime ?? NaN)
-  const totalParts = Number(prod.totalPartsProduced ?? NaN)
-  const goodParts = Number(prod.goodParts ?? NaN)
+  const planned = Number(time.plannedProductionTime ?? NaN);
+  const runtime = Number(time.runTime ?? NaN);
+  const idealCycleTime = Number(prod.idealCycleTime ?? NaN);
+  const totalParts = Number(prod.totalPartsProduced ?? NaN);
+  const goodParts = Number(prod.goodParts ?? NaN);
 
-  if (!Number.isFinite(planned) || planned <= 0) return null
-  if (!Number.isFinite(runtime) || runtime <= 0) return null
-  if (!Number.isFinite(idealCycleTime) || idealCycleTime <= 0) return null
-  if (!Number.isFinite(totalParts) || totalParts <= 0) return null
-  if (!Number.isFinite(goodParts) || goodParts < 0) return null
+  if (!Number.isFinite(planned) || planned <= 0) return null;
+  if (!Number.isFinite(runtime) || runtime <= 0) return null;
+  if (!Number.isFinite(idealCycleTime) || idealCycleTime <= 0) return null;
+  if (!Number.isFinite(totalParts) || totalParts <= 0) return null;
+  if (!Number.isFinite(goodParts) || goodParts < 0) return null;
 
-  const availability = runtime / planned
-  const performance = (idealCycleTime * totalParts) / runtime
-  const quality = goodParts / totalParts
-  const oee = clamp01(availability) * clamp01(performance) * clamp01(quality)
-  return oee * 100
+  const availability = runtime / planned;
+  const performance = (idealCycleTime * totalParts) / runtime;
+  const quality = goodParts / totalParts;
+  const oee = clamp01(availability) * clamp01(performance) * clamp01(quality);
+  return oee * 100;
 }
 
 function machineModelUrlForStatus(status) {
-  const s = String(status || '').toUpperCase()
-  if (s === 'DOWN') return '/models/machine-down.glb'
-  if (s === 'IDLE') return '/models/machine-idle.glb'
+  const s = String(status || "").toUpperCase();
+  if (s === "DOWN") return "/models/machine-down.glb";
+  if (s === "IDLE") return "/models/machine-idle.glb";
   // Default to RUNNING for unknown/other states.
-  return '/models/machine-running.glb'
+  return "/models/machine-running.glb";
 }
 
 function setCursor(cursor) {
-  if (typeof document === 'undefined') return
-  document.body.style.cursor = cursor || 'default'
+  if (typeof document === "undefined") return;
+  document.body.style.cursor = cursor || "default";
 }
 
 function noRaycast() {
@@ -125,30 +143,46 @@ function noRaycast() {
 }
 
 function MachineHoverTooltip3D({ title, status, oeePct, accentColor }) {
-  const safeTitle = String(title || 'Machine')
-  const safeStatus = String(status || '—')
-  const oeeText = oeePct == null ? '—' : `${Number(oeePct).toFixed(1)}%`
-  const accent = accentColor || '#22c55e'
+  const safeTitle = String(title || "Machine");
+  const safeStatus = String(status || "—");
+  const oeeText = oeePct == null ? "—" : `${Number(oeePct).toFixed(1)}%`;
+  const accent = accentColor || "#22c55e";
 
   // Static sizing in world units; works well for the fixed preview camera.
-  const w = 1.55
-  const h = 0.62
-  const padX = 0.09
-  const z = 0.012
+  const w = 1.55;
+  const h = 0.62;
+  const padX = 0.09;
+  const z = 0.012;
 
   // Very high renderOrder so it stays above zone labels/text.
-  const TOP = 10000
+  const TOP = 10000;
 
   return (
     <Billboard follow lockX lockZ>
       <group renderOrder={TOP}>
         <mesh raycast={noRaycast} position={[w / 2, 0, 0]} renderOrder={TOP}>
           <planeGeometry args={[w, h]} />
-          <meshBasicMaterial color="#0b1020" transparent opacity={0.92} depthWrite={false} depthTest={false} />
+          <meshBasicMaterial
+            color="#0b1020"
+            transparent
+            opacity={0.92}
+            depthWrite={false}
+            depthTest={false}
+          />
         </mesh>
-        <mesh raycast={noRaycast} position={[0.08, 0.12, z]} renderOrder={TOP + 1}>
+        <mesh
+          raycast={noRaycast}
+          position={[0.08, 0.12, z]}
+          renderOrder={TOP + 1}
+        >
           <circleGeometry args={[0.05, 16]} />
-          <meshBasicMaterial color={accent} transparent opacity={0.95} depthWrite={false} depthTest={false} />
+          <meshBasicMaterial
+            color={accent}
+            transparent
+            opacity={0.95}
+            depthWrite={false}
+            depthTest={false}
+          />
         </mesh>
 
         <Text
@@ -200,154 +234,184 @@ function MachineHoverTooltip3D({ title, status, oeePct, accentColor }) {
         </Text>
       </group>
     </Billboard>
-  )
+  );
 }
 
 function normToPlane(xNorm, yNorm, planeSize) {
-  const x = (clamp01(xNorm) - 0.5) * planeSize
-  const z = (0.5 - clamp01(yNorm)) * planeSize
-  return { x, z }
+  const x = (clamp01(xNorm) - 0.5) * planeSize;
+  const z = (0.5 - clamp01(yNorm)) * planeSize;
+  return { x, z };
 }
 
 function planeToNorm(x, z, planeSize) {
-  const xNorm = clamp01(x / planeSize + 0.5)
-  const yNorm = clamp01(0.5 - z / planeSize)
-  return { x: xNorm, y: yNorm }
+  const xNorm = clamp01(x / planeSize + 0.5);
+  const yNorm = clamp01(0.5 - z / planeSize);
+  return { x: xNorm, y: yNorm };
 }
 
-function PlacedGLB({ url, tintColor, tintStrength = 0.14, fitW = 0, fitD = 0 }) {
-  const { scene } = useGLTF(url)
+function PlacedGLB({
+  url,
+  tintColor,
+  tintStrength = 0.14,
+  fitW = 0,
+  fitD = 0,
+}) {
+  const { scene } = useGLTF(url);
 
-  const measured = useMemo(() => scene.clone(true), [scene])
+  const measured = useMemo(() => scene.clone(true), [scene]);
 
   const { fitScale, yOffset } = useMemo(() => {
     try {
-      const w = Number(fitW) || 0
-      const d = Number(fitD) || 0
-      const target = Math.max(0, Math.min(w, d))
+      const w = Number(fitW) || 0;
+      const d = Number(fitD) || 0;
+      const target = Math.max(0, Math.min(w, d));
 
-      const tmp = measured.clone(true)
-      tmp.position.set(0, 0, 0)
-      tmp.rotation.set(0, 0, 0)
-      tmp.scale.set(1, 1, 1)
-      tmp.updateMatrixWorld(true)
-      const box = new Box3().setFromObject(tmp)
-      const size = new Vector3()
-      box.getSize(size)
+      const tmp = measured.clone(true);
+      tmp.position.set(0, 0, 0);
+      tmp.rotation.set(0, 0, 0);
+      tmp.scale.set(1, 1, 1);
+      tmp.updateMatrixWorld(true);
+      const box = new Box3().setFromObject(tmp);
+      const size = new Vector3();
+      box.getSize(size);
 
-      const modelXZ = Math.max(Number(size.x) || 0, Number(size.z) || 0)
-      const minY = Number(box.min.y)
+      const modelXZ = Math.max(Number(size.x) || 0, Number(size.z) || 0);
+      const minY = Number(box.min.y);
 
-      const hasTarget = Number.isFinite(target) && target > 0
-      const hasModelXZ = Number.isFinite(modelXZ) && modelXZ > 0.000001
-      const computedFitScale = hasTarget && hasModelXZ ? clamp((target * 0.88) / modelXZ, 0.001, 100) : 1
-      const computedYOffset = Number.isFinite(minY) ? -minY * computedFitScale : 0
+      const hasTarget = Number.isFinite(target) && target > 0;
+      const hasModelXZ = Number.isFinite(modelXZ) && modelXZ > 0.000001;
+      const computedFitScale =
+        hasTarget && hasModelXZ
+          ? clamp((target * 0.88) / modelXZ, 0.001, 100)
+          : 1;
+      const computedYOffset = Number.isFinite(minY)
+        ? -minY * computedFitScale
+        : 0;
 
-      return { fitScale: computedFitScale, yOffset: computedYOffset }
+      return { fitScale: computedFitScale, yOffset: computedYOffset };
     } catch {
-      return { fitScale: 1, yOffset: 0 }
+      return { fitScale: 1, yOffset: 0 };
     }
-  }, [measured, fitW, fitD])
+  }, [measured, fitW, fitD]);
 
   const cloned = useMemo(() => {
-    const root = scene.clone(true)
-    if (!tintColor) return root
+    const root = scene.clone(true);
+    if (!tintColor) return root;
 
-    const c = new Color(tintColor)
-    const strength = clamp01(Number(tintStrength))
+    const c = new Color(tintColor);
+    const strength = clamp01(Number(tintStrength));
 
     root.traverse((obj) => {
-      if (!obj) return
+      if (!obj) return;
       // Only tint actual renderable meshes.
-      if (!obj.isMesh && !obj.isSkinnedMesh) return
+      if (!obj.isMesh && !obj.isSkinnedMesh) return;
 
-      const mat = obj.material
-      if (!mat) return
+      const mat = obj.material;
+      if (!mat) return;
 
       const tintMaterial = (m) => {
-        if (!m || !m.isMaterial) return m
+        if (!m || !m.isMaterial) return m;
 
-        const next = m.clone()
+        const next = m.clone();
 
         // Keep the model readable: lightly mix base color and add a subtle emissive push.
-        if (next.color) next.color.lerp(c, strength)
-        if (Object.prototype.hasOwnProperty.call(next, 'emissive') && next.emissive) {
-          next.emissive.copy(c)
-          next.emissiveIntensity = Math.max(Number(next.emissiveIntensity) || 0, 0.35)
+        if (next.color) next.color.lerp(c, strength);
+        if (
+          Object.prototype.hasOwnProperty.call(next, "emissive") &&
+          next.emissive
+        ) {
+          next.emissive.copy(c);
+          next.emissiveIntensity = Math.max(
+            Number(next.emissiveIntensity) || 0,
+            0.35,
+          );
         }
 
-        next.needsUpdate = true
-        return next
-      }
+        next.needsUpdate = true;
+        return next;
+      };
 
-      obj.material = Array.isArray(mat) ? mat.map(tintMaterial) : tintMaterial(mat)
-    })
+      obj.material = Array.isArray(mat)
+        ? mat.map(tintMaterial)
+        : tintMaterial(mat);
+    });
 
-    return root
-  }, [scene, tintColor, tintStrength])
+    return root;
+  }, [scene, tintColor, tintStrength]);
 
   return (
     <group position={[0, yOffset, 0]}>
       <primitive object={cloned} scale={[fitScale, fitScale, fitScale]} />
     </group>
-  )
+  );
 }
 
 function CanvasPointerTracker({ enabled, floorY, onMove }) {
-  const { gl, camera, raycaster } = useThree()
+  const { gl, camera, raycaster } = useThree();
 
-  const planeRef = useMemo(() => new Plane(new Vector3(0, 1, 0), 0), [])
-  const hitRef = useMemo(() => new Vector3(), [])
-  const ndcRef = useMemo(() => new Vector2(), [])
+  const planeRef = useMemo(() => new Plane(new Vector3(0, 1, 0), 0), []);
+  const hitRef = useMemo(() => new Vector3(), []);
+  const ndcRef = useMemo(() => new Vector2(), []);
 
   useEffect(() => {
-    if (!enabled) return
-    const el = gl?.domElement
-    if (!el) return
+    if (!enabled) return;
+    const el = gl?.domElement;
+    if (!el) return;
 
     const onPointerMove = (ev) => {
-      if (typeof onMove !== 'function') return
+      if (typeof onMove !== "function") return;
 
-      const rect = el.getBoundingClientRect()
-      const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1
-      const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1
-      ndcRef.set(x, y)
+      const rect = el.getBoundingClientRect();
+      const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+      ndcRef.set(x, y);
 
-      raycaster.setFromCamera(ndcRef, camera)
+      raycaster.setFromCamera(ndcRef, camera);
 
-      const yPlane = (Number.isFinite(Number(floorY)) ? Number(floorY) : 0) + 0.001
-      planeRef.normal.set(0, 1, 0)
-      planeRef.constant = -yPlane
+      const yPlane =
+        (Number.isFinite(Number(floorY)) ? Number(floorY) : 0) + 0.001;
+      planeRef.normal.set(0, 1, 0);
+      planeRef.constant = -yPlane;
 
-      const hit = raycaster.ray.intersectPlane(planeRef, hitRef)
-      if (!hit) return
-      onMove(hit.x, hit.z)
-    }
+      const hit = raycaster.ray.intersectPlane(planeRef, hitRef);
+      if (!hit) return;
+      onMove(hit.x, hit.z);
+    };
 
     // Pointer capture is handled elsewhere; this listener ensures we still update
     // even when R3F doesn't emit events due to hit-testing gaps.
-    el.addEventListener('pointermove', onPointerMove)
-    return () => el.removeEventListener('pointermove', onPointerMove)
-  }, [enabled, gl, camera, raycaster, floorY, onMove, planeRef, hitRef, ndcRef])
+    el.addEventListener("pointermove", onPointerMove);
+    return () => el.removeEventListener("pointermove", onPointerMove);
+  }, [
+    enabled,
+    gl,
+    camera,
+    raycaster,
+    floorY,
+    onMove,
+    planeRef,
+    hitRef,
+    ndcRef,
+  ]);
 
-  return null
+  return null;
 }
 
 function FallbackMarker({ selected }) {
   return (
     <mesh position={[0, 0.08, 0]}>
       <boxGeometry args={[0.25, 0.16, 0.25]} />
-      <meshStandardMaterial color={selected ? '#0ea5e9' : '#111827'} />
+      <meshStandardMaterial color={selected ? "#0ea5e9" : "#111827"} />
     </mesh>
-  )
+  );
 }
 
 export default function DepartmentFloor3DViewer({
   scale = 1,
   autoRotate = false,
   elements = [],
-  activeTool = 'select',
-  selectedId = '',
+  activeTool = "select",
+  selectedId = "",
   onSelectElement,
   onAddElement,
   onMoveElement,
@@ -361,408 +425,434 @@ export default function DepartmentFloor3DViewer({
   planeSize = DEFAULT_PLANE_SIZE,
   fullScreen = false,
 }) {
-  const containerRef = useRef(null)
-  const [draggingId, setDraggingId] = useState('')
-  const [hoverNorm, setHoverNorm] = useState(null)
-  const [hoveredMachineId, setHoveredMachineId] = useState('')
-  const [isTransforming, setIsTransforming] = useState(false)
-  const [isAddDrawing, setIsAddDrawing] = useState(false)
-  const [addPreview, setAddPreview] = useState(null)
+  const containerRef = useRef(null);
+  const [draggingId, setDraggingId] = useState("");
+  const [hoverNorm, setHoverNorm] = useState(null);
+  const [hoveredMachineId, setHoveredMachineId] = useState("");
+  const [isTransforming, setIsTransforming] = useState(false);
+  const [isAddDrawing, setIsAddDrawing] = useState(false);
+  const [addPreview, setAddPreview] = useState(null);
+  const isUserRotatingRef = useRef(false);
+
   // `planeSize` comes from auto-layout (zones/machines). `scale` is a global multiplier.
   // For the overlay-based floor, `planeSize` controls camera + world scale only.
   const effectivePlaneSize =
-    Math.max(0.01, Number(planeSize) || DEFAULT_PLANE_SIZE) * clamp(Number(scale) || 1, 0.01, 50)
+    Math.max(0.01, Number(planeSize) || DEFAULT_PLANE_SIZE) *
+    clamp(Number(scale) || 1, 0.01, 50);
 
-  const effectiveFloorY = 0
+  const effectiveFloorY = 0;
+  // ✅ Camera should not look exactly at the floor (causes lock / hang)
+  const CAMERA_TARGET_Y = effectivePlaneSize * 0.02;
+
   // Keep lifts in world units. Use a larger machine lift to ensure the semi-transparent
   // zone planes never visually occlude the GLBs due to depth sorting.
-  const overlayLift = 0.002
-  const placeableLift = 0.03
+  const overlayLift = 0.002;
+  const placeableLift = 0.03;
 
   // DEBUG: force machines below the floor surface to validate whether we're dealing
   // with a Y-reference/sign issue vs. occlusion.
   // Flip to false once verified.
-  const FORCE_MACHINES_BELOW_FLOOR = false
-  const machineY = effectiveFloorY + (FORCE_MACHINES_BELOW_FLOOR ? -0.12 : placeableLift)
+  const FORCE_MACHINES_BELOW_FLOOR = false;
+  const machineY =
+    effectiveFloorY + (FORCE_MACHINES_BELOW_FLOOR ? -0.12 : placeableLift);
 
-  const orbitRef = useRef(null)
-  const cameraRef = useRef(null)
+  const orbitRef = useRef(null);
+  const cameraRef = useRef(null);
 
-  const defaultMouseButtonsRef = useRef(null)
-  const panDragPointerIdRef = useRef(null)
-  const lastClickRef = useRef({ t: 0, x: 0, y: 0 })
-  const DOUBLE_CLICK_MS = 320
-  const DOUBLE_CLICK_PX = 6
+  const defaultMouseButtonsRef = useRef(null);
+  const panDragPointerIdRef = useRef(null);
+  const lastClickRef = useRef({ t: 0, x: 0, y: 0 });
+  const DOUBLE_CLICK_MS = 320;
+  const DOUBLE_CLICK_PX = 6;
 
   const setOrbitEnabledNow = (enabled) => {
-    const controls = orbitRef.current
-    if (!controls) return
-    const next = fullScreen ? !!enabled : false
-    if ('enabled' in controls) controls.enabled = next
-    if (typeof controls.update === 'function') controls.update()
-  }
+    const controls = orbitRef.current;
+    if (!controls) return;
+    const next = fullScreen ? !!enabled : false;
+    if ("enabled" in controls) controls.enabled = next;
+    if (typeof controls.update === "function") controls.update();
+  };
 
   useEffect(() => {
-    const controls = orbitRef.current
-    if (!controls) return
+    const controls = orbitRef.current;
+    if (!controls) return;
 
     if (!defaultMouseButtonsRef.current) {
       // Snapshot so we can restore after temporary pan mode.
-      defaultMouseButtonsRef.current = { ...controls.mouseButtons }
+      defaultMouseButtonsRef.current = { ...controls.mouseButtons };
     }
 
     // three.js OrbitControls supports zoom-to-cursor in newer versions.
     // We set both flags for compatibility across versions.
-    if ('zoomToCursor' in controls) controls.zoomToCursor = true
-    if ('dollyToCursor' in controls) controls.dollyToCursor = true
+    if ("zoomToCursor" in controls) controls.zoomToCursor = true;
+    if ("dollyToCursor" in controls) controls.dollyToCursor = true;
 
-    if ('enableDamping' in controls) controls.enableDamping = true
-    if ('dampingFactor' in controls) controls.dampingFactor = 0.12
+    if ("enableDamping" in controls) controls.enableDamping = true;
+    if ("dampingFactor" in controls) controls.dampingFactor = 0.12;
 
     // Make movement speeds identical in both modes
-    if ('rotateSpeed' in controls) controls.rotateSpeed = 1.0
-    if ('zoomSpeed' in controls) controls.zoomSpeed = 1.0
-    if ('panSpeed' in controls) controls.panSpeed = 1.0
+    if ("rotateSpeed" in controls) controls.rotateSpeed = 1.0;
+    if ("zoomSpeed" in controls) controls.zoomSpeed = 1.0;
+    if ("panSpeed" in controls) controls.panSpeed = 1.0;
 
-    if (typeof controls.update === 'function') controls.update()
-  }, [fullScreen])
+    if (typeof controls.update === "function") controls.update();
+  }, [fullScreen]);
 
   const setOrbitMouseModeNow = (mode) => {
-    const controls = orbitRef.current
-    if (!controls) return
-    if (!controls.mouseButtons) return
-    controls.mouseButtons.LEFT = mode === 'pan' ? MOUSE.PAN : MOUSE.ROTATE
-    if (typeof controls.update === 'function') controls.update()
-  }
+    const controls = orbitRef.current;
+    if (!controls) return;
+    if (!controls.mouseButtons) return;
+    controls.mouseButtons.LEFT = mode === "pan" ? MOUSE.PAN : MOUSE.ROTATE;
+    if (typeof controls.update === "function") controls.update();
+  };
 
   const maybeStartPanDrag = (e) => {
     // Only allow double-click+drag panning when camera controls are active.
-    const controls = orbitRef.current
-    if (!controls || !controls.enabled) return false
-    if (!fullScreen) return false
-    if (isOverlayAddToolActive || isTransforming || isAddDrawing || draggingId) return false
+    const controls = orbitRef.current;
+    if (!controls || !controls.enabled) return false;
+    if (!fullScreen) return false;
+    if (isOverlayAddToolActive || isTransforming || isAddDrawing || draggingId)
+      return false;
 
-    const ne = e?.nativeEvent
+    const ne = e?.nativeEvent;
     // Use event timestamps to keep React hook purity/lint happy.
-    const now = Number(ne?.timeStamp) || Number(e?.timeStamp) || 0
-    const x = Number(ne?.clientX) || 0
-    const y = Number(ne?.clientY) || 0
+    const now = Number(ne?.timeStamp) || Number(e?.timeStamp) || 0;
+    const x = Number(ne?.clientX) || 0;
+    const y = Number(ne?.clientY) || 0;
 
-    const prev = lastClickRef.current
-    const dt = now - (Number(prev?.t) || 0)
-    const dx = x - (Number(prev?.x) || 0)
-    const dy = y - (Number(prev?.y) || 0)
-    const dist = Math.hypot(dx, dy)
+    const prev = lastClickRef.current;
+    const dt = now - (Number(prev?.t) || 0);
+    const dx = x - (Number(prev?.x) || 0);
+    const dy = y - (Number(prev?.y) || 0);
+    const dist = Math.hypot(dx, dy);
 
     // Record click for next time.
-    lastClickRef.current = { t: now, x, y }
+    lastClickRef.current = { t: now, x, y };
 
-    const isDouble = dt > 0 && dt <= DOUBLE_CLICK_MS && dist <= DOUBLE_CLICK_PX
-    if (!isDouble) return false
+    const isDouble = dt > 0 && dt <= DOUBLE_CLICK_MS && dist <= DOUBLE_CLICK_PX;
+    if (!isDouble) return false;
 
-    panDragPointerIdRef.current = e?.pointerId ?? null
-    setOrbitMouseModeNow('pan')
-    setCursor('grabbing')
-    capturePointer(e)
-    return true
-  }
+    panDragPointerIdRef.current = e?.pointerId ?? null;
+    setOrbitMouseModeNow("pan");
+    setCursor("grabbing");
+    capturePointer(e);
+    return true;
+  };
 
   const stopPanDrag = (pointerId) => {
-    if (panDragPointerIdRef.current == null) return
-    if (pointerId != null && panDragPointerIdRef.current !== pointerId) return
-    panDragPointerIdRef.current = null
-    setOrbitMouseModeNow('rotate')
-    setCursor('default')
-  }
+    if (panDragPointerIdRef.current == null) return;
+    if (pointerId != null && panDragPointerIdRef.current !== pointerId) return;
+    panDragPointerIdRef.current = null;
+    setOrbitMouseModeNow("rotate");
+    setCursor("default");
+  };
 
-  const draggingObjectRef = useRef(null)
-  const draggingNormRef = useRef(null)
-  const draggingOffsetRef = useRef(null)
-  const addDragRef = useRef(null)
-  const addPreviewRafRef = useRef(0)
-  const hoverRafRef = useRef(0)
+  const draggingObjectRef = useRef(null);
+  const draggingNormRef = useRef(null);
+  const draggingOffsetRef = useRef(null);
+  const addDragRef = useRef(null);
+  const addPreviewRafRef = useRef(0);
+  const hoverRafRef = useRef(0);
 
   useEffect(() => {
     return () => {
-      if (hoverRafRef.current) cancelAnimationFrame(hoverRafRef.current)
-    }
-  }, [])
+      if (hoverRafRef.current) cancelAnimationFrame(hoverRafRef.current);
+    };
+  }, []);
 
   const clearAddDrag = () => {
-    addDragRef.current = null
-    setIsAddDrawing(false)
-    setAddPreview(null)
+    addDragRef.current = null;
+    setIsAddDrawing(false);
+    setAddPreview(null);
     if (addPreviewRafRef.current) {
-      cancelAnimationFrame(addPreviewRafRef.current)
-      addPreviewRafRef.current = 0
+      cancelAnimationFrame(addPreviewRafRef.current);
+      addPreviewRafRef.current = 0;
     }
-  }
+  };
 
-  const floorPlaneRef = useRef(new Plane(new Vector3(0, 1, 0), 0))
-  const floorHitRef = useRef(new Vector3())
+  const floorPlaneRef = useRef(new Plane(new Vector3(0, 1, 0), 0));
+  const floorHitRef = useRef(new Vector3());
 
   const previewCameraPosition = useMemo(() => {
-    const size = Math.max(4, effectivePlaneSize)
+    const size = Math.max(4, effectivePlaneSize);
     // Preview (non-fullScreen) should feel "zoomed in" by default.
     // Keep it closer than the full-screen editing view so machines/zones are readable.
     // const z = size * 0.70
     // const y = size * 0.35
     // return [0, y, z]
-    const xy = size * 0.60
-    const y = size * 0.25
-    return [0, y, xy]
-  }, [effectivePlaneSize])
+    const xy = size * 0.6;
+    const y = size * 0.25;
+    return [0, y, xy];
+  }, [effectivePlaneSize]);
 
   const editingCameraPosition = useMemo(() => {
-    const size = Math.max(4, effectivePlaneSize)
-    const xy = size * 0.35
-    const y = size * 0.25
-    return [xy, y, xy]
-  }, [effectivePlaneSize])
+    const size = Math.max(4, effectivePlaneSize);
+    const xy = size * 0.35;
+    const y = size * 0.25;
+    return [xy, y, xy];
+  }, [effectivePlaneSize]);
 
-  const cameraPosition = fullScreen ? editingCameraPosition : previewCameraPosition
+  const cameraPosition = fullScreen
+    ? editingCameraPosition
+    : previewCameraPosition;
+  useEffect(() => {
+    const cam = cameraRef.current;
+    const controls = orbitRef.current;
+    if (!cam || !controls) return;
 
-  const isAddMode = typeof activeTool === 'string' && activeTool.startsWith('add:')
-  const addType = isAddMode ? activeTool.slice('add:'.length) : ''
+    const [cx, cy, cz] = cameraPosition;
+    cam.position.set(cx, cy, cz);
+
+    // 🔑 Let OrbitControls control orientation
+    controls.target.set(0, effectiveFloorY + CAMERA_TARGET_Y, 0);
+    controls.update();
+  }, [cameraPosition, effectivePlaneSize]);
+
+  const isAddMode =
+    typeof activeTool === "string" && activeTool.startsWith("add:");
+  const addType = isAddMode ? activeTool.slice("add:".length) : "";
   const addElementType =
-    addType === 'floor'
+    addType === "floor"
       ? ELEMENT_TYPES.FLOOR
-      : addType === 'zone'
+      : addType === "zone"
         ? ELEMENT_TYPES.ZONE
-      : addType === 'machine'
-        ? ELEMENT_TYPES.MACHINE
-        : addType === 'walkway'
-          ? ELEMENT_TYPES.WALKWAY
-          : addType === 'transporter'
-            ? ELEMENT_TYPES.TRANSPORTER
-            : null
+        : addType === "machine"
+          ? ELEMENT_TYPES.MACHINE
+          : addType === "walkway"
+            ? ELEMENT_TYPES.WALKWAY
+            : addType === "transporter"
+              ? ELEMENT_TYPES.TRANSPORTER
+              : null;
 
-  const normalizedElements = Array.isArray(elements) ? elements.filter(Boolean) : []
-  const floorElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.FLOOR)
-  const zoneElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE)
+  const normalizedElements = Array.isArray(elements)
+    ? elements.filter(Boolean)
+    : [];
+  const floorElements = normalizedElements.filter(
+    (e) => e?.type === ELEMENT_TYPES.FLOOR,
+  );
+  const zoneElements = normalizedElements.filter(
+    (e) => e?.type === ELEMENT_TYPES.ZONE,
+  );
   // Walkway is rendered as a 2D overlay on the floor.
-  const walkwayElements = normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.WALKWAY)
+  const walkwayElements = normalizedElements.filter(
+    (e) => e?.type === ELEMENT_TYPES.WALKWAY,
+  );
   // 3D placeables (GLBs)
   const placeableElements = normalizedElements.filter((e) =>
     [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
-  )
+  );
 
   const visiblePlaceableElements = placeableElements.filter((el) => {
-    if (el?.type !== ELEMENT_TYPES.MACHINE) return true
-    const mid = String(el?.machineId || '')
-    const status = machineMetaById && mid && machineMetaById[mid]?.status ? machineMetaById[mid].status : 'RUNNING'
-    const v = machineStatusVisibility && typeof machineStatusVisibility === 'object'
-      ? machineStatusVisibility[String(status).toUpperCase()]
-      : undefined
-    return v !== false
-  })
+    if (el?.type !== ELEMENT_TYPES.MACHINE) return true;
+    const mid = String(el?.machineId || "");
+    const status =
+      machineMetaById && mid && machineMetaById[mid]?.status
+        ? machineMetaById[mid].status
+        : "RUNNING";
+    const v =
+      machineStatusVisibility && typeof machineStatusVisibility === "object"
+        ? machineStatusVisibility[String(status).toUpperCase()]
+        : undefined;
+    return v !== false;
+  });
 
   const addOverlayType =
     addElementType === ELEMENT_TYPES.FLOOR ||
     addElementType === ELEMENT_TYPES.ZONE ||
     addElementType === ELEMENT_TYPES.WALKWAY
       ? addElementType
-      : null
+      : null;
 
-  const isOverlayAddToolActive = fullScreen && isAddMode && !!addOverlayType
+  const isOverlayAddToolActive = fullScreen && isAddMode && !!addOverlayType;
 
-  const selectedObjectRef = useRef(null)
+  const selectedObjectRef = useRef(null);
   // Enable controls for both fullScreen and non-fullScreen, but restrict features in non-fullScreen
   // Disable controls (pan/zoom) while adding or dragging zones/walkways
-  const controlsEnabled = (!isOverlayAddToolActive && !isTransforming && !isAddDrawing && !draggingId)
+  const controlsEnabled =
+    !isOverlayAddToolActive && !isTransforming && !isAddDrawing && !draggingId;
 
-  useEffect(() => {
-    const cam = cameraRef.current
-    if (!cam) return
-    const [cx, cy, cz] = cameraPosition
-    cam.position.set(cx, cy, cz)
-    const targetY = effectiveFloorY
-    cam.lookAt(0, targetY, 0)
-    cam.updateProjectionMatrix()
-
-    const controls = orbitRef.current
-    if (controls && controls.target) {
-      controls.target.set(0, targetY, 0)
-      if (typeof controls.update === 'function') controls.update()
-    }
-  }, [cameraPosition, effectiveFloorY])
-
-  const SNAP_NORM_STEP = 0.01
+  const SNAP_NORM_STEP = 0.01;
   const snap01 = (v) => {
-    const n = Number(v)
-    if (!Number.isFinite(n)) return 0
-    const step = Number(SNAP_NORM_STEP)
-    if (!Number.isFinite(step) || step <= 0) return clamp01(n)
-    return clamp01(Math.round(n / step) * step)
-  }
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    const step = Number(SNAP_NORM_STEP);
+    if (!Number.isFinite(step) || step <= 0) return clamp01(n);
+    return clamp01(Math.round(n / step) * step);
+  };
 
-  const shouldSnapPointer = fullScreen && (draggingId || isAddMode)
+  const shouldSnapPointer = fullScreen && (draggingId || isAddMode);
   const snapNormPoint = (p) => {
-    if (!p) return p
-    if (!shouldSnapPointer) return p
-    return { x: snap01(p.x), y: snap01(p.y) }
-  }
+    if (!p) return p;
+    if (!shouldSnapPointer) return p;
+    return { x: snap01(p.x), y: snap01(p.y) };
+  };
 
   const handleFloorMoveFromHit = (hitX, hitZ) => {
-    const raw = planeToNorm(hitX, hitZ, effectivePlaneSize)
-    const next = snapNormPoint(raw)
+    const raw = planeToNorm(hitX, hitZ, effectivePlaneSize);
+    const next = snapNormPoint(raw);
 
-      if (typeof onPointerPositionChange === 'function') {
-        onPointerPositionChange(next)
-      }
+    if (typeof onPointerPositionChange === "function") {
+      onPointerPositionChange(next);
+    }
 
-      if (isAddMode) {
+    if (isAddMode) {
       // Throttle hover updates to avoid React re-rendering on every pointermove
       // (helps on low-end GPUs/CPUs).
       if (!hoverRafRef.current) {
         hoverRafRef.current = requestAnimationFrame(() => {
-          hoverRafRef.current = 0
-          setHoverNorm(next)
-        })
+          hoverRafRef.current = 0;
+          setHoverNorm(next);
+        });
       }
     }
 
     // Click-drag adding for Zone/Walkway
     if (isAddMode && addDragRef.current) {
-      addDragRef.current.current = next
+      addDragRef.current.current = next;
 
       if (!addPreviewRafRef.current) {
         addPreviewRafRef.current = requestAnimationFrame(() => {
-          addPreviewRafRef.current = 0
-          const drag = addDragRef.current
-          if (!drag) return
-          const a = drag.start
-          const b = drag.current
-          const x = clamp01(Math.min(a.x, b.x))
-          const y = clamp01(Math.min(a.y, b.y))
-          const w = clamp01(Math.abs(a.x - b.x))
-          const h = clamp01(Math.abs(a.y - b.y))
-          setAddPreview({ x, y, w, h })
-        })
+          addPreviewRafRef.current = 0;
+          const drag = addDragRef.current;
+          if (!drag) return;
+          const a = drag.start;
+          const b = drag.current;
+          const x = clamp01(Math.min(a.x, b.x));
+          const y = clamp01(Math.min(a.y, b.y));
+          const w = clamp01(Math.abs(a.x - b.x));
+          const h = clamp01(Math.abs(a.y - b.y));
+          setAddPreview({ x, y, w, h });
+        });
       }
     }
 
     if (draggingId) {
-      let targetNorm = next
+      let targetNorm = next;
       if (draggingOffsetRef.current) {
         targetNorm = {
           x: clamp01(next.x + draggingOffsetRef.current.x),
           y: clamp01(next.y + draggingOffsetRef.current.y),
-        }
+        };
       }
 
-      draggingNormRef.current = targetNorm
-      const obj = draggingObjectRef.current
+      draggingNormRef.current = targetNorm;
+      const obj = draggingObjectRef.current;
       if (obj) {
-        const pos = normToPlane(targetNorm.x, targetNorm.y, effectivePlaneSize)
-        obj.position.x = pos.x
-        obj.position.z = pos.z
+        const pos = normToPlane(targetNorm.x, targetNorm.y, effectivePlaneSize);
+        obj.position.x = pos.x;
+        obj.position.z = pos.z;
       }
     }
-  }
+  };
 
   const getFloorHitFromEvent = (e) => {
-    const ray = e?.ray
-    if (!ray) return null
+    const ray = e?.ray;
+    if (!ray) return null;
 
     // Plane equation: y = effectiveFloorY + epsilon.
     // three.Plane uses: normal.dot(point) + constant = 0
-    const y = (Number.isFinite(Number(effectiveFloorY)) ? Number(effectiveFloorY) : 0) + 0.001
-    const p = floorPlaneRef.current
-    p.normal.set(0, 1, 0)
-    p.constant = -y
+    const y =
+      (Number.isFinite(Number(effectiveFloorY)) ? Number(effectiveFloorY) : 0) +
+      0.001;
+    const p = floorPlaneRef.current;
+    p.normal.set(0, 1, 0);
+    p.constant = -y;
 
-    const hit = ray.intersectPlane(p, floorHitRef.current)
-    if (!hit) return null
-    return { x: hit.x, z: hit.z }
-  }
+    const hit = ray.intersectPlane(p, floorHitRef.current);
+    if (!hit) return null;
+    return { x: hit.x, z: hit.z };
+  };
 
   const capturePointer = (e) => {
-    const t = e?.nativeEvent?.target
-    const pid = e?.pointerId
-    if (!t || pid == null) return
-    if (typeof t.setPointerCapture !== 'function') return
+    const t = e?.nativeEvent?.target;
+    const pid = e?.pointerId;
+    if (!t || pid == null) return;
+    if (typeof t.setPointerCapture !== "function") return;
     try {
-      t.setPointerCapture(pid)
+      t.setPointerCapture(pid);
     } catch {
       // ignore
     }
-  }
+  };
 
   const handleAddPointerDown = (e) => {
-    if (!fullScreen) return
-    if (!isAddMode) return
-    if (!addElementType) return
-    if (typeof onAddElement !== 'function') return
+    if (!fullScreen) return;
+    if (!isAddMode) return;
+    if (!addElementType) return;
+    if (typeof onAddElement !== "function") return;
 
-    const hit = getFloorHitFromEvent(e)
-    if (!hit) return
-    const next = planeToNorm(hit.x, hit.z, effectivePlaneSize)
+    const hit = getFloorHitFromEvent(e);
+    if (!hit) return;
+    const next = planeToNorm(hit.x, hit.z, effectivePlaneSize);
 
     // For zones/walkways: start click-drag sizing.
     if (addOverlayType) {
-      capturePointer(e)
+      capturePointer(e);
       // Disable camera immediately so click+drag draws without moving the scene.
-      setOrbitEnabledNow(false)
-      addDragRef.current = { type: addOverlayType, start: next, current: next }
-      setIsAddDrawing(true)
-      setAddPreview({ x: next.x, y: next.y, w: 0, h: 0 })
-      return
+      setOrbitEnabledNow(false);
+      addDragRef.current = { type: addOverlayType, start: next, current: next };
+      setIsAddDrawing(true);
+      setAddPreview({ x: next.x, y: next.y, w: 0, h: 0 });
+      return;
     }
 
     // For models: click-to-place.
-    onAddElement(addElementType, next)
-  }
+    onAddElement(addElementType, next);
+  };
 
   const handleFloorPointerMove = (e) => {
-    if (!fullScreen) return
+    if (!fullScreen) return;
 
-    const hit = getFloorHitFromEvent(e)
-    if (!hit) return
-    handleFloorMoveFromHit(hit.x, hit.z)
-  }
+    const hit = getFloorHitFromEvent(e);
+    if (!hit) return;
+    handleFloorMoveFromHit(hit.x, hit.z);
+  };
 
   const stopDragging = () => {
-    if (!draggingId) return
-    if (typeof onMoveElement === 'function' && draggingNormRef.current) {
-      const dragged = normalizedElements.find((e) => String(e?.id) === String(draggingId))
-      const nextCenter = draggingNormRef.current
+    if (!draggingId) return;
+    if (typeof onMoveElement === "function" && draggingNormRef.current) {
+      const dragged = normalizedElements.find(
+        (e) => String(e?.id) === String(draggingId),
+      );
+      const nextCenter = draggingNormRef.current;
 
-      const wNorm = clamp01(Number(dragged?.w) || 0.12)
-      const hNorm = clamp01(Number(dragged?.h) || 0.12)
+      const wNorm = clamp01(Number(dragged?.w) || 0.12);
+      const hNorm = clamp01(Number(dragged?.h) || 0.12);
       const patch = {
         x: clamp01((Number(nextCenter?.x) || 0) - wNorm / 2),
         y: clamp01((Number(nextCenter?.y) || 0) - hNorm / 2),
-      }
+      };
 
-      onMoveElement(String(draggingId), patch)
+      onMoveElement(String(draggingId), patch);
     }
-    draggingObjectRef.current = null
-    draggingNormRef.current = null
-    draggingOffsetRef.current = null
-    setDraggingId('')
-    setCursor('default')
+    draggingObjectRef.current = null;
+    draggingNormRef.current = null;
+    draggingOffsetRef.current = null;
+    setDraggingId("");
+    setCursor("default");
     // Re-enable camera only if current mode allows it.
     // (When adding Zone/Walkway, OrbitControls should remain disabled.)
-    setOrbitEnabledNow(!isOverlayAddToolActive && !isTransforming && !isAddDrawing)
-  }
+    setOrbitEnabledNow(
+      !isOverlayAddToolActive && !isTransforming && !isAddDrawing,
+    );
+  };
 
   // In preview mode, prevent the page from scrolling while the user zooms the canvas.
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
+    const el = containerRef.current;
+    if (!el) return;
 
     const onWheel = (e) => {
       // Only lock page scroll for the embedded (non-fullscreen) viewer.
       // Fullscreen already captures focus and users may still want normal wheel behavior
       // depending on browser/device.
-      if (fullScreen) return
-      e.preventDefault()
-    }
+      if (fullScreen) return;
+      e.preventDefault();
+    };
 
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [fullScreen])
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [fullScreen]);
 
   return (
     <div
@@ -770,8 +860,13 @@ export default function DepartmentFloor3DViewer({
       className="relative w-full overflow-hidden rounded-xl border bg-slate-950"
       style={
         fullScreen
-          ? { height: '100%', minHeight: 0 }
-          : { height: '60vh', maxHeight: 560, minHeight: 320, overscrollBehavior: 'contain' }
+          ? { height: "100%", minHeight: 0 }
+          : {
+              height: "60vh",
+              maxHeight: 560,
+              minHeight: 320,
+              overscrollBehavior: "contain",
+            }
       }
     >
       <ErrorBoundary
@@ -780,10 +875,13 @@ export default function DepartmentFloor3DViewer({
             <div className="max-w-xl rounded-xl border bg-white p-4 text-sm text-slate-700 shadow">
               <div className="font-semibold">3D view failed to render</div>
               <div className="mt-1 text-xs text-slate-500">
-                This usually happens when a referenced GLB file is missing/invalid or WebGL is unavailable.
+                This usually happens when a referenced GLB file is
+                missing/invalid or WebGL is unavailable.
               </div>
               <div className="mt-2 text-xs text-slate-600">
-                Check that your models are under <span className="font-mono">public/models</span> and accessible as
+                Check that your models are under{" "}
+                <span className="font-mono">public/models</span> and accessible
+                as
                 <span className="font-mono">/models/*.glb</span>.
               </div>
             </div>
@@ -794,15 +892,14 @@ export default function DepartmentFloor3DViewer({
           camera={{ position: cameraPosition, fov: fullScreen ? 45 : 34 }}
           // Keep DPR consistent across modes; higher DPR in preview makes interactions feel less smooth.
           dpr={fullScreen ? [1, 1.5] : 1}
-          gl={{ antialias: false, powerPreference: 'high-performance' }}
+          gl={{ antialias: false, powerPreference: "high-performance" }}
           // Preview mode is mostly static; render on demand to keep hover/modal interactions snappy.
-          frameloop={fullScreen ? 'always' : 'demand'}
+          frameloop={fullScreen ? "always" : "demand"}
           // frameloop={'always'}
           onCreated={({ camera }) => {
-            cameraRef.current = camera
-            const [cx, cy, cz] = cameraPosition
-            camera.position.set(cx, cy, cz)
-            camera.lookAt(0, effectiveFloorY, 0)
+            cameraRef.current = camera;
+            const [cx, cy, cz] = cameraPosition;
+            camera.position.set(cx, cy, cz);
           }}
         >
           <CanvasPointerTracker
@@ -810,141 +907,202 @@ export default function DepartmentFloor3DViewer({
             floorY={effectiveFloorY}
             onMove={(x, z) => handleFloorMoveFromHit(x, z)}
           />
-          <color attach="background" args={['#0b1020']} />
+          <color attach="background" args={["#0b1020"]} />
           <ambientLight intensity={0.7} />
           <directionalLight position={[5, 8, 5]} intensity={1.2} />
 
           {fullScreen ? (
             <>
-              <gridHelper args={[effectivePlaneSize * 2.5, 40, '#334155', '#1f2937']} position={[0, 0.001, 0]} />
+              <gridHelper
+                args={[effectivePlaneSize * 2.5, 40, "#334155", "#1f2937"]}
+                position={[0, 0.001, 0]}
+              />
               <axesHelper args={[1.5]} />
             </>
           ) : null}
 
           {/* 2D base floor overlay (white). If no explicit FLOOR element exists, render a default floor covering the whole plane. */}
           {(() => {
-            const list = floorElements.length ? floorElements : [{ id: '__default_floor__', x: 0.05, y: 0.05, w: 0.9, h: 0.9, rotationDeg: 0 }]
+            const list = floorElements.length
+              ? floorElements
+              : [
+                  {
+                    id: "__default_floor__",
+                    x: 0.05,
+                    y: 0.05,
+                    w: 0.9,
+                    h: 0.9,
+                    rotationDeg: 0,
+                  },
+                ];
 
             return list.slice(0, 1).map((el) => {
-              const id = String(el.id)
-              const isSelected = selectedId && String(selectedId) === id
-              const wNorm = clamp01(Number(el.w) || 0.9)
-              const hNorm = clamp01(Number(el.h) || 0.9)
-              const cx = clamp01((Number(el.x) || 0.05) + wNorm / 2)
-              const cy = clamp01((Number(el.y) || 0.05) + hNorm / 2)
-              const pos = normToPlane(cx, cy, effectivePlaneSize)
-              const w = Math.max(0.02, wNorm) * effectivePlaneSize
-              const d = Math.max(0.02, hNorm) * effectivePlaneSize
-              const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
+              const id = String(el.id);
+              const isSelected = selectedId && String(selectedId) === id;
+              const wNorm = clamp01(Number(el.w) || 0.9);
+              const hNorm = clamp01(Number(el.h) || 0.9);
+              const cx = clamp01((Number(el.x) || 0.05) + wNorm / 2);
+              const cy = clamp01((Number(el.y) || 0.05) + hNorm / 2);
+              const pos = normToPlane(cx, cy, effectivePlaneSize);
+              const w = Math.max(0.02, wNorm) * effectivePlaneSize;
+              const d = Math.max(0.02, hNorm) * effectivePlaneSize;
+              const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180);
 
               // Disable all editing interactions in non-fullScreen
-              const allowEdit = fullScreen
+              const allowEdit = fullScreen;
 
               return (
                 <group
                   key={id}
                   position={[pos.x, effectiveFloorY + 0.0005, pos.z]}
                   rotation={[0, rot, 0]}
-                  onPointerDown={allowEdit ? (e) => {
-                    if (isAddMode) {
-                      handleAddPointerDown(e)
-                      return
-                    }
-                    if (id === '__default_floor__') return
-                    e.stopPropagation()
-                    if (typeof onSelectElement === 'function') onSelectElement(id)
-                  } : undefined}
-                  onPointerMove={allowEdit ? (e) => {
-                    handleFloorPointerMove(e)
-                  } : undefined}
+                  onPointerDown={
+                    allowEdit
+                      ? (e) => {
+                          if (isAddMode) {
+                            handleAddPointerDown(e);
+                            return;
+                          }
+                          if (id === "__default_floor__") return;
+                          e.stopPropagation();
+                          if (typeof onSelectElement === "function")
+                            onSelectElement(id);
+                        }
+                      : undefined
+                  }
+                  onPointerMove={
+                    allowEdit
+                      ? (e) => {
+                          handleFloorPointerMove(e);
+                        }
+                      : undefined
+                  }
                 >
                   <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={0}>
                     <planeGeometry args={[w, d]} />
-                    <meshStandardMaterial color="#ffffff" roughness={1} metalness={0} />
+                    <meshStandardMaterial
+                      color="#ffffff"
+                      roughness={1}
+                      metalness={0}
+                    />
                   </mesh>
-                  {id !== '__default_floor__' ? (
+                  {id !== "__default_floor__" ? (
                     <mesh
                       rotation={[-Math.PI / 2, 0, 0]}
                       renderOrder={5}
-                      onPointerOver={allowEdit ? (e) => {
-                        e.stopPropagation()
-                        setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
-                      } : undefined}
-                      onPointerOut={allowEdit ? () => {
-                        setCursor('default')
-                      } : undefined}
+                      onPointerOver={
+                        allowEdit
+                          ? (e) => {
+                              e.stopPropagation();
+                              setCursor(
+                                activeTool === "select" && !isAddMode
+                                  ? "grab"
+                                  : "pointer",
+                              );
+                            }
+                          : undefined
+                      }
+                      onPointerOut={
+                        allowEdit
+                          ? () => {
+                              setCursor("default");
+                            }
+                          : undefined
+                      }
                     >
                       <planeGeometry args={[w, d]} />
-                      <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
-                      <Edges color={isSelected ? '#fdba74' : '#94a3b8'} />
+                      <meshBasicMaterial
+                        transparent
+                        opacity={0}
+                        depthWrite={false}
+                        depthTest={false}
+                      />
+                      <Edges color={isSelected ? "#fdba74" : "#94a3b8"} />
                     </mesh>
                   ) : null}
                 </group>
-              )
-            })
+              );
+            });
           })()}
 
           {/* 2D overlays: zones + walkways */}
           {zoneElements.map((el) => {
-            const id = String(el.id)
-            const isSelected = selectedId && String(selectedId) === id
-            const wNorm = clamp01(Number(el.w) || 0.15)
-            const hNorm = clamp01(Number(el.h) || 0.12)
-            const cx = clamp01((Number(el.x) || 0) + wNorm / 2)
-            const cy = clamp01((Number(el.y) || 0) + hNorm / 2)
-            const pos = normToPlane(cx, cy, effectivePlaneSize)
-            const w = Math.max(0.02, wNorm) * effectivePlaneSize
-            const d = Math.max(0.02, hNorm) * effectivePlaneSize
-            const fill = zoneFillColor(el.color)
-            const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
-            const zoneName = String(el.label || '').trim() || 'Zone'
-            const zoneLabelY = 0.85
+            const id = String(el.id);
+            const isSelected = selectedId && String(selectedId) === id;
+            const wNorm = clamp01(Number(el.w) || 0.15);
+            const hNorm = clamp01(Number(el.h) || 0.12);
+            const cx = clamp01((Number(el.x) || 0) + wNorm / 2);
+            const cy = clamp01((Number(el.y) || 0) + hNorm / 2);
+            const pos = normToPlane(cx, cy, effectivePlaneSize);
+            const w = Math.max(0.02, wNorm) * effectivePlaneSize;
+            const d = Math.max(0.02, hNorm) * effectivePlaneSize;
+            const fill = zoneFillColor(el.color);
+            const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180);
+            const zoneName = String(el.label || "").trim() || "Zone";
+            const zoneLabelY = 0.85;
 
             // Disable all editing interactions in non-fullScreen
-            const allowEdit = fullScreen
+            const allowEdit = fullScreen;
             return (
               <group
                 key={id}
                 position={[pos.x, effectiveFloorY + overlayLift, pos.z]}
                 rotation={[0, rot, 0]}
-                onPointerDown={allowEdit ? (e) => {
-                  if (isAddMode) {
-                    handleAddPointerDown(e)
-                    return
-                  }
-                  e.stopPropagation()
-                  if (typeof onSelectElement === 'function') onSelectElement(id)
-
-                  if (isTransforming) return
-
-                  if (typeof onMoveElement === 'function' && activeTool === 'select') {
-                    // eventObject is one of the meshes; move its parent group.
-                    draggingObjectRef.current = e.eventObject?.parent || null
-                    draggingNormRef.current = null
-                    if (typeof getFloorHitFromEvent === 'function') {
-                      const hit = getFloorHitFromEvent(e)
-                      if (hit) {
-                        const pointerNorm = planeToNorm(hit.x, hit.z, effectivePlaneSize)
-                        draggingOffsetRef.current = {
-                          x: clamp01(cx) - pointerNorm.x,
-                          y: clamp01(cy) - pointerNorm.y,
+                onPointerDown={
+                  allowEdit
+                    ? (e) => {
+                        if (isAddMode) {
+                          handleAddPointerDown(e);
+                          return;
                         }
-                      } else {
-                        draggingOffsetRef.current = null
+                        e.stopPropagation();
+                        if (typeof onSelectElement === "function")
+                          onSelectElement(id);
+
+                        if (isTransforming) return;
+
+                        if (
+                          typeof onMoveElement === "function" &&
+                          activeTool === "select"
+                        ) {
+                          // eventObject is one of the meshes; move its parent group.
+                          draggingObjectRef.current =
+                            e.eventObject?.parent || null;
+                          draggingNormRef.current = null;
+                          if (typeof getFloorHitFromEvent === "function") {
+                            const hit = getFloorHitFromEvent(e);
+                            if (hit) {
+                              const pointerNorm = planeToNorm(
+                                hit.x,
+                                hit.z,
+                                effectivePlaneSize,
+                              );
+                              draggingOffsetRef.current = {
+                                x: clamp01(cx) - pointerNorm.x,
+                                y: clamp01(cy) - pointerNorm.y,
+                              };
+                            } else {
+                              draggingOffsetRef.current = null;
+                            }
+                          } else {
+                            draggingOffsetRef.current = null;
+                          }
+                          setDraggingId(id);
+                          setCursor("grabbing");
+                          setOrbitEnabledNow(false);
+                          capturePointer(e);
+                        }
                       }
-                    } else {
-                      draggingOffsetRef.current = null
-                    }
-                    setDraggingId(id)
-                    setCursor('grabbing')
-                    setOrbitEnabledNow(false)
-                    capturePointer(e)
-                  }
-                } : undefined}
-                onPointerMove={allowEdit ? (e) => {
-                  // Keep add preview + dragging responsive even when hovering existing meshes.
-                  handleFloorPointerMove(e)
-                } : undefined}
+                    : undefined
+                }
+                onPointerMove={
+                  allowEdit
+                    ? (e) => {
+                        // Keep add preview + dragging responsive even when hovering existing meshes.
+                        handleFloorPointerMove(e);
+                      }
+                    : undefined
+                }
               >
                 <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
                   <planeGeometry args={[w, d]} />
@@ -961,17 +1119,38 @@ export default function DepartmentFloor3DViewer({
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
                   renderOrder={10}
-                  onPointerOver={allowEdit ? (e) => {
-                    e.stopPropagation()
-                    setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
-                  } : undefined}
-                  onPointerOut={allowEdit ? () => {
-                    setCursor('default')
-                  } : undefined}
+                  onPointerOver={
+                    allowEdit
+                      ? (e) => {
+                          e.stopPropagation();
+                          setCursor(
+                            activeTool === "select" && !isAddMode
+                              ? "grab"
+                              : "pointer",
+                          );
+                        }
+                      : undefined
+                  }
+                  onPointerOut={
+                    allowEdit
+                      ? () => {
+                          setCursor("default");
+                        }
+                      : undefined
+                  }
                 >
                   <planeGeometry args={[w, d]} />
-                  <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
-                  {isSelected ? <Edges color="#fdba74" /> : <Edges color="#ffffff" />}
+                  <meshBasicMaterial
+                    transparent
+                    opacity={0}
+                    depthWrite={false}
+                    depthTest={false}
+                  />
+                  {isSelected ? (
+                    <Edges color="#fdba74" />
+                  ) : (
+                    <Edges color="#ffffff" />
+                  )}
                 </mesh>
 
                 {/* Zone name centered and always above machine labels */}
@@ -992,64 +1171,81 @@ export default function DepartmentFloor3DViewer({
                   </Text>
                 </Billboard>
               </group>
-            )
+            );
           })}
 
           {walkwayElements.map((el) => {
-            const id = String(el.id)
-            const isSelected = selectedId && String(selectedId) === id
-            const wNorm = clamp01(Number(el.w) || 0.2)
-            const hNorm = clamp01(Number(el.h) || 0.06)
-            const cx = clamp01((Number(el.x) || 0) + wNorm / 2)
-            const cy = clamp01((Number(el.y) || 0) + hNorm / 2)
-            const pos = normToPlane(cx, cy, effectivePlaneSize)
-            const w = Math.max(0.02, wNorm) * effectivePlaneSize
-            const d = Math.max(0.02, hNorm) * effectivePlaneSize
-            const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180)
+            const id = String(el.id);
+            const isSelected = selectedId && String(selectedId) === id;
+            const wNorm = clamp01(Number(el.w) || 0.2);
+            const hNorm = clamp01(Number(el.h) || 0.06);
+            const cx = clamp01((Number(el.x) || 0) + wNorm / 2);
+            const cy = clamp01((Number(el.y) || 0) + hNorm / 2);
+            const pos = normToPlane(cx, cy, effectivePlaneSize);
+            const w = Math.max(0.02, wNorm) * effectivePlaneSize;
+            const d = Math.max(0.02, hNorm) * effectivePlaneSize;
+            const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180);
 
             // Disable all editing interactions in non-fullScreen
-            const allowEdit = fullScreen
+            const allowEdit = fullScreen;
             return (
               <group
                 key={id}
                 position={[pos.x, effectiveFloorY + overlayLift, pos.z]}
                 rotation={[0, rot, 0]}
-                onPointerDown={allowEdit ? (e) => {
-                  if (isAddMode) {
-                    handleAddPointerDown(e)
-                    return
-                  }
-                  e.stopPropagation()
-                  if (typeof onSelectElement === 'function') onSelectElement(id)
-
-                  if (isTransforming) return
-
-                  if (typeof onMoveElement === 'function' && activeTool === 'select') {
-                    draggingObjectRef.current = e.eventObject?.parent || null
-                    draggingNormRef.current = null
-                    if (typeof getFloorHitFromEvent === 'function') {
-                      const hit = getFloorHitFromEvent(e)
-                      if (hit) {
-                        const pointerNorm = planeToNorm(hit.x, hit.z, effectivePlaneSize)
-                        draggingOffsetRef.current = {
-                          x: clamp01(cx) - pointerNorm.x,
-                          y: clamp01(cy) - pointerNorm.y,
+                onPointerDown={
+                  allowEdit
+                    ? (e) => {
+                        if (isAddMode) {
+                          handleAddPointerDown(e);
+                          return;
                         }
-                      } else {
-                        draggingOffsetRef.current = null
+                        e.stopPropagation();
+                        if (typeof onSelectElement === "function")
+                          onSelectElement(id);
+
+                        if (isTransforming) return;
+
+                        if (
+                          typeof onMoveElement === "function" &&
+                          activeTool === "select"
+                        ) {
+                          draggingObjectRef.current =
+                            e.eventObject?.parent || null;
+                          draggingNormRef.current = null;
+                          if (typeof getFloorHitFromEvent === "function") {
+                            const hit = getFloorHitFromEvent(e);
+                            if (hit) {
+                              const pointerNorm = planeToNorm(
+                                hit.x,
+                                hit.z,
+                                effectivePlaneSize,
+                              );
+                              draggingOffsetRef.current = {
+                                x: clamp01(cx) - pointerNorm.x,
+                                y: clamp01(cy) - pointerNorm.y,
+                              };
+                            } else {
+                              draggingOffsetRef.current = null;
+                            }
+                          } else {
+                            draggingOffsetRef.current = null;
+                          }
+                          setDraggingId(id);
+                          setCursor("grabbing");
+                          setOrbitEnabledNow(false);
+                          capturePointer(e);
+                        }
                       }
-                    } else {
-                      draggingOffsetRef.current = null
-                    }
-                    setDraggingId(id)
-                    setCursor('grabbing')
-                    setOrbitEnabledNow(false)
-                    capturePointer(e)
-                  }
-                } : undefined}
-                onPointerMove={allowEdit ? (e) => {
-                  handleFloorPointerMove(e)
-                } : undefined}
+                    : undefined
+                }
+                onPointerMove={
+                  allowEdit
+                    ? (e) => {
+                        handleFloorPointerMove(e);
+                      }
+                    : undefined
+                }
               >
                 <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
                   <planeGeometry args={[w, d]} />
@@ -1066,408 +1262,548 @@ export default function DepartmentFloor3DViewer({
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
                   renderOrder={10}
-                  onPointerOver={allowEdit ? (e) => {
-                    e.stopPropagation()
-                    setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
-                  } : undefined}
-                  onPointerOut={allowEdit ? () => {
-                    setCursor('default')
-                  } : undefined}
+                  onPointerOver={
+                    allowEdit
+                      ? (e) => {
+                          e.stopPropagation();
+                          setCursor(
+                            activeTool === "select" && !isAddMode
+                              ? "grab"
+                              : "pointer",
+                          );
+                        }
+                      : undefined
+                  }
+                  onPointerOut={
+                    allowEdit
+                      ? () => {
+                          setCursor("default");
+                        }
+                      : undefined
+                  }
                 >
                   <planeGeometry args={[w, d]} />
-                  <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
-                  <Edges color={isSelected ? '#fdba74' : '#ffffff'} />
+                  <meshBasicMaterial
+                    transparent
+                    opacity={0}
+                    depthWrite={false}
+                    depthTest={false}
+                  />
+                  <Edges color={isSelected ? "#fdba74" : "#ffffff"} />
                 </mesh>
               </group>
-            )
+            );
           })}
 
           {/* Add-mode click-drag preview for Zone/Walkway */}
-          {fullScreen && isAddMode && isAddDrawing && addPreview && addOverlayType ? (
-            (() => {
-              const wNorm = clamp01(Number(addPreview.w) || 0)
-              const hNorm = clamp01(Number(addPreview.h) || 0)
-              const x = clamp01(Number(addPreview.x) || 0)
-              const y = clamp01(Number(addPreview.y) || 0)
-              const cx = clamp01(x + wNorm / 2)
-              const cy = clamp01(y + hNorm / 2)
-              const pos = normToPlane(cx, cy, effectivePlaneSize)
-              const w = Math.max(0.02, wNorm) * effectivePlaneSize
-              const d = Math.max(0.02, hNorm) * effectivePlaneSize
-              const color =
-                addOverlayType === ELEMENT_TYPES.FLOOR
-                  ? '#ffffff'
-                  : addOverlayType === ELEMENT_TYPES.ZONE
-                    ? '#14532d'
-                    : '#000000'
-              const opacity =
-                addOverlayType === ELEMENT_TYPES.FLOOR
-                  ? 0.6
-                  : addOverlayType === ELEMENT_TYPES.ZONE
-                    ? 0.25
-                    : 0.65
+          {fullScreen &&
+          isAddMode &&
+          isAddDrawing &&
+          addPreview &&
+          addOverlayType
+            ? (() => {
+                const wNorm = clamp01(Number(addPreview.w) || 0);
+                const hNorm = clamp01(Number(addPreview.h) || 0);
+                const x = clamp01(Number(addPreview.x) || 0);
+                const y = clamp01(Number(addPreview.y) || 0);
+                const cx = clamp01(x + wNorm / 2);
+                const cy = clamp01(y + hNorm / 2);
+                const pos = normToPlane(cx, cy, effectivePlaneSize);
+                const w = Math.max(0.02, wNorm) * effectivePlaneSize;
+                const d = Math.max(0.02, hNorm) * effectivePlaneSize;
+                const color =
+                  addOverlayType === ELEMENT_TYPES.FLOOR
+                    ? "#ffffff"
+                    : addOverlayType === ELEMENT_TYPES.ZONE
+                      ? "#14532d"
+                      : "#000000";
+                const opacity =
+                  addOverlayType === ELEMENT_TYPES.FLOOR
+                    ? 0.6
+                    : addOverlayType === ELEMENT_TYPES.ZONE
+                      ? 0.25
+                      : 0.65;
 
-              return (
-                <group position={[pos.x, effectiveFloorY + overlayLift, pos.z]}>
-                  <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
-                    <planeGeometry args={[w, d]} />
-                    <meshBasicMaterial
-                      color={color}
-                      transparent
-                      opacity={opacity}
-                      depthWrite={false}
-                      polygonOffset
-                      polygonOffsetFactor={-1}
-                      polygonOffsetUnits={-1}
-                    />
-                  </mesh>
-                  <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={10}>
-                    <planeGeometry args={[w, d]} />
-                    <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
-                    <Edges color="#fdba74" />
-                  </mesh>
-                </group>
-              )
-            })()
-          ) : null}
+                return (
+                  <group
+                    position={[pos.x, effectiveFloorY + overlayLift, pos.z]}
+                  >
+                    <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+                      <planeGeometry args={[w, d]} />
+                      <meshBasicMaterial
+                        color={color}
+                        transparent
+                        opacity={opacity}
+                        depthWrite={false}
+                        polygonOffset
+                        polygonOffsetFactor={-1}
+                        polygonOffsetUnits={-1}
+                      />
+                    </mesh>
+                    <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={10}>
+                      <planeGeometry args={[w, d]} />
+                      <meshBasicMaterial
+                        transparent
+                        opacity={0}
+                        depthWrite={false}
+                        depthTest={false}
+                      />
+                      <Edges color="#fdba74" />
+                    </mesh>
+                  </group>
+                );
+              })()
+            : null}
 
-        <mesh
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, effectiveFloorY + 0.001, 0]}
-          onPointerMove={(e) => {
-            if (!fullScreen) return
-            e.stopPropagation()
-            handleFloorPointerMove(e)
-          }}
-          onPointerDown={(e) => {
-            if (!fullScreen) return
-            e.stopPropagation()
+          <mesh
+            raycast={null}
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, effectiveFloorY + 0.001, 0]}
+            onPointerMove={(e) => {
+              if (!fullScreen) return;
+              e.stopPropagation();
+              handleFloorPointerMove(e);
+            }}
+            onPointerDown={(e) => {
+              if (!fullScreen) return;
+              e.stopPropagation();
 
-            // Double-click + drag pans the camera.
-            // Note: we only start it when the user clicks on the floor (not on objects).
-            if (!isAddMode) {
-              maybeStartPanDrag(e)
-            }
+              // Double-click + drag pans the camera.
+              // Note: we only start it when the user clicks on the floor (not on objects).
+              if (!isAddMode) {
+                maybeStartPanDrag(e);
+              }
 
-            if (!isAddMode) {
-              if (typeof onSelectElement === 'function') onSelectElement('')
-              setDraggingId('')
-              setCursor('default')
-              return
-            }
+              if (!isAddMode) {
+                if (typeof onSelectElement === "function") onSelectElement("");
+                setDraggingId("");
+                setCursor("default");
+                return;
+              }
 
-            handleAddPointerDown(e)
-          }}
-          onPointerUp={() => {
-            stopPanDrag()
-            stopDragging()
-            setCursor('default')
-            setOrbitEnabledNow(!isOverlayAddToolActive && !isTransforming && !isAddDrawing)
+              handleAddPointerDown(e);
+            }}
+            onPointerUp={() => {
+              stopPanDrag();
+              stopDragging();
+              setCursor("default");
+              setOrbitEnabledNow(
+                !isOverlayAddToolActive && !isTransforming && !isAddDrawing,
+              );
 
-            if (!fullScreen) return
-            if (!isAddMode) return
-            if (!addDragRef.current) return
-            if (typeof onAddElement !== 'function') {
-              clearAddDrag()
-              return
-            }
+              if (!fullScreen) return;
+              if (!isAddMode) return;
+              if (!addDragRef.current) return;
+              if (typeof onAddElement !== "function") {
+                clearAddDrag();
+                return;
+              }
 
-            const drag = addDragRef.current
-            const a = drag.start
-            const b = drag.current
-            const x = clamp01(Math.min(a.x, b.x))
-            const y = clamp01(Math.min(a.y, b.y))
-            const w = clamp01(Math.abs(a.x - b.x))
-            const h = clamp01(Math.abs(a.y - b.y))
+              const drag = addDragRef.current;
+              const a = drag.start;
+              const b = drag.current;
+              const x = clamp01(Math.min(a.x, b.x));
+              const y = clamp01(Math.min(a.y, b.y));
+              const w = clamp01(Math.abs(a.x - b.x));
+              const h = clamp01(Math.abs(a.y - b.y));
 
-            // Allow rectangles (not forced square) and let walkways be thinner.
-            const minW = drag.type === ELEMENT_TYPES.WALKWAY ? 0.01 : 0.02
-            const minH = drag.type === ELEMENT_TYPES.WALKWAY ? 0.006 : 0.02
-            const finalW = Math.max(minW, w)
-            const finalH = Math.max(minH, h)
+              // Allow rectangles (not forced square) and let walkways be thinner.
+              const minW = drag.type === ELEMENT_TYPES.WALKWAY ? 0.01 : 0.02;
+              const minH = drag.type === ELEMENT_TYPES.WALKWAY ? 0.006 : 0.02;
+              const finalW = Math.max(minW, w);
+              const finalH = Math.max(minH, h);
 
-            const payload = {
-              x,
-              y,
-              w: finalW,
-              h: finalH,
-              rotationDeg: 0,
-              ...(drag.type === ELEMENT_TYPES.ZONE
-                ? { color: 'dark-green' }
-                : drag.type === ELEMENT_TYPES.WALKWAY
-                  ? { color: 'black' }
-                  : null),
-            }
+              const payload = {
+                x,
+                y,
+                w: finalW,
+                h: finalH,
+                rotationDeg: 0,
+                ...(drag.type === ELEMENT_TYPES.ZONE
+                  ? { color: "dark-green" }
+                  : drag.type === ELEMENT_TYPES.WALKWAY
+                    ? { color: "black" }
+                    : null),
+              };
 
-            onAddElement(drag.type, payload)
-            clearAddDrag()
-          }}
-          onPointerLeave={() => {
-            stopPanDrag()
-            stopDragging()
-            clearAddDrag()
-            setCursor('default')
-            setOrbitEnabledNow(!isOverlayAddToolActive && !isTransforming && !isAddDrawing)
-          }}
-        >
-          <planeGeometry args={[effectivePlaneSize, effectivePlaneSize]} />
-          <meshStandardMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
-        </mesh>
+              onAddElement(drag.type, payload);
+              clearAddDrag();
+            }}
+            onPointerLeave={() => {
+              stopPanDrag();
+              stopDragging();
+              clearAddDrag();
+              setCursor("default");
+              setOrbitEnabledNow(
+                !isOverlayAddToolActive && !isTransforming && !isAddDrawing,
+              );
+            }}
+          >
+            <planeGeometry args={[effectivePlaneSize, effectivePlaneSize]} />
+            <meshStandardMaterial
+              transparent
+              opacity={0}
+              depthWrite={false}
+              depthTest={false}
+            />
+          </mesh>
 
           {showMachineMarkers
             ? visiblePlaceableElements.map((el) => {
-              const wNorm = clamp01(Number(el.w) || 0.12)
-              const hNorm = clamp01(Number(el.h) || 0.12)
-              const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2)
-              const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2)
-              const pos = normToPlane(cx, cy, effectivePlaneSize)
-              const fitW = Math.max(0.02, wNorm) * effectivePlaneSize
-              const fitD = Math.max(0.02, hNorm) * effectivePlaneSize
-              const isSelected = selectedId && String(selectedId) === String(el.id)
-              const isDragging = draggingId && String(draggingId) === String(el.id)
+                const wNorm = clamp01(Number(el.w) || 0.12);
+                const hNorm = clamp01(Number(el.h) || 0.12);
+                const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2);
+                const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2);
+                const pos = normToPlane(cx, cy, effectivePlaneSize);
+                const fitW = Math.max(0.02, wNorm) * effectivePlaneSize;
+                const fitD = Math.max(0.02, hNorm) * effectivePlaneSize;
+                const isSelected =
+                  selectedId && String(selectedId) === String(el.id);
+                const isDragging =
+                  draggingId && String(draggingId) === String(el.id);
 
-              const machineId = el?.type === ELEMENT_TYPES.MACHINE ? String(el?.machineId || '') : ''
-              const machineMeta = machineId && machineMetaById ? machineMetaById[machineId] : null
-              const machineName = machineMeta?.name || el?.label || machineId
-              const machineStatus = machineMeta?.status || 'RUNNING'
+                const machineId =
+                  el?.type === ELEMENT_TYPES.MACHINE
+                    ? String(el?.machineId || "")
+                    : "";
+                const machineMeta =
+                  machineId && machineMetaById
+                    ? machineMetaById[machineId]
+                    : null;
+                const machineName = machineMeta?.name || el?.label || machineId;
+                const machineStatus = machineMeta?.status || "RUNNING";
 
-              const rawModelUrl = typeof el?.modelUrl === 'string' ? el.modelUrl.trim() : ''
-              const isDefaultMachineUrl =
-                rawModelUrl === '' ||
-                rawModelUrl === DEFAULT_MODEL_URLS[ELEMENT_TYPES.MACHINE] ||
-                rawModelUrl === '/models/machine.glb'
+                const rawModelUrl =
+                  typeof el?.modelUrl === "string" ? el.modelUrl.trim() : "";
+                const isDefaultMachineUrl =
+                  rawModelUrl === "" ||
+                  rawModelUrl === DEFAULT_MODEL_URLS[ELEMENT_TYPES.MACHINE] ||
+                  rawModelUrl === "/models/machine.glb";
 
-              const url =
-                el?.type === ELEMENT_TYPES.MACHINE
-                  ? (isDefaultMachineUrl
+                const url =
+                  el?.type === ELEMENT_TYPES.MACHINE
+                    ? isDefaultMachineUrl
                       ? machineModelUrlForStatus(machineStatus)
-                      : rawModelUrl)
-                  : (rawModelUrl || DEFAULT_MODEL_URLS[el.type] || '')
-              const uniformScale = clamp(Number(el.scale) || 1, 0.01, 50)
-              const markerColor = el?.type === ELEMENT_TYPES.MACHINE ? statusColor(machineStatus) : '#111827'
-              const labelText = el?.type === ELEMENT_TYPES.MACHINE ? abbreviateMachineName(machineName) : ''
-              const oeePct = el?.type === ELEMENT_TYPES.MACHINE ? computeMachineOeePct(machineMeta) : null
+                      : rawModelUrl
+                    : rawModelUrl || DEFAULT_MODEL_URLS[el.type] || "";
+                const uniformScale = clamp(Number(el.scale) || 1, 0.01, 50);
+                const markerColor =
+                  el?.type === ELEMENT_TYPES.MACHINE
+                    ? statusColor(machineStatus)
+                    : "#111827";
+                const labelText =
+                  el?.type === ELEMENT_TYPES.MACHINE
+                    ? abbreviateMachineName(machineName)
+                    : "";
+                const oeePct =
+                  el?.type === ELEMENT_TYPES.MACHINE
+                    ? computeMachineOeePct(machineMeta)
+                    : null;
 
-              // Disable all editing interactions in non-fullScreen
-              const allowEdit = fullScreen
-              const canOpenDetails =
-                !fullScreen &&
-                el?.type === ELEMENT_TYPES.MACHINE &&
-                !!machineId &&
-                typeof onOpenMachineDetails === 'function'
+                // Disable all editing interactions in non-fullScreen
+                const allowEdit = fullScreen;
+                const canOpenDetails =
+                  !fullScreen &&
+                  el?.type === ELEMENT_TYPES.MACHINE &&
+                  !!machineId &&
+                  typeof onOpenMachineDetails === "function";
 
-              const content = (
-                <group
-                  ref={isSelected ? selectedObjectRef : undefined}
-                  position={[pos.x, machineY, pos.z]}
-                  renderOrder={20}
-                  scale={[uniformScale, uniformScale, uniformScale]}
-                  rotation={[0, (Number(el.rotationDeg) || 0) * (Math.PI / 180), 0]}
-                  onPointerDown={allowEdit ? (e) => {
-                    if (isAddMode) {
-                      handleAddPointerDown(e)
-                      return
+                const content = (
+                  <group
+                    ref={isSelected ? selectedObjectRef : undefined}
+                    position={[pos.x, machineY, pos.z]}
+                    renderOrder={20}
+                    scale={[uniformScale, uniformScale, uniformScale]}
+                    rotation={[
+                      0,
+                      (Number(el.rotationDeg) || 0) * (Math.PI / 180),
+                      0,
+                    ]}
+                    onPointerDown={
+                      allowEdit
+                        ? (e) => {
+                            if (isAddMode) {
+                              handleAddPointerDown(e);
+                              return;
+                            }
+
+                            e.stopPropagation();
+
+                            if (isTransforming) return;
+
+                            if (typeof onSelectElement === "function")
+                              onSelectElement(String(el.id));
+
+                            if (
+                              typeof onMoveElement === "function" &&
+                              activeTool === "select"
+                            ) {
+                              draggingObjectRef.current = e.eventObject;
+                              draggingNormRef.current = null;
+                              if (typeof getFloorHitFromEvent === "function") {
+                                const hit = getFloorHitFromEvent(e);
+                                if (hit) {
+                                  const pointerNorm = planeToNorm(
+                                    hit.x,
+                                    hit.z,
+                                    effectivePlaneSize,
+                                  );
+                                  const wNorm = clamp01(Number(el.w) || 0.12);
+                                  const hNorm = clamp01(Number(el.h) || 0.12);
+                                  const center = {
+                                    x: clamp01((Number(el.x) || 0) + wNorm / 2),
+                                    y: clamp01((Number(el.y) || 0) + hNorm / 2),
+                                  };
+                                  draggingOffsetRef.current = {
+                                    x: center.x - pointerNorm.x,
+                                    y: center.y - pointerNorm.y,
+                                  };
+                                } else {
+                                  draggingOffsetRef.current = null;
+                                }
+                              } else {
+                                draggingOffsetRef.current = null;
+                              }
+                              setDraggingId(String(el.id));
+                              setCursor("grabbing");
+                              setOrbitEnabledNow(false);
+                              capturePointer(e);
+                            }
+                          }
+                        : canOpenDetails
+                          ? (e) => {
+                              e.stopPropagation();
+                              onOpenMachineDetails(machineId);
+                            }
+                          : undefined
                     }
-
-                    e.stopPropagation()
-
-                    if (isTransforming) return
-
-                    if (typeof onSelectElement === 'function') onSelectElement(String(el.id))
-
-                    if (typeof onMoveElement === 'function' && activeTool === 'select') {
-                      draggingObjectRef.current = e.eventObject
-                      draggingNormRef.current = null
-                      if (typeof getFloorHitFromEvent === 'function') {
-                        const hit = getFloorHitFromEvent(e)
-                        if (hit) {
-                          const pointerNorm = planeToNorm(hit.x, hit.z, effectivePlaneSize)
-                          const wNorm = clamp01(Number(el.w) || 0.12)
-                          const hNorm = clamp01(Number(el.h) || 0.12)
-                          const center = {
-                            x: clamp01((Number(el.x) || 0) + wNorm / 2),
-                            y: clamp01((Number(el.y) || 0) + hNorm / 2),
+                    onPointerMove={
+                      allowEdit
+                        ? (e) => {
+                            handleFloorPointerMove(e);
                           }
-                          draggingOffsetRef.current = {
-                            x: center.x - pointerNorm.x,
-                            y: center.y - pointerNorm.y,
+                        : undefined
+                    }
+                    onPointerOver={
+                      allowEdit
+                        ? (e) => {
+                            if (isAddMode) return;
+                            e.stopPropagation();
+                            setCursor(
+                              activeTool === "select" && !isAddMode
+                                ? "grab"
+                                : "pointer",
+                            );
                           }
-                        } else {
-                          draggingOffsetRef.current = null
+                        : undefined
+                    }
+                    onPointerOut={
+                      allowEdit
+                        ? () => {
+                            setCursor("default");
+                          }
+                        : undefined
+                    }
+                    onPointerEnter={
+                      canOpenDetails
+                        ? (e) => {
+                            e.stopPropagation();
+                            setHoveredMachineId((prev) =>
+                              prev === machineId ? prev : machineId,
+                            );
+                            setCursor("pointer");
+                          }
+                        : undefined
+                    }
+                    onPointerLeave={
+                      canOpenDetails
+                        ? () => {
+                            setHoveredMachineId((prev) =>
+                              prev === machineId ? "" : prev,
+                            );
+                            setCursor("default");
+                          }
+                        : undefined
+                    }
+                    onClick={
+                      canOpenDetails
+                        ? (e) => {
+                            e.stopPropagation();
+                            onOpenMachineDetails(machineId);
+                          }
+                        : undefined
+                    }
+                  >
+                    <ErrorBoundary
+                      fallback={() => (
+                        <FallbackMarker selected={isSelected || isDragging} />
+                      )}
+                    >
+                      <Suspense
+                        fallback={
+                          <FallbackMarker selected={isSelected || isDragging} />
                         }
-                      } else {
-                        draggingOffsetRef.current = null
-                      }
-                      setDraggingId(String(el.id))
-                      setCursor('grabbing')
-                      setOrbitEnabledNow(false)
-                      capturePointer(e)
-                    }
-                  } : (canOpenDetails ? (e) => {
-                    e.stopPropagation()
-                    onOpenMachineDetails(machineId)
-                  } : undefined)}
-                  onPointerMove={allowEdit ? (e) => {
-                    handleFloorPointerMove(e)
-                  } : undefined}
-                  onPointerOver={allowEdit ? (e) => {
-                    if (isAddMode) return
-                    e.stopPropagation()
-                    setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
-                  } : undefined}
-                  onPointerOut={allowEdit ? () => {
-                    setCursor('default')
-                  } : undefined}
-                  onPointerEnter={canOpenDetails ? (e) => {
-                    e.stopPropagation()
-                    setHoveredMachineId((prev) => (prev === machineId ? prev : machineId))
-                    setCursor('pointer')
-                  } : undefined}
-                  onPointerLeave={canOpenDetails ? () => {
-                    setHoveredMachineId((prev) => (prev === machineId ? '' : prev))
-                    setCursor('default')
-                  } : undefined}
-                  onClick={canOpenDetails ? (e) => {
-                    e.stopPropagation()
-                    onOpenMachineDetails(machineId)
-                  } : undefined}
-                >
-                  <ErrorBoundary fallback={() => <FallbackMarker selected={isSelected || isDragging} />}>
-                    <Suspense fallback={<FallbackMarker selected={isSelected || isDragging} />}>
-                      {url ? (
-                        <PlacedGLB
-                          url={url}
-                          tintColor={!fullScreen && el?.type === ELEMENT_TYPES.MACHINE ? markerColor : undefined}
-                          tintStrength={0.12}
-                          fitW={fitW}
-                          fitD={fitD}
-                        />
-                      ) : null}
-                    </Suspense>
-                  </ErrorBoundary>
-
-                  <mesh position={[0, 0.08, 0]}>
-                    <boxGeometry args={[0.25, 0.16, 0.25]} />
-                    <meshStandardMaterial
-                      color={isSelected ? '#0ea5e9' : isDragging ? '#0ea5e9' : markerColor}
-                      transparent
-                      opacity={url ? 0.05 : 1}
-                    />
-                  </mesh>
-
-                  {showMachineLabels && el?.type === ELEMENT_TYPES.MACHINE && labelText ? (
-                    <Billboard follow lockX lockZ>
-                      <Text
-                        position={[0, 0.38, 0]}
-                        fontSize={0.14}
-                        color={fullScreen ? '#ffffff' : markerColor}
-                        outlineWidth={0.012}
-                        outlineColor="#000000"
-                        anchorX="center"
-                        anchorY="middle"
-                        material-depthTest={false}
-                        material-transparent
                       >
-                        {labelText}
-                      </Text>
-                    </Billboard>
-                  ) : null}
+                        {url ? (
+                          <PlacedGLB
+                            url={url}
+                            tintColor={
+                              !fullScreen && el?.type === ELEMENT_TYPES.MACHINE
+                                ? markerColor
+                                : undefined
+                            }
+                            tintStrength={0.12}
+                            fitW={fitW}
+                            fitD={fitD}
+                          />
+                        ) : null}
+                      </Suspense>
+                    </ErrorBoundary>
 
-                  {!fullScreen && canOpenDetails && hoveredMachineId === machineId ? (
-                    // Cancel the machine model's rotation so the tooltip offset doesn't
-                    // feel "aligned" to the machine orientation.
-                    <group
-                      position={[0, 0.78, 0]}
-                      rotation={[0, -((Number(el.rotationDeg) || 0) * (Math.PI / 180)), 0]}
-                      renderOrder={10000}
-                    >
-                      <group position={[0.25, 0, 0]}>
-                        <MachineHoverTooltip3D
-                          title={machineName || 'Machine'}
-                          status={machineStatus || '—'}
-                          oeePct={oeePct}
-                          accentColor={markerColor}
-                        />
-                      </group>
-                    </group>
-                  ) : null}
-
-                  {isSelected && allowEdit ? (
-                    <mesh
-                      position={[0, 0.08, 0]}
-                      onPointerOver={(ev) => {
-                        ev.stopPropagation()
-                        setCursor(activeTool === 'select' && !isAddMode ? 'grab' : 'pointer')
-                      }}
-                      onPointerOut={() => {
-                        setCursor('default')
-                      }}
-                    >
-                      <boxGeometry args={[0.28, 0.18, 0.28]} />
-                      <meshBasicMaterial color="#fdba74" wireframe />
+                    <mesh position={[0, 0.08, 0]}>
+                      <boxGeometry args={[0.25, 0.16, 0.25]} />
+                      <meshStandardMaterial
+                        color={
+                          isSelected
+                            ? "#0ea5e9"
+                            : isDragging
+                              ? "#0ea5e9"
+                              : markerColor
+                        }
+                        transparent
+                        opacity={url ? 0.05 : 1}
+                      />
                     </mesh>
-                  ) : null}
-                </group>
-              )
 
-              return isSelected && allowEdit ? (
-                <TransformControls
-                  key={String(el.id)}
-                  mode="scale"
-                  enabled={typeof onUpdateElement === 'function'}
-                  onMouseDown={() => setIsTransforming(true)}
-                  onMouseUp={() => setIsTransforming(false)}
-                  onObjectChange={() => {
-                    if (typeof onUpdateElement !== 'function') return
-                    const obj = selectedObjectRef.current
-                    if (!obj) return
+                    {showMachineLabels &&
+                    el?.type === ELEMENT_TYPES.MACHINE &&
+                    labelText ? (
+                      <Billboard follow lockX lockZ>
+                        <Text
+                          position={[0, 0.38, 0]}
+                          fontSize={0.14}
+                          color={fullScreen ? "#ffffff" : markerColor}
+                          outlineWidth={0.012}
+                          outlineColor="#000000"
+                          anchorX="center"
+                          anchorY="middle"
+                          material-depthTest={false}
+                          material-transparent
+                        >
+                          {labelText}
+                        </Text>
+                      </Billboard>
+                    ) : null}
 
-                    const s = clamp(Number(obj.scale?.x) || 1, 0.01, 50)
-                    obj.scale.setScalar(s)
-                    onUpdateElement(String(el.id), { scale: s })
-                  }}
-                >
-                  {content}
-                </TransformControls>
-              ) : (
-                <group key={String(el.id)}>{content}</group>
-              )
-            })
+                    {!fullScreen &&
+                    canOpenDetails &&
+                    hoveredMachineId === machineId ? (
+                      // Cancel the machine model's rotation so the tooltip offset doesn't
+                      // feel "aligned" to the machine orientation.
+                      <group
+                        position={[0, 0.78, 0]}
+                        rotation={[
+                          0,
+                          -((Number(el.rotationDeg) || 0) * (Math.PI / 180)),
+                          0,
+                        ]}
+                        renderOrder={10000}
+                      >
+                        <group position={[0.25, 0, 0]}>
+                          <MachineHoverTooltip3D
+                            title={machineName || "Machine"}
+                            status={machineStatus || "—"}
+                            oeePct={oeePct}
+                            accentColor={markerColor}
+                          />
+                        </group>
+                      </group>
+                    ) : null}
+
+                    {isSelected && allowEdit ? (
+                      <mesh
+                        position={[0, 0.08, 0]}
+                        onPointerOver={(ev) => {
+                          ev.stopPropagation();
+                          setCursor(
+                            activeTool === "select" && !isAddMode
+                              ? "grab"
+                              : "pointer",
+                          );
+                        }}
+                        onPointerOut={() => {
+                          setCursor("default");
+                        }}
+                      >
+                        <boxGeometry args={[0.28, 0.18, 0.28]} />
+                        <meshBasicMaterial color="#fdba74" wireframe />
+                      </mesh>
+                    ) : null}
+                  </group>
+                );
+
+                return isSelected && allowEdit ? (
+                  <TransformControls
+                    key={String(el.id)}
+                    mode="scale"
+                    enabled={typeof onUpdateElement === "function"}
+                    onMouseDown={() => setIsTransforming(true)}
+                    onMouseUp={() => setIsTransforming(false)}
+                    onObjectChange={() => {
+                      if (typeof onUpdateElement !== "function") return;
+                      const obj = selectedObjectRef.current;
+                      if (!obj) return;
+
+                      const s = clamp(Number(obj.scale?.x) || 1, 0.01, 50);
+                      obj.scale.setScalar(s);
+                      onUpdateElement(String(el.id), { scale: s });
+                    }}
+                  >
+                    {content}
+                  </TransformControls>
+                ) : (
+                  <group key={String(el.id)}>{content}</group>
+                );
+              })
             : null}
 
-          {showMachineMarkers && isAddMode && hoverNorm && addElementType ? (
-          (() => {
-            const pos = normToPlane(hoverNorm.x, hoverNorm.y, effectivePlaneSize)
-            return (
-              <mesh position={[pos.x, effectiveFloorY + 0.08, pos.z]}>
-                <boxGeometry args={[0.25, 0.16, 0.25]} />
-                <meshStandardMaterial color="#0ea5e9" transparent opacity={0.35} />
-              </mesh>
-            )
-          })()
-        ) : null}
-
+          {showMachineMarkers && isAddMode && hoverNorm && addElementType
+            ? (() => {
+                const pos = normToPlane(
+                  hoverNorm.x,
+                  hoverNorm.y,
+                  effectivePlaneSize,
+                );
+                return (
+                  <mesh position={[pos.x, effectiveFloorY + 0.08, pos.z]}>
+                    <boxGeometry args={[0.25, 0.16, 0.25]} />
+                    <meshStandardMaterial
+                      color="#0ea5e9"
+                      transparent
+                      opacity={0.35}
+                    />
+                  </mesh>
+                );
+              })()
+            : null}
           <OrbitControls
             ref={orbitRef}
-            enablePan={fullScreen}
+            /* 🔑 THIS IS THE KEY */
+            makeDefault
+            enableRotate={true}
             enableZoom={true}
-            // Keep preview mode mostly static: allow zoom, but no rotate.
-            enableRotate={fullScreen}
-            // Keep preview zoom range tighter so it looks like the desired default.
-            minDistance={fullScreen ? effectivePlaneSize * 0.25 : effectivePlaneSize * 0.18}
-            maxDistance={fullScreen ? effectivePlaneSize * 3.0 : effectivePlaneSize * 1.25}
+            enablePan={false}
+            /* 🔒 Block bottom rotation safely */
+            minPolarAngle={Math.PI * 0.25}
+            maxPolarAngle={Math.PI * 0.65}
+            enableDamping
+            dampingFactor={0.1}
+            rotateSpeed={0.8}
+            zoomSpeed={1.0}
             mouseButtons={{
               LEFT: MOUSE.ROTATE,
               MIDDLE: MOUSE.DOLLY,
-              RIGHT: fullScreen ? MOUSE.PAN : MOUSE.ROTATE
-            }}
-            autoRotate={autoRotate}
-            autoRotateSpeed={1.0}
-            enabled={controlsEnabled}
-            onStart={() => {
-              stopDragging()
-              clearAddDrag()
-              setHoverNorm(null)
+              RIGHT: MOUSE.ROTATE,
             }}
           />
         </Canvas>
@@ -1475,21 +1811,21 @@ export default function DepartmentFloor3DViewer({
 
       <div className="pointer-events-none absolute bottom-2 right-2 rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 backdrop-blur">
         {!fullScreen
-          ? 'Hover machine for details • Click machine to open'
+          ? "Hover machine for details • Click machine to open"
           : isOverlayAddToolActive
-            ? 'Click + drag + release to draw • Camera drag disabled'
+            ? "Click + drag + release to draw • Camera drag disabled"
             : isAddMode
-              ? 'Click to place'
+              ? "Click to place"
               : selectedId
-                ? 'Drag to move • Use gizmo to scale'
-                : 'Click to select • Drag to move'}
+                ? "Drag to move • Use gizmo to scale"
+                : "Click to select • Drag to move"}
       </div>
     </div>
-  )
+  );
 }
 
-useGLTF.preload('/models/floor-model.glb')
-useGLTF.preload('/models/machine-running.glb')
-useGLTF.preload('/models/machine-idle.glb')
-useGLTF.preload('/models/machine-down.glb')
-useGLTF.preload('/models/machine-blender.glb')
+useGLTF.preload("/models/floor-model.glb");
+useGLTF.preload("/models/machine-running.glb");
+useGLTF.preload("/models/machine-idle.glb");
+useGLTF.preload("/models/machine-down.glb");
+useGLTF.preload("/models/machine-blender.glb");
