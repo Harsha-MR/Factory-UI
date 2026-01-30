@@ -10,7 +10,7 @@ import RegisterPage from './pages/RegisterPage.jsx'
 
 function isLoggedIn() {
   if (typeof localStorage === 'undefined') return false;
-  const userId = localStorage.getItem('factory-ui:userId');
+  const userId = localStorage.getItem('user');
   return !!userId;
 }
 
