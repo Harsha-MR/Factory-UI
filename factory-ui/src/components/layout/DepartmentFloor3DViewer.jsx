@@ -462,7 +462,8 @@ export default function DepartmentFloor3DViewer({
   const setOrbitEnabledNow = (enabled) => {
     const controls = orbitRef.current;
     if (!controls) return;
-    const next = fullScreen ? !!enabled : false;
+    // Allow controls in both modes; pan/rotate restrictions are handled via enablePan/enableRotate props
+    const next = !!enabled;
     if ("enabled" in controls) controls.enabled = next;
     if (typeof controls.update === "function") controls.update();
   };
@@ -847,11 +848,9 @@ export default function DepartmentFloor3DViewer({
     if (!el) return;
 
     const onWheel = (e) => {
-      // Only lock page scroll for the embedded (non-fullscreen) viewer.
-      // Fullscreen already captures focus and users may still want normal wheel behavior
-      // depending on browser/device.
-      if (fullScreen) return;
+      // Prevent page scroll for both modes when wheel is over the canvas
       e.preventDefault();
+      e.stopPropagation();
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -897,9 +896,8 @@ export default function DepartmentFloor3DViewer({
           // Keep DPR consistent across modes; higher DPR in preview makes interactions feel less smooth.
           dpr={fullScreen ? [1, 1.5] : 1}
           gl={{ antialias: false, powerPreference: "high-performance" }}
-          // Preview mode is mostly static; render on demand to keep hover/modal interactions snappy.
-          frameloop={fullScreen ? "always" : "demand"}
-          // frameloop={'always'}
+          // Always render continuously for smooth zoom/pan interactions in both modes
+          frameloop="always"
           onCreated={({ camera }) => {
             cameraRef.current = camera;
             const [cx, cy, cz] = cameraPosition;
@@ -1795,8 +1793,8 @@ export default function DepartmentFloor3DViewer({
             ref={orbitRef}
             enablePan={fullScreen}
             enableZoom={true}
-            // Keep preview mode mostly static: allow zoom, but no rotate.
-            enableRotate={fullScreen}
+            // Allow rotation in both modes for smooth camera control
+            enableRotate={true}
             // Keep preview zoom range tighter so it looks like the desired default.
             minDistance={
               fullScreen ? effectivePlaneSize * 0.25 : effectivePlaneSize * 0.18
