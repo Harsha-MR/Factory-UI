@@ -1528,7 +1528,6 @@ export default function Department3DLayoutPage() {
                     Show labels
                   </label>
                 </div>
-
                 <div className="flex flex-wrap items-center gap-2">
                   {["RUNNING", "IDLE", "DOWN", "MAINTENANCE", "OFF", "ALL"].map(
                     (s) => (
@@ -1569,7 +1568,6 @@ export default function Department3DLayoutPage() {
                 </div>
               </div>
             ) : null}
-
             <DepartmentFloor3DViewer
               modelUrl={
                 draft?.threeD?.floorModelUrl || "/models/floor-model.glb"
