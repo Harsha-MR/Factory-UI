@@ -405,6 +405,55 @@ function FallbackMarker({ selected }) {
   );
 }
 
+// Floor model component: scales only X and Z (width and depth), preserves Y (height)
+function FloorModel3D({ width, depth }) {
+  const { scene } = useGLTF("/models/floor-model.glb");
+
+  const { scaleX, scaleZ, yOffset } = useMemo(() => {
+    try {
+      const tmp = scene.clone(true);
+      tmp.position.set(0, 0, 0);
+      tmp.rotation.set(0, 0, 0);
+      tmp.scale.set(1, 1, 1);
+      tmp.updateMatrixWorld(true);
+      
+      const box = new Box3().setFromObject(tmp);
+      const size = new Vector3();
+      box.getSize(size);
+
+      const modelX = Number(size.x) || 1;
+      const modelZ = Number(size.z) || 1;
+      const minY = Number(box.min.y);
+
+      // Scale X and Z to fit target dimensions, keep Y at 1 (preserve height)
+      const targetW = Number(width) || 1;
+      const targetD = Number(depth) || 1;
+      
+      const computedScaleX = modelX > 0.000001 ? targetW / modelX : 1;
+      const computedScaleZ = modelZ > 0.000001 ? targetD / modelZ : 1;
+      const computedYOffset = Number.isFinite(minY) ? -minY : 0;
+
+      return {
+        scaleX: clamp(computedScaleX, 0.001, 100),
+        scaleZ: clamp(computedScaleZ, 0.001, 100),
+        yOffset: computedYOffset,
+      };
+    } catch {
+      return { scaleX: 1, scaleZ: 1, yOffset: 0 };
+    }
+  }, [scene, width, depth]);
+
+  const cloned = useMemo(() => scene.clone(true), [scene]);
+
+  return (
+    <primitive
+      object={cloned}
+      position={[0, yOffset, 0]}
+      scale={[scaleX, 1, scaleZ]}
+    />
+  );
+}
+
 export default function DepartmentFloor3DViewer({
   scale = 1,
   autoRotate = false,
@@ -440,7 +489,8 @@ export default function DepartmentFloor3DViewer({
   const effectiveFloorY = 0;
   // Keep lifts in world units. Use a larger machine lift to ensure the semi-transparent
   // zone planes never visually occlude the GLBs due to depth sorting.
-  const overlayLift = 0.002;
+  // Increased overlayLift to 0.05 to ensure zones stay clearly above 3D floor model
+  const overlayLift = 0.05;
   const placeableLift = 0.03;
 
   // DEBUG: force machines below the floor surface to validate whether we're dealing
@@ -924,7 +974,7 @@ export default function DepartmentFloor3DViewer({
             </>
           ) : null}
 
-          {/* 2D base floor overlay (white). If no explicit FLOOR element exists, render a default floor covering the whole plane. */}
+          {/* 3D floor model (replacing 2D overlay). If no explicit FLOOR element exists, render a default floor covering the whole plane. */}
           {(() => {
             const list = floorElements.length
               ? floorElements
@@ -957,7 +1007,7 @@ export default function DepartmentFloor3DViewer({
               return (
                 <group
                   key={id}
-                  position={[pos.x, effectiveFloorY + 0.0005, pos.z]}
+                  position={[pos.x, effectiveFloorY, pos.z]}
                   rotation={[0, rot, 0]}
                   onPointerDown={
                     allowEdit
@@ -981,17 +1031,15 @@ export default function DepartmentFloor3DViewer({
                       : undefined
                   }
                 >
-                  <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={0}>
-                    <planeGeometry args={[w, d]} />
-                    <meshStandardMaterial
-                      color="#ffffff"
-                      roughness={1}
-                      metalness={0}
-                    />
-                  </mesh>
+                  {/* Load 3D floor model and scale only X and Z axes (preserve Y height) */}
+                  <Suspense fallback={null}>
+                    <FloorModel3D width={w} depth={d} />
+                  </Suspense>
+                  
                   {id !== "__default_floor__" ? (
                     <mesh
                       rotation={[-Math.PI / 2, 0, 0]}
+                      position={[0, 0.01, 0]}
                       renderOrder={5}
                       onPointerOver={
                         allowEdit
@@ -1107,13 +1155,14 @@ export default function DepartmentFloor3DViewer({
                     : undefined
                 }
               >
-                <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={100}>
                   <planeGeometry args={[w, d]} />
                   <meshBasicMaterial
                     color={fill}
                     transparent
                     opacity={0.35}
                     depthWrite={false}
+                    depthTest={false}
                     polygonOffset
                     polygonOffsetFactor={-1}
                     polygonOffsetUnits={-1}
@@ -1121,7 +1170,7 @@ export default function DepartmentFloor3DViewer({
                 </mesh>
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
-                  renderOrder={10}
+                  renderOrder={110}
                   onPointerOver={
                     allowEdit
                       ? (e) => {
@@ -1514,7 +1563,7 @@ export default function DepartmentFloor3DViewer({
                   <group
                     ref={isSelected ? selectedObjectRef : undefined}
                     position={[pos.x, machineY, pos.z]}
-                    renderOrder={20}
+                    renderOrder={200}
                     scale={[uniformScale, uniformScale, uniformScale]}
                     rotation={[
                       0,
@@ -1536,7 +1585,29 @@ export default function DepartmentFloor3DViewer({
                             if (typeof onSelectElement === "function")
                               onSelectElement(String(el.id));
 
+                            // Don't initiate drag immediately - wait for actual pointer movement
+                            // Store the object ref only, dragging starts in onPointerMove
+                          }
+                        : canOpenDetails
+                          ? (e) => {
+                              e.stopPropagation();
+                              onOpenMachineDetails(machineId);
+                            }
+                          : undefined
+                    }
+                    onPointerMove={
+                      allowEdit
+                        ? (e) => {
+                            handleFloorPointerMove(e);
+                            
+                            // Only start dragging if pointer is down and we haven't started yet
                             if (
+                              !draggingId &&
+                              !isTransforming &&
+                              !isAddMode &&
+                              selectedId &&
+                              String(selectedId) === String(el.id) &&
+                              e.buttons === 1 && // Left mouse button is pressed
                               typeof onMoveElement === "function" &&
                               activeTool === "select"
                             ) {
@@ -1571,18 +1642,6 @@ export default function DepartmentFloor3DViewer({
                               setOrbitEnabledNow(false);
                               capturePointer(e);
                             }
-                          }
-                        : canOpenDetails
-                          ? (e) => {
-                              e.stopPropagation();
-                              onOpenMachineDetails(machineId);
-                            }
-                          : undefined
-                    }
-                    onPointerMove={
-                      allowEdit
-                        ? (e) => {
-                            handleFloorPointerMove(e);
                           }
                         : undefined
                     }
