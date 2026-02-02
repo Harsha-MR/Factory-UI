@@ -454,6 +454,88 @@ function FloorModel3D({ width, depth }) {
   );
 }
 
+// Zone model component: uses floor model with zone color overlay
+function ZoneModel3D({ width, depth, color }) {
+  const { scene } = useGLTF("/models/floor-model.glb");
+
+  const { scaleX, scaleZ, yOffset } = useMemo(() => {
+    try {
+      const tmp = scene.clone(true);
+      tmp.position.set(0, 0, 0);
+      tmp.rotation.set(0, 0, 0);
+      tmp.scale.set(1, 1, 1);
+      tmp.updateMatrixWorld(true);
+      
+      const box = new Box3().setFromObject(tmp);
+      const size = new Vector3();
+      box.getSize(size);
+
+      const modelX = Number(size.x) || 1;
+      const modelZ = Number(size.z) || 1;
+      const minY = Number(box.min.y);
+
+      const targetW = Number(width) || 1;
+      const targetD = Number(depth) || 1;
+      
+      const computedScaleX = modelX > 0.000001 ? targetW / modelX : 1;
+      const computedScaleZ = modelZ > 0.000001 ? targetD / modelZ : 1;
+      const computedYOffset = Number.isFinite(minY) ? -minY : 0;
+
+      return {
+        scaleX: clamp(computedScaleX, 0.001, 100),
+        scaleZ: clamp(computedScaleZ, 0.001, 100),
+        yOffset: computedYOffset,
+      };
+    } catch {
+      return { scaleX: 1, scaleZ: 1, yOffset: 0 };
+    }
+  }, [scene, width, depth]);
+
+  const coloredClone = useMemo(() => {
+    const root = scene.clone(true);
+    const zoneColor = new Color(color);
+
+    root.traverse((obj) => {
+      if (!obj) return;
+      if (!obj.isMesh && !obj.isSkinnedMesh) return;
+
+      const mat = obj.material;
+      if (!mat) return;
+
+      const applyZoneColor = (m) => {
+        if (!m || !m.isMaterial) return m;
+        const next = m.clone();
+        
+        // Apply zone color overlay
+        if (next.color) {
+          next.color.copy(zoneColor);
+        }
+        if (Object.prototype.hasOwnProperty.call(next, "emissive") && next.emissive) {
+          next.emissive.copy(zoneColor);
+          next.emissiveIntensity = 0.2;
+        }
+
+        next.needsUpdate = true;
+        return next;
+      };
+
+      obj.material = Array.isArray(mat)
+        ? mat.map(applyZoneColor)
+        : applyZoneColor(mat);
+    });
+
+    return root;
+  }, [scene, color]);
+
+  return (
+    <primitive
+      object={coloredClone}
+      position={[0, yOffset, 0]}
+      scale={[scaleX, 1, scaleZ]}
+    />
+  );
+}
+
 export default function DepartmentFloor3DViewer({
   scale = 1,
   autoRotate = false,
@@ -1155,19 +1237,10 @@ export default function DepartmentFloor3DViewer({
                     : undefined
                 }
               >
-                <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={100}>
-                  <planeGeometry args={[w, d]} />
-                  <meshBasicMaterial
-                    color={fill}
-                    transparent
-                    opacity={0.35}
-                    depthWrite={false}
-                    depthTest={false}
-                    polygonOffset
-                    polygonOffsetFactor={-1}
-                    polygonOffsetUnits={-1}
-                  />
-                </mesh>
+                {/* 3D Zone model with color */}
+                <ZoneModel3D width={w} depth={d} color={fill} />
+
+                {/* Invisible interaction plane for pointer events */}
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
                   renderOrder={110}
@@ -1196,7 +1269,6 @@ export default function DepartmentFloor3DViewer({
                     transparent
                     opacity={0}
                     depthWrite={false}
-                    depthTest={false}
                   />
                   {isSelected ? (
                     <Edges color="#fdba74" />
