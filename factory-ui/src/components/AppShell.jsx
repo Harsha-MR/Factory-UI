@@ -2,19 +2,24 @@ import { Outlet } from "react-router-dom";
 import Header from "./header.jsx";
 import Footer from "./footer.jsx";
 import GlobalDownMachineAlerts from "./alerts/GlobalDownMachineAlerts.jsx";
+import { useLocation } from "react-router-dom";
 
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from "react-router-dom";
 
 export default function AppShell() {
   const navigate = useNavigate();
-  const userId = typeof localStorage !== 'undefined' ? localStorage.getItem('user') : '';
+  const userId =
+    typeof localStorage !== "undefined" ? localStorage.getItem("user") : "";
 
   const handleLogout = () => {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('user');
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("user");
     }
-    navigate('/login');
+    navigate("/login");
   };
+  const location = useLocation();
+
+  const hideFooter = location.pathname.includes("/departments/");
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-gray-900">
@@ -28,7 +33,7 @@ export default function AppShell() {
         </div>
       </main>
 
-      <Footer />
+      {!hideFooter && <Footer />}
     </div>
   );
 }
