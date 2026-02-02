@@ -52,16 +52,15 @@ export default function Header() {
           <ProfileDropdown />
         </div>
 
-          {/* MOBILE MENU */}
-        
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden ml-auto p-2 text-slate-300 hover:bg-slate-700 rounded-md "
-            aria-label="Toggle menu"
-            >
-            {mobileMenuOpen ? <X /> : <Menu />}
-          </button>
-        
+        {/* MOBILE MENU */}
+
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden ml-auto p-2 text-slate-300 hover:bg-slate-700 rounded-md "
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? <X /> : <Menu />}
+        </button>
       </div>
     </header>
   );
