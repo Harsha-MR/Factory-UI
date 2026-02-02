@@ -992,15 +992,14 @@ export default function DepartmentFloor3DViewer({
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-xl border bg-slate-950"
+      className="relative w-full overflow-hidden rounded-xl border  border bg-slate-950"
       style={
         fullScreen
-          ? { height: "100%", minHeight: 0 }
+          ? { height: "80%", minHeight: 0, overflow: "hidden" }
           : {
-              height: "60vh",
-              maxHeight: 560,
-              minHeight: 320,
+              height: "calc(80vh - 64px)", // 64px is typical header height, adjust if needed
               overscrollBehavior: "contain",
+              overflow: "hidden",
             }
       }
     >
