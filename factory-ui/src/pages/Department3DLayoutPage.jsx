@@ -174,9 +174,10 @@ export default function Department3DLayoutPage() {
   const [machineStatusVisibility, setMachineStatusVisibility] = useState({
     RUNNING: true,
     IDLE: true,
+    DOWN: true,
+    MAINTENANCE: true,
+    OFF: true,
     ALL: true,
-    /*MAINTENANCE: true,
-    OFFLINE: true,*/
   });
   const [machineForm, setMachineForm] = useState({
     zoneName: "",
@@ -1529,37 +1530,42 @@ export default function Department3DLayoutPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {[
-                    "RUNNING",
-                    "IDLE",
-                    "ALL" /*, "MAINTENANCE", "OFFLINE"*/,
-                  ].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className={
-                        machineStatusVisibility?.[s]
-                          ? "rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-100"
-                          : "rounded-full border border-slate-800 bg-transparent px-3 py-1 text-xs text-slate-400"
-                      }
-                      onClick={() => {
-                        if (s === "ALL") {
-                          setMachineStatusVisibility({
-                            RUNNING: true,
-                            IDLE: true,
-                          });
-                        } else {
-                          setMachineStatusVisibility({
-                            RUNNING: false,
-                            IDLE: false,
-                            [s]: true,
-                          });
+                  {["RUNNING", "IDLE", "DOWN", "MAINTENANCE", "OFF", "ALL"].map(
+                    (s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className={
+                          machineStatusVisibility?.[s]
+                            ? "rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-100"
+                            : "rounded-full border border-slate-800 bg-transparent px-3 py-1 text-xs text-slate-400"
                         }
-                      }}
-                    >
-                      {s}
-                    </button>
-                  ))}
+                        onClick={() => {
+                          if (s === "ALL") {
+                            setMachineStatusVisibility({
+                              RUNNING: true,
+                              IDLE: true,
+                              DOWN: true,
+                              MAINTENANCE: true,
+                              OFF: true,
+                              ALL: true,
+                            });
+                          } else {
+                            setMachineStatusVisibility({
+                              RUNNING: false,
+                              IDLE: false,
+                              DOWN: false,
+                              MAINTENANCE: false,
+                              OFF: false,
+                              [s]: true,
+                            });
+                          }
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ),
+                  )}
                 </div>
               </div>
             ) : null}
