@@ -571,8 +571,8 @@ export default function DepartmentFloor3DViewer({
   const effectiveFloorY = 0;
   // Keep lifts in world units. Use a larger machine lift to ensure the semi-transparent
   // zone planes never visually occlude the GLBs due to depth sorting.
-  // Increased overlayLift to 0.05 to ensure zones stay clearly above 3D floor model
-  const overlayLift = 0.05;
+  // overlayLift for zones - reduced to sit closer to floor
+  const overlayLift = 0.001;
   const placeableLift = 0.03;
 
   // DEBUG: force machines below the floor surface to validate whether we're dealing
@@ -1189,18 +1189,35 @@ export default function DepartmentFloor3DViewer({
                           return;
                         }
                         e.stopPropagation();
+                        
+                        if (isTransforming) return;
+                        
                         if (typeof onSelectElement === "function")
                           onSelectElement(id);
 
-                        if (isTransforming) return;
-
+                        // Don't initiate drag immediately - wait for actual pointer movement
+                      }
+                    : undefined
+                }
+                onPointerMove={
+                  allowEdit
+                    ? (e) => {
+                        e.stopPropagation();
+                        handleFloorPointerMove(e);
+                        
+                        // Only start dragging if pointer is down and we haven't started yet
                         if (
+                          !draggingId &&
+                          !isTransforming &&
+                          !isAddMode &&
+                          selectedId &&
+                          String(selectedId) === id &&
+                          e.buttons === 1 && // Left mouse button is pressed
                           typeof onMoveElement === "function" &&
                           activeTool === "select"
                         ) {
                           // eventObject is one of the meshes; move its parent group.
-                          draggingObjectRef.current =
-                            e.eventObject?.parent || null;
+                          draggingObjectRef.current = e.eventObject?.parent || null;
                           draggingNormRef.current = null;
                           if (typeof getFloorHitFromEvent === "function") {
                             const hit = getFloorHitFromEvent(e);
@@ -1228,11 +1245,23 @@ export default function DepartmentFloor3DViewer({
                       }
                     : undefined
                 }
-                onPointerMove={
+                onPointerOver={
                   allowEdit
                     ? (e) => {
-                        // Keep add preview + dragging responsive even when hovering existing meshes.
-                        handleFloorPointerMove(e);
+                        if (isAddMode) return;
+                        e.stopPropagation();
+                        setCursor(
+                          activeTool === "select" && !isAddMode
+                            ? "grab"
+                            : "pointer",
+                        );
+                      }
+                    : undefined
+                }
+                onPointerOut={
+                  allowEdit
+                    ? () => {
+                        setCursor("default");
                       }
                     : undefined
                 }
@@ -1244,25 +1273,6 @@ export default function DepartmentFloor3DViewer({
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
                   renderOrder={110}
-                  onPointerOver={
-                    allowEdit
-                      ? (e) => {
-                          e.stopPropagation();
-                          setCursor(
-                            activeTool === "select" && !isAddMode
-                              ? "grab"
-                              : "pointer",
-                          );
-                        }
-                      : undefined
-                  }
-                  onPointerOut={
-                    allowEdit
-                      ? () => {
-                          setCursor("default");
-                        }
-                      : undefined
-                  }
                 >
                   <planeGeometry args={[w, d]} />
                   <meshBasicMaterial
