@@ -687,8 +687,8 @@ export default function Department3DLayoutPage() {
           }
         >
           {isFullscreen ? (
-            <div className="absolute left-0 top-0 z-20 flex h-full w-[320px] overflow-hidden border-r bg-white/95">
-              <div className="flex w-14 flex-col items-center gap-2 border-r bg-slate-50/80 py-3">
+            <div className="absolute left-0 top-0 z-20 flex h-full w-[266px] overflow-hidden border-r bg-white/95">
+              <div className="hidden flex w-14 flex-col items-center gap-2 border-r bg-slate-50/80 py-3">
                 <button
                   type="button"
                   className={
