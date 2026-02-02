@@ -779,6 +779,12 @@ export default function DepartmentFloor3DViewer({
     if (!addElementType) return;
     if (typeof onAddElement !== "function") return;
 
+    // In R3F, a single click can intersect multiple overlapping objects (floor overlay,
+    // zone/walkway planes, models). When those handlers all forward to this function,
+    // it can place multiple copies for one user click. Stop propagation so only the
+    // closest hit handles the add.
+    if (typeof e?.stopPropagation === "function") e.stopPropagation();
+
     const hit = getFloorHitFromEvent(e);
     if (!hit) return;
     const next = planeToNorm(hit.x, hit.z, effectivePlaneSize);
