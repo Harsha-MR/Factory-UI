@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3000/api';
+// All API calls are now mocked or use static data. No backend is required.
 
 /**
  * Make an authenticated API request
@@ -7,65 +7,23 @@ const API_BASE_URL = 'http://localhost:3000/api';
  * @returns {Promise} Response data
  */
 export async function apiRequest(endpoint, options = {}) {
-  const token = localStorage.getItem('factory-ui:token');
-  
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
-  
-  const data = await response.json();
-  
-  if (!response.ok) {
-    // If unauthorized, redirect to login
-    if (response.status === 401) {
-      localStorage.removeItem('user');
-      localStorage.removeItem('factory-ui:token');
-      window.location.href = '/login';
-    }
-    throw new Error(data.error || 'API request failed');
-  }
-  
-  return data;
+  // All API requests are now mocked. Use mockApi.js or static data instead.
+  throw new Error('API is mocked. Use mockApi.js or static data.');
 }
 
 /**
  * Login user
  */
 export async function login(userId, password) {
-  const response = await fetch(`${API_BASE_URL}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, password }),
-  });
-  
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.error || 'Login failed');
-  }
-  
-  // Store token
-  localStorage.setItem('factory-ui:token', data.token);
-  
-  // Store user data
+  // Simulate login and store a fake token
   const userData = {
-    id: data.userId,
-    name: data.userId,
-    email: `${data.userId}@company.com`,
+    id: userId,
+    name: userId,
+    email: `${userId}@company.com`,
     role: 'User',
   };
+  localStorage.setItem('factory-ui:token', 'mock-token');
   localStorage.setItem('user', JSON.stringify(userData));
-  
   return userData;
 }
 
@@ -82,5 +40,8 @@ export function logout() {
  * Get current user info
  */
 export async function getCurrentUser() {
-  return apiRequest('/user');
+  // Return user from localStorage if present
+  const user = localStorage.getItem('user');
+  if (user) return JSON.parse(user);
+  throw new Error('No user logged in');
 }

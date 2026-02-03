@@ -116,21 +116,7 @@ export function getDepartmentCustomLayoutVersions(ctx) {
 }
 
 export async function fetchDepartmentCustomLayoutVersions(ctx) {
-  if (!canUseDevApi()) return getDepartmentCustomLayoutVersions(ctx);
-  try {
-    const url = new URL('/api/layouts', window.location.origin);
-    url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
-    url.searchParams.set('plantId', String(ctx?.plantId || ''));
-    url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
-    const res = await fetch(url.toString(), { headers: { Accept: 'application/json', ...getAuthHeaders() } });
-    if (res.ok) {
-      const json = await res.json();
-      const bundle = normalizeStoredBundle(json);
-      return bundle;
-    }
-  } catch {
-    // ignore and fall back
-  }
+  // Only use localStorage for mock; never fetch from backend
   return getDepartmentCustomLayoutVersions(ctx);
 }
 
@@ -139,31 +125,11 @@ export function saveDepartmentCustomLayout(ctx, layout) {
     ...layout,
     updatedAt: new Date().toISOString(),
   });
-  if (!canUseDevApi()) return;
-  try {
-    const url = new URL('/api/layouts', window.location.origin);
-    url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
-    url.searchParams.set('plantId', String(ctx?.plantId || ''));
-    url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
-    void fetch(url.toString(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ layout: nextCurrent }),
-    }).catch(() => {});
-  } catch {
-    // ignore
-  }
+  // Only use localStorage for mock; never fetch from backend
+  writeBundleToLocalStorage(ctx, { current: nextCurrent, previous: null });
 }
 
 export function deleteDepartmentCustomLayout(ctx) {
-  if (!canUseDevApi()) return;
-  try {
-    const url = new URL('/api/layouts', window.location.origin);
-    url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
-    url.searchParams.set('plantId', String(ctx?.plantId || ''));
-    url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
-    void fetch(url.toString(), { method: 'DELETE', headers: getAuthHeaders() }).catch(() => {});
-  } catch {
-    // ignore
-  }
+  // Only use localStorage for mock; never fetch from backend
+  writeBundleToLocalStorage(ctx, { current: null, previous: null });
 }

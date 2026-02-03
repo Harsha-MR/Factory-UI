@@ -235,22 +235,21 @@ async function loadSeed() {
   if (seedCache && !IS_DEV) return seedCache
   if (seedPromise) return seedPromise
 
+  const axios = (await import('axios')).default;
   seedPromise = (async () => {
-    const res = await fetch(SEED_URL, {
-      headers: { Accept: 'application/json' },
-      cache: IS_DEV ? 'no-store' : 'default',
-    })
-
-    if (!res.ok) {
+    try {
+      const res = await axios.get(SEED_URL, {
+        headers: { Accept: 'application/json' },
+      });
+      const json = res.data;
+      seedCache = coerceSeedToHierarchyShape(json);
+      return seedCache;
+    } catch (err) {
       throw new Error(
-        `Failed to load seed data (${res.status} ${res.statusText})`,
-      )
+        `Failed to load seed data (${err?.response?.status || ''} ${err?.message || ''})`,
+      );
     }
-
-    const json = await res.json()
-    seedCache = coerceSeedToHierarchyShape(json)
-    return seedCache
-  })()
+  })();
 
   try {
     return await seedPromise

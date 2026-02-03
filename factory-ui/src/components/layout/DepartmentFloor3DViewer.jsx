@@ -992,14 +992,28 @@ export default function DepartmentFloor3DViewer({
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-xl border  border bg-slate-950"
+      className={
+        `relative w-full overflow-hidden rounded-xl border bg-slate-950 ` +
+        (fullScreen
+          ? 'fixed inset-0 z-[9999] h-full w-full min-h-screen min-w-screen sm:rounded-none sm:border-0'
+          : 'sm:rounded-xl sm:border')
+      }
       style={
         fullScreen
-          ? { height: "80%", minHeight: 0, overflow: "hidden" }
+          ? {
+              height: '100vh',
+              width: '100vw',
+              minHeight: 0,
+              minWidth: 0,
+              top: 0,
+              left: 0,
+              overscrollBehavior: 'contain',
+              overflow: 'hidden',
+            }
           : {
-              height: "calc(80vh - 64px)", // 64px is typical header height, adjust if needed
-              overscrollBehavior: "contain",
-              overflow: "hidden",
+              height: 'calc(80vh - 64px)', // 64px is typical header height, adjust if needed
+              overscrollBehavior: 'contain',
+              overflow: 'hidden',
             }
       }
     >

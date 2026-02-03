@@ -24,21 +24,19 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, password })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Registration failed');
+      // Simulate registration by storing user in localStorage (for demo only)
+      const users = JSON.parse(localStorage.getItem('mock-users') || '{}');
+      if (users[userId]) {
+        setError('User already exists.');
         setLoading(false);
         return;
       }
+      users[userId] = { password };
+      localStorage.setItem('mock-users', JSON.stringify(users));
       setSuccess('Registration successful! You can now log in.');
       setTimeout(() => navigate('/login'), 1200);
     } catch (err) {
-      setError('Network error');
+      setError('Registration error');
     } finally {
       setLoading(false);
     }
