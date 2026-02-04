@@ -126,7 +126,11 @@ function computeMachineOeePct(machine) {
   return oee * 100;
 }
 
-function machineModelUrlForStatus(status) {
+function machineModelUrlForStatus(status, fullScreen = false) {
+  // Use ultra low poly model in fullscreen for performance
+  if (fullScreen) return "/models/machine_ultra_low.glb";
+  
+  // Use status-based models in non-fullscreen (preview mode)
   const s = String(status || "").toUpperCase();
   if (s === "DOWN") return "/models/machine-down.glb";
   if (s === "IDLE") return "/models/machine-idle.glb";
@@ -315,40 +319,30 @@ function CanvasPointerTracker({ enabled, floorY, onMove }) {
     const el = gl?.domElement;
     if (!el) return;
 
-    let rafId = 0;
     const onPointerMove = (ev) => {
       if (typeof onMove !== "function") return;
       
-      // Throttle with RAF to reduce CPU usage
-      if (rafId) return;
-      
-      rafId = requestAnimationFrame(() => {
-        rafId = 0;
-        
-        const rect = el.getBoundingClientRect();
-        const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
-        const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
-        ndcRef.set(x, y);
+      const rect = el.getBoundingClientRect();
+      const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+      ndcRef.set(x, y);
 
-        raycaster.setFromCamera(ndcRef, camera);
+      raycaster.setFromCamera(ndcRef, camera);
 
-        const yPlane =
-          (Number.isFinite(Number(floorY)) ? Number(floorY) : 0) + 0.001;
-        planeRef.normal.set(0, 1, 0);
-        planeRef.constant = -yPlane;
+      const yPlane =
+        (Number.isFinite(Number(floorY)) ? Number(floorY) : 0) + 0.001;
+      planeRef.normal.set(0, 1, 0);
+      planeRef.constant = -yPlane;
 
-        const hit = raycaster.ray.intersectPlane(planeRef, hitRef);
-        if (!hit) return;
-        onMove(hit.x, hit.z);
-      });
+      const hit = raycaster.ray.intersectPlane(planeRef, hitRef);
+      if (!hit) return;
+      onMove(hit.x, hit.z);
     };
 
-    // Pointer capture is handled elsewhere; this listener ensures we still update
-    // even when R3F doesn't emit events due to hit-testing gaps.
+    // Direct listener without RAF throttling for immediate drag response
     el.addEventListener("pointermove", onPointerMove);
     return () => {
       el.removeEventListener("pointermove", onPointerMove);
-      if (rafId) cancelAnimationFrame(rafId);
     };
   }, [
     enabled,
@@ -423,24 +417,47 @@ const FloorModel3D = memo(function FloorModel3D({ width, depth }) {
   );
 });
 
-// Optimized Zone Model - use simple plane with color instead of complex model cloning
+// Zone Model using zone-green.glb
 const ZoneModel3D = memo(function ZoneModel3D({ width, depth, color }) {
   const w = Math.max(0.02, Number(width) || 1);
   const d = Math.max(0.02, Number(depth) || 1);
+  const { scene } = useGLTF("/models/zone-green.glb");
 
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
-      <planeGeometry args={[w, d]} />
-      <meshStandardMaterial 
-        color={color} 
-        transparent 
-        opacity={0.4}
-        emissive={color}
-        emissiveIntensity={0.15}
-      />
-    </mesh>
-  );
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone(true);
+    
+    // Calculate bounding box of the loaded model
+    const box = new Box3().setFromObject(clone);
+    const modelSize = new Vector3();
+    box.getSize(modelSize);
+
+    // Scale to fit the desired width and depth
+    const scaleX = modelSize.x > 0 ? w / modelSize.x : 1;
+    const scaleZ = modelSize.z > 0 ? d / modelSize.z : 1;
+    const scaleY = 1; // Keep original Y height
+
+    clone.scale.set(scaleX, scaleY, scaleZ);
+
+    // Center the model at origin (floor level)
+    const center = new Vector3();
+    box.getCenter(center);
+    clone.position.set(-center.x * scaleX, -box.min.y * scaleY, -center.z * scaleZ);
+
+    return clone;
+  }, [scene, w, d]);
+
+  return <primitive object={clonedScene} />;
 });
+
+// Simple loading toast component
+function LoadingToast({ show, message }) {
+  if (!show) return null;
+  return (
+    <div className="pointer-events-none fixed left-1/2 top-8 z-50 -translate-x-1/2 rounded bg-slate-900 px-4 py-2 text-sm text-white shadow-lg animate-pulse">
+      {message || "Loading 3D view..."}
+    </div>
+  );
+}
 
 export default function DepartmentFloor3DViewer({
   scale = 1,
@@ -461,6 +478,9 @@ export default function DepartmentFloor3DViewer({
   planeSize = DEFAULT_PLANE_SIZE,
   fullScreen = false,
 }) {
+  // Loading state for non-fullscreen canvas
+  const [loading, setLoading] = useState(!fullScreen);
+  
   const containerRef = useRef(null);
   const [draggingId, setDraggingId] = useState("");
   const [hoverNorm, setHoverNorm] = useState(null);
@@ -697,6 +717,7 @@ export default function DepartmentFloor3DViewer({
   const selectedObjectRef = useRef(null);
   // Enable controls for both fullScreen and non-fullScreen, but restrict features in non-fullScreen
   // Disable controls (pan/zoom) while adding or dragging zones/walkways
+  // CRITICAL: Disable orbit controls during dragging to keep screen static
   const controlsEnabled =
     !isOverlayAddToolActive && !isTransforming && !isAddDrawing && !draggingId;
 
@@ -781,7 +802,10 @@ export default function DepartmentFloor3DViewer({
         };
       }
 
+      // Store the normalized position
       draggingNormRef.current = targetNorm;
+      
+      // Update object position immediately for smooth tracking
       const obj = draggingObjectRef.current;
       if (obj) {
         const pos = normToPlane(
@@ -791,6 +815,11 @@ export default function DepartmentFloor3DViewer({
         );
         obj.position.x = pos.x;
         obj.position.z = pos.z;
+        
+        // Force render update for immediate visual feedback
+        if (typeof obj.updateMatrixWorld === 'function') {
+          obj.updateMatrixWorld(true);
+        }
       }
     }
   };
@@ -874,12 +903,23 @@ export default function DepartmentFloor3DViewer({
 
       const wNorm = clamp01(Number(dragged?.w) || 0.12);
       const hNorm = clamp01(Number(dragged?.h) || 0.12);
-      // Calculate top-left corner from center, clamping after offset calculation
-      const centerX = Number(nextCenter?.x) || 0;
-      const centerY = Number(nextCenter?.y) || 0;
+      
+      // Use the actual dragged center position directly
+      // Calculate top-left from the final center position where cursor released
+      const centerX = clamp01(Number(nextCenter?.x) || 0);
+      const centerY = clamp01(Number(nextCenter?.y) || 0);
+      
+      // Convert center to top-left, ensuring we stay within bounds
+      let newX = centerX - wNorm / 2;
+      let newY = centerY - hNorm / 2;
+      
+      // Clamp to ensure the entire element stays within [0,1]
+      newX = Math.max(0, Math.min(1 - wNorm, newX));
+      newY = Math.max(0, Math.min(1 - hNorm, newY));
+      
       const patch = {
-        x: clamp01(centerX - wNorm / 2),
-        y: clamp01(centerY - hNorm / 2),
+        x: newX,
+        y: newY,
       };
 
       onMoveElement(String(draggingId), patch);
@@ -895,6 +935,25 @@ export default function DepartmentFloor3DViewer({
       !isOverlayAddToolActive && !isTransforming && !isAddDrawing,
     );
   };
+
+  // Show loading toast only for non-fullscreen
+  useEffect(() => {
+    if (fullScreen) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+  }, [fullScreen]);
+
+  // Hide loading toast when Canvas is ready
+  const handleCanvasCreated = useCallback(({ camera }) => {
+    cameraRef.current = camera;
+    const [cx, cy, cz] = cameraPosition;
+    camera.position.set(cx, cy, cz);
+    camera.lookAt(0, effectiveFloorY, 0);
+    // Delay to ensure smooth transition
+    setTimeout(() => setLoading(false), 400);
+  }, [cameraPosition, effectiveFloorY]);
 
   // In preview mode, prevent the page from scrolling while the user zooms the canvas.
   useEffect(() => {
@@ -925,6 +984,9 @@ export default function DepartmentFloor3DViewer({
             }
       }
     >
+      {/* Loading toast for non-fullscreen */}
+      <LoadingToast show={!fullScreen && loading} message="Loading 3D view..." />
+      
       <ErrorBoundary
         fallback={() => (
           <div className="flex h-full w-full items-center justify-center p-4">
@@ -956,15 +1018,10 @@ export default function DepartmentFloor3DViewer({
           }}
           // Use demand for better performance - only render when needed
           frameloop="demand"
-          onCreated={({ camera }) => {
-            cameraRef.current = camera;
-            const [cx, cy, cz] = cameraPosition;
-            camera.position.set(cx, cy, cz);
-            camera.lookAt(0, effectiveFloorY, 0);
-          }}
+          onCreated={handleCanvasCreated}
         >
           <CanvasPointerTracker
-            enabled={fullScreen && (draggingId || isAddMode)}
+            enabled={draggingId || isAddMode}
             floorY={effectiveFloorY}
             onMove={(x, z) => handleFloorMoveFromHit(x, z)}
           />
@@ -1099,13 +1156,14 @@ export default function DepartmentFloor3DViewer({
             const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180);
             const zoneName = String(el.label || "").trim() || "Zone";
             const zoneLabelY = 0.85;
+            const zoneHeight = 0.03; // Zones placed slightly above floor
 
             // Disable all editing interactions in non-fullScreen
             const allowEdit = fullScreen;
             return (
               <group
                 key={id}
-                position={[pos.x, effectiveFloorY + overlayLift, pos.z]}
+                position={[pos.x, effectiveFloorY + zoneHeight, pos.z]}
                 rotation={[0, rot, 0]}
                 onPointerDown={
                   allowEdit
@@ -1165,6 +1223,7 @@ export default function DepartmentFloor3DViewer({
                           }
                           setDraggingId(id);
                           setCursor("grabbing");
+                          // Immediately disable orbit controls to prevent camera movement
                           setOrbitEnabledNow(false);
                           capturePointer(e);
                         }
@@ -1192,12 +1251,15 @@ export default function DepartmentFloor3DViewer({
                     : undefined
                 }
               >
-                {/* 3D Zone model with color */}
-                <ZoneModel3D width={w} depth={d} color={fill} />
+                {/* 3D Zone model - placed below floor level */}
+                <Suspense fallback={null}>
+                  <ZoneModel3D width={w} depth={d} color={fill} />
+                </Suspense>
 
                 {/* Invisible interaction plane for pointer events */}
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
+                  position={[0, 0.02, 0]}
                   renderOrder={110}
                 >
                   <planeGeometry args={[w, d]} />
@@ -1543,7 +1605,7 @@ export default function DepartmentFloor3DViewer({
                 const url =
                   el?.type === ELEMENT_TYPES.MACHINE
                     ? isDefaultMachineUrl
-                      ? machineModelUrlForStatus(machineStatus)
+                      ? machineModelUrlForStatus(machineStatus, fullScreen)
                       : rawModelUrl
                     : rawModelUrl || DEFAULT_MODEL_URLS[el.type] || "";
                 const uniformScale = clamp(Number(el.scale) || 1, 0.01, 50);
@@ -1876,9 +1938,13 @@ export default function DepartmentFloor3DViewer({
             autoRotateSpeed={1.0}
             enabled={controlsEnabled}
             onStart={() => {
-              stopDragging();
-              clearAddDrag();
-              setHoverNorm(null);
+              // Only stop dragging if orbit controls are actually starting
+              // This prevents interference during drag operations
+              if (controlsEnabled) {
+                stopDragging();
+                clearAddDrag();
+                setHoverNorm(null);
+              }
             }}
             makeDefault
             enableDamping
@@ -1903,6 +1969,7 @@ export default function DepartmentFloor3DViewer({
 }
 
 useGLTF.preload("/models/floor-model.glb");
+useGLTF.preload("/models/machine_ultra_low.glb");
 useGLTF.preload("/models/machine-running.glb");
 useGLTF.preload("/models/machine-idle.glb");
 useGLTF.preload("/models/machine-down.glb");

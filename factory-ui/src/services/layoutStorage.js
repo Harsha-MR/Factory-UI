@@ -139,19 +139,39 @@ export function saveDepartmentCustomLayout(ctx, layout) {
     ...layout,
     updatedAt: new Date().toISOString(),
   });
-  if (!canUseDevApi()) return;
+  if (!canUseDevApi()) {
+    // console.warn('[layoutStorage] API not available, skipping save');
+    return;
+  }
   try {
     const url = new URL('/api/layouts', window.location.origin);
     url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
     url.searchParams.set('plantId', String(ctx?.plantId || ''));
     url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
+    // console.log('[layoutStorage] Saving layout to MongoDB:', { 
+    //   url: url.toString(), 
+    //   context: ctx,
+    //   elements: nextCurrent?.elements?.length 
+    //  });
     void fetch(url.toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ layout: nextCurrent }),
-    }).catch(() => {});
-  } catch {
-    // ignore
+    })
+      .then(res => {
+        if (res.ok) {
+          // console.log('[layoutStorage] ✅ Layout saved successfully to MongoDB');
+          return res.json();
+        } else {
+          // console.error('[layoutStorage] ❌ Failed to save layout:', res.status, res.statusText);
+          return res.json().then(err => console.error('[layoutStorage] Error details:', err));
+        }
+      })
+      .catch(err => {
+        console.error('[layoutStorage] ❌ Network error saving layout:', err);
+      });
+  } catch (err) {
+    console.error('[layoutStorage] ❌ Exception saving layout:', err);
   }
 }
 

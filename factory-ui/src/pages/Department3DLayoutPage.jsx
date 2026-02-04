@@ -317,17 +317,17 @@ export default function Department3DLayoutPage() {
     });
   }, [navToast, pushToast]);
 
-  // Auto-save when draft changes (with debouncing)
-  useEffect(() => {
-    if (!draft || !layoutCtx?.departmentId) return;
-    if (!isFullscreen) return; // Only auto-save in fullscreen edit mode
-    
-    const timeoutId = setTimeout(() => {
-      saveDepartmentCustomLayout(layoutCtx, draft);
-    }, 1000); // Debounce by 1 second
-
-    return () => clearTimeout(timeoutId);
-  }, [draft, layoutCtx, isFullscreen]);
+  // Auto-save disabled - only save when user clicks Save button
+  // useEffect(() => {
+  //   if (!draft || !layoutCtx?.departmentId) return;
+  //   if (!isFullscreen) return; // Only auto-save in fullscreen edit mode
+  //   
+  //   const timeoutId = setTimeout(() => {
+  //     saveDepartmentCustomLayout(layoutCtx, draft);
+  //   }, 1000); // Debounce by 1 second
+  //
+  //   return () => clearTimeout(timeoutId);
+  // }, [draft, layoutCtx, isFullscreen]);
 
   useEffect(() => {
     return () => {
