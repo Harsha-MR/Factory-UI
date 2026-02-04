@@ -20,11 +20,12 @@ export default function AppShell() {
   const location = useLocation();
 
   const hideFooter = location.pathname.includes("/departments/");
+  const hideHeader = location.pathname.includes("/departments/");
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-gray-900">
       <GlobalDownMachineAlerts />
-      <Header />
+      {!hideHeader && <Header />}
 
       {/* REMOVE TOP/BOTTOM PADDING HERE */}
       <main className="flex-1 pt-0 pb-0">

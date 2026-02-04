@@ -1,6 +1,8 @@
 import {
   Component,
   Suspense,
+  memo,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -141,7 +143,7 @@ function noRaycast() {
   // Disable pointer hit-testing for helper meshes/text.
 }
 
-function MachineHoverTooltip3D({ title, status, oeePct, accentColor }) {
+const MachineHoverTooltip3D = memo(function MachineHoverTooltip3D({ title, status, oeePct, accentColor }) {
   const safeTitle = String(title || "Machine");
   const safeStatus = String(status || "—");
   const oeeText = oeePct == null ? "—" : `${Number(oeePct).toFixed(1)}%`;
@@ -234,7 +236,7 @@ function MachineHoverTooltip3D({ title, status, oeePct, accentColor }) {
       </group>
     </Billboard>
   );
-}
+});
 
 function normToPlane(xNorm, yNorm, planeSize) {
   const x = (clamp01(xNorm) - 0.5) * planeSize;
@@ -248,10 +250,8 @@ function planeToNorm(x, z, planeSize) {
   return { x: xNorm, y: yNorm };
 }
 
-function PlacedGLB({
+const PlacedGLB = memo(function PlacedGLB({
   url,
-  tintColor,
-  tintStrength = 0.14,
   fitW = 0,
   fitD = 0,
 }) {
@@ -293,57 +293,15 @@ function PlacedGLB({
     }
   }, [measured, fitW, fitD]);
 
-  const cloned = useMemo(() => {
-    const root = scene.clone(true);
-    if (!tintColor) return root;
-
-    const c = new Color(tintColor);
-    const strength = clamp01(Number(tintStrength));
-
-    root.traverse((obj) => {
-      if (!obj) return;
-      // Only tint actual renderable meshes.
-      if (!obj.isMesh && !obj.isSkinnedMesh) return;
-
-      const mat = obj.material;
-      if (!mat) return;
-
-      const tintMaterial = (m) => {
-        if (!m || !m.isMaterial) return m;
-
-        const next = m.clone();
-
-        // Keep the model readable: lightly mix base color and add a subtle emissive push.
-        if (next.color) next.color.lerp(c, strength);
-        if (
-          Object.prototype.hasOwnProperty.call(next, "emissive") &&
-          next.emissive
-        ) {
-          next.emissive.copy(c);
-          next.emissiveIntensity = Math.max(
-            Number(next.emissiveIntensity) || 0,
-            0.35,
-          );
-        }
-
-        next.needsUpdate = true;
-        return next;
-      };
-
-      obj.material = Array.isArray(mat)
-        ? mat.map(tintMaterial)
-        : tintMaterial(mat);
-    });
-
-    return root;
-  }, [scene, tintColor, tintStrength]);
+  // No tint color - use status-specific models directly for better performance
+  const cloned = useMemo(() => scene.clone(true), [scene]);
 
   return (
     <group position={[0, yOffset, 0]}>
       <primitive object={cloned} scale={[fitScale, fitScale, fitScale]} />
     </group>
   );
-}
+});
 
 function CanvasPointerTracker({ enabled, floorY, onMove }) {
   const { gl, camera, raycaster } = useThree();
@@ -357,30 +315,41 @@ function CanvasPointerTracker({ enabled, floorY, onMove }) {
     const el = gl?.domElement;
     if (!el) return;
 
+    let rafId = 0;
     const onPointerMove = (ev) => {
       if (typeof onMove !== "function") return;
+      
+      // Throttle with RAF to reduce CPU usage
+      if (rafId) return;
+      
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        
+        const rect = el.getBoundingClientRect();
+        const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+        const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+        ndcRef.set(x, y);
 
-      const rect = el.getBoundingClientRect();
-      const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
-      ndcRef.set(x, y);
+        raycaster.setFromCamera(ndcRef, camera);
 
-      raycaster.setFromCamera(ndcRef, camera);
+        const yPlane =
+          (Number.isFinite(Number(floorY)) ? Number(floorY) : 0) + 0.001;
+        planeRef.normal.set(0, 1, 0);
+        planeRef.constant = -yPlane;
 
-      const yPlane =
-        (Number.isFinite(Number(floorY)) ? Number(floorY) : 0) + 0.001;
-      planeRef.normal.set(0, 1, 0);
-      planeRef.constant = -yPlane;
-
-      const hit = raycaster.ray.intersectPlane(planeRef, hitRef);
-      if (!hit) return;
-      onMove(hit.x, hit.z);
+        const hit = raycaster.ray.intersectPlane(planeRef, hitRef);
+        if (!hit) return;
+        onMove(hit.x, hit.z);
+      });
     };
 
     // Pointer capture is handled elsewhere; this listener ensures we still update
     // even when R3F doesn't emit events due to hit-testing gaps.
     el.addEventListener("pointermove", onPointerMove);
-    return () => el.removeEventListener("pointermove", onPointerMove);
+    return () => {
+      el.removeEventListener("pointermove", onPointerMove);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [
     enabled,
     gl,
@@ -396,17 +365,17 @@ function CanvasPointerTracker({ enabled, floorY, onMove }) {
   return null;
 }
 
-function FallbackMarker({ selected }) {
+const FallbackMarker = memo(function FallbackMarker({ selected }) {
   return (
     <mesh position={[0, 0.08, 0]}>
       <boxGeometry args={[0.25, 0.16, 0.25]} />
       <meshStandardMaterial color={selected ? "#0ea5e9" : "#111827"} />
     </mesh>
   );
-}
+});
 
 // Floor model component: scales only X and Z (width and depth), preserves Y (height)
-function FloorModel3D({ width, depth }) {
+const FloorModel3D = memo(function FloorModel3D({ width, depth }) {
   const { scene } = useGLTF("/models/floor-model.glb");
 
   const { scaleX, scaleZ, yOffset } = useMemo(() => {
@@ -452,89 +421,26 @@ function FloorModel3D({ width, depth }) {
       scale={[scaleX, 1, scaleZ]}
     />
   );
-}
+});
 
-// Zone model component: uses floor model with zone color overlay
-function ZoneModel3D({ width, depth, color }) {
-  const { scene } = useGLTF("/models/floor-model.glb");
-
-  const { scaleX, scaleZ, yOffset } = useMemo(() => {
-    try {
-      const tmp = scene.clone(true);
-      tmp.position.set(0, 0, 0);
-      tmp.rotation.set(0, 0, 0);
-      tmp.scale.set(1, 1, 1);
-      tmp.updateMatrixWorld(true);
-      
-      const box = new Box3().setFromObject(tmp);
-      const size = new Vector3();
-      box.getSize(size);
-
-      const modelX = Number(size.x) || 1;
-      const modelZ = Number(size.z) || 1;
-      const minY = Number(box.min.y);
-
-      const targetW = Number(width) || 1;
-      const targetD = Number(depth) || 1;
-      
-      const computedScaleX = modelX > 0.000001 ? targetW / modelX : 1;
-      const computedScaleZ = modelZ > 0.000001 ? targetD / modelZ : 1;
-      const computedYOffset = Number.isFinite(minY) ? -minY : 0;
-
-      return {
-        scaleX: clamp(computedScaleX, 0.001, 100),
-        scaleZ: clamp(computedScaleZ, 0.001, 100),
-        yOffset: computedYOffset,
-      };
-    } catch {
-      return { scaleX: 1, scaleZ: 1, yOffset: 0 };
-    }
-  }, [scene, width, depth]);
-
-  const coloredClone = useMemo(() => {
-    const root = scene.clone(true);
-    const zoneColor = new Color(color);
-
-    root.traverse((obj) => {
-      if (!obj) return;
-      if (!obj.isMesh && !obj.isSkinnedMesh) return;
-
-      const mat = obj.material;
-      if (!mat) return;
-
-      const applyZoneColor = (m) => {
-        if (!m || !m.isMaterial) return m;
-        const next = m.clone();
-        
-        // Apply zone color overlay
-        if (next.color) {
-          next.color.copy(zoneColor);
-        }
-        if (Object.prototype.hasOwnProperty.call(next, "emissive") && next.emissive) {
-          next.emissive.copy(zoneColor);
-          next.emissiveIntensity = 0.2;
-        }
-
-        next.needsUpdate = true;
-        return next;
-      };
-
-      obj.material = Array.isArray(mat)
-        ? mat.map(applyZoneColor)
-        : applyZoneColor(mat);
-    });
-
-    return root;
-  }, [scene, color]);
+// Optimized Zone Model - use simple plane with color instead of complex model cloning
+const ZoneModel3D = memo(function ZoneModel3D({ width, depth, color }) {
+  const w = Math.max(0.02, Number(width) || 1);
+  const d = Math.max(0.02, Number(depth) || 1);
 
   return (
-    <primitive
-      object={coloredClone}
-      position={[0, yOffset, 0]}
-      scale={[scaleX, 1, scaleZ]}
-    />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
+      <planeGeometry args={[w, d]} />
+      <meshStandardMaterial 
+        color={color} 
+        transparent 
+        opacity={0.4}
+        emissive={color}
+        emissiveIntensity={0.15}
+      />
+    </mesh>
   );
-}
+});
 
 export default function DepartmentFloor3DViewer({
   scale = 1,
@@ -591,14 +497,14 @@ export default function DepartmentFloor3DViewer({
   const DOUBLE_CLICK_MS = 320;
   const DOUBLE_CLICK_PX = 6;
 
-  const setOrbitEnabledNow = (enabled) => {
+  const setOrbitEnabledNow = useCallback((enabled) => {
     const controls = orbitRef.current;
     if (!controls) return;
     // Allow controls in both modes; pan/rotate restrictions are handled via enablePan/enableRotate props
     const next = !!enabled;
     if ("enabled" in controls) controls.enabled = next;
     if (typeof controls.update === "function") controls.update();
-  };
+  }, []);
 
   useEffect(() => {
     const controls = orbitRef.current;
@@ -625,13 +531,13 @@ export default function DepartmentFloor3DViewer({
     if (typeof controls.update === "function") controls.update();
   }, [fullScreen]);
 
-  const setOrbitMouseModeNow = (mode) => {
+  const setOrbitMouseModeNow = useCallback((mode) => {
     const controls = orbitRef.current;
     if (!controls) return;
     if (!controls.mouseButtons) return;
     controls.mouseButtons.LEFT = mode === "pan" ? MOUSE.PAN : MOUSE.ROTATE;
     if (typeof controls.update === "function") controls.update();
-  };
+  }, []);
 
   const maybeStartPanDrag = (e) => {
     // Only allow double-click+drag panning when camera controls are active.
@@ -687,7 +593,7 @@ export default function DepartmentFloor3DViewer({
     };
   }, []);
 
-  const clearAddDrag = () => {
+  const clearAddDrag = useCallback(() => {
     addDragRef.current = null;
     setIsAddDrawing(false);
     setAddPreview(null);
@@ -695,7 +601,7 @@ export default function DepartmentFloor3DViewer({
       cancelAnimationFrame(addPreviewRafRef.current);
       addPreviewRafRef.current = 0;
     }
-  };
+  }, []);
 
   const floorPlaneRef = useRef(new Plane(new Vector3(0, 1, 0), 0));
   const floorHitRef = useRef(new Vector3());
@@ -739,37 +645,45 @@ export default function DepartmentFloor3DViewer({
               ? ELEMENT_TYPES.TRANSPORTER
               : null;
 
-  const normalizedElements = Array.isArray(elements)
-    ? elements.filter(Boolean)
-    : [];
-  const floorElements = normalizedElements.filter(
-    (e) => e?.type === ELEMENT_TYPES.FLOOR,
-  );
-  const zoneElements = normalizedElements.filter(
-    (e) => e?.type === ELEMENT_TYPES.ZONE,
-  );
+  const normalizedElements = useMemo(() => 
+    Array.isArray(elements) ? elements.filter(Boolean) : []
+  , [elements]);
+  
+  const floorElements = useMemo(() => 
+    normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.FLOOR)
+  , [normalizedElements]);
+  
+  const zoneElements = useMemo(() => 
+    normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE)
+  , [normalizedElements]);
+  
   // Walkway is rendered as a 2D overlay on the floor.
-  const walkwayElements = normalizedElements.filter(
-    (e) => e?.type === ELEMENT_TYPES.WALKWAY,
-  );
+  const walkwayElements = useMemo(() => 
+    normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.WALKWAY)
+  , [normalizedElements]);
+  
   // 3D placeables (GLBs)
-  const placeableElements = normalizedElements.filter((e) =>
-    [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
-  );
+  const placeableElements = useMemo(() => 
+    normalizedElements.filter((e) =>
+      [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.TRANSPORTER].includes(e?.type)
+    )
+  , [normalizedElements]);
 
-  const visiblePlaceableElements = placeableElements.filter((el) => {
-    if (el?.type !== ELEMENT_TYPES.MACHINE) return true;
-    const mid = String(el?.machineId || "");
-    const status =
-      machineMetaById && mid && machineMetaById[mid]?.status
-        ? machineMetaById[mid].status
-        : "RUNNING";
-    const v =
-      machineStatusVisibility && typeof machineStatusVisibility === "object"
-        ? machineStatusVisibility[String(status).toUpperCase()]
-        : undefined;
-    return v !== false;
-  });
+  const visiblePlaceableElements = useMemo(() => 
+    placeableElements.filter((el) => {
+      if (el?.type !== ELEMENT_TYPES.MACHINE) return true;
+      const mid = String(el?.machineId || "");
+      const status =
+        machineMetaById && mid && machineMetaById[mid]?.status
+          ? machineMetaById[mid].status
+          : "RUNNING";
+      const v =
+        machineStatusVisibility && typeof machineStatusVisibility === "object"
+          ? machineStatusVisibility[String(status).toUpperCase()]
+          : undefined;
+      return v !== false;
+    })
+  , [placeableElements, machineMetaById, machineStatusVisibility]);
 
   const addOverlayType =
     addElementType === ELEMENT_TYPES.FLOOR ||
@@ -860,16 +774,21 @@ export default function DepartmentFloor3DViewer({
     if (draggingId) {
       let targetNorm = next;
       if (draggingOffsetRef.current) {
+        // Apply offset to maintain cursor position relative to object center
         targetNorm = {
-          x: clamp01(next.x + draggingOffsetRef.current.x),
-          y: clamp01(next.y + draggingOffsetRef.current.y),
+          x: next.x + draggingOffsetRef.current.x,
+          y: next.y + draggingOffsetRef.current.y,
         };
       }
 
       draggingNormRef.current = targetNorm;
       const obj = draggingObjectRef.current;
       if (obj) {
-        const pos = normToPlane(targetNorm.x, targetNorm.y, effectivePlaneSize);
+        const pos = normToPlane(
+          clamp01(targetNorm.x),
+          clamp01(targetNorm.y),
+          effectivePlaneSize
+        );
         obj.position.x = pos.x;
         obj.position.z = pos.z;
       }
@@ -955,9 +874,12 @@ export default function DepartmentFloor3DViewer({
 
       const wNorm = clamp01(Number(dragged?.w) || 0.12);
       const hNorm = clamp01(Number(dragged?.h) || 0.12);
+      // Calculate top-left corner from center, clamping after offset calculation
+      const centerX = Number(nextCenter?.x) || 0;
+      const centerY = Number(nextCenter?.y) || 0;
       const patch = {
-        x: clamp01((Number(nextCenter?.x) || 0) - wNorm / 2),
-        y: clamp01((Number(nextCenter?.y) || 0) - hNorm / 2),
+        x: clamp01(centerX - wNorm / 2),
+        y: clamp01(centerY - hNorm / 2),
       };
 
       onMoveElement(String(draggingId), patch);
@@ -992,12 +914,12 @@ export default function DepartmentFloor3DViewer({
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-xl border  border bg-slate-950"
+      className="relative w-full overflow-hidden rounded-xl border bg-slate-950"
       style={
         fullScreen
-          ? { height: "80%", minHeight: 0, overflow: "hidden" }
+          ? { height: "100%", flex: 1, minHeight: 0, overflow: "hidden" }
           : {
-              height: "calc(80vh - 64px)", // 64px is typical header height, adjust if needed
+              height: "calc(80vh - 64px)",
               overscrollBehavior: "contain",
               overflow: "hidden",
             }
@@ -1024,11 +946,16 @@ export default function DepartmentFloor3DViewer({
       >
         <Canvas
           camera={{ position: cameraPosition, fov: fullScreen ? 45 : 34 }}
-          // Keep DPR consistent across modes; higher DPR in preview makes interactions feel less smooth.
-          dpr={fullScreen ? [1, 1.5] : 1}
-          gl={{ antialias: false, powerPreference: "high-performance" }}
-          // Always render continuously for smooth zoom/pan interactions in both modes
-          frameloop="always"
+          // Lower DPR for better performance with many objects
+          dpr={[0.5, 1]}
+          gl={{ 
+            antialias: false, 
+            powerPreference: "high-performance",
+            stencil: false,
+            depth: true,
+          }}
+          // Use demand for better performance - only render when needed
+          frameloop="demand"
           onCreated={({ camera }) => {
             cameraRef.current = camera;
             const [cx, cy, cz] = cameraPosition;
@@ -1354,9 +1281,10 @@ export default function DepartmentFloor3DViewer({
                                 hit.z,
                                 effectivePlaneSize,
                               );
+                              // Store precise offset from cursor to center
                               draggingOffsetRef.current = {
-                                x: clamp01(cx) - pointerNorm.x,
-                                y: clamp01(cy) - pointerNorm.y,
+                                x: cx - pointerNorm.x,
+                                y: cy - pointerNorm.y,
                               };
                             } else {
                               draggingOffsetRef.current = null;
@@ -1704,10 +1632,13 @@ export default function DepartmentFloor3DViewer({
                                   );
                                   const wNorm = clamp01(Number(el.w) || 0.12);
                                   const hNorm = clamp01(Number(el.h) || 0.12);
+                                  const elX = clamp01(Number(el.x) || 0);
+                                  const elY = clamp01(Number(el.y) || 0);
                                   const center = {
-                                    x: clamp01((Number(el.x) || 0) + wNorm / 2),
-                                    y: clamp01((Number(el.y) || 0) + hNorm / 2),
+                                    x: elX + wNorm / 2,
+                                    y: elY + hNorm / 2,
                                   };
+                                  // Store precise offset from cursor to center
                                   draggingOffsetRef.current = {
                                     x: center.x - pointerNorm.x,
                                     y: center.y - pointerNorm.y,
@@ -1789,12 +1720,6 @@ export default function DepartmentFloor3DViewer({
                         {url ? (
                           <PlacedGLB
                             url={url}
-                            tintColor={
-                              !fullScreen && el?.type === ELEMENT_TYPES.MACHINE
-                                ? markerColor
-                                : undefined
-                            }
-                            tintStrength={0.12}
                             fitW={fitW}
                             fitD={fitD}
                           />
@@ -1955,6 +1880,9 @@ export default function DepartmentFloor3DViewer({
               clearAddDrag();
               setHoverNorm(null);
             }}
+            makeDefault
+            enableDamping
+            dampingFactor={0.05}
           />
         </Canvas>
       </ErrorBoundary>

@@ -317,6 +317,18 @@ export default function Department3DLayoutPage() {
     });
   }, [navToast, pushToast]);
 
+  // Auto-save when draft changes (with debouncing)
+  useEffect(() => {
+    if (!draft || !layoutCtx?.departmentId) return;
+    if (!isFullscreen) return; // Only auto-save in fullscreen edit mode
+    
+    const timeoutId = setTimeout(() => {
+      saveDepartmentCustomLayout(layoutCtx, draft);
+    }, 1000); // Debounce by 1 second
+
+    return () => clearTimeout(timeoutId);
+  }, [draft, layoutCtx, isFullscreen]);
+
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -562,13 +574,13 @@ export default function Department3DLayoutPage() {
     : "select";
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 h-full flex flex-col">
       <div
         ref={fullscreenRef}
         className={
           isFullscreen
             ? "relative h-screen w-screen bg-white p-4 flex flex-col"
-            : "relative rounded-2xl border bg-slate-950 p-4 shadow-sm"
+            : "relative h-[150%] w-[100%] bg-slate-950 p-4 flex flex-col"
         }
       >
         {toast ? (
@@ -1506,7 +1518,7 @@ export default function Department3DLayoutPage() {
             style={
               isFullscreen ? { paddingLeft: 320, height: "100%" } : undefined
             }
-            className={isFullscreen ? "h-full" : "w-full lg:w-[90%]"}
+            className={isFullscreen ? "h-full" : "h-full w-full"}
           >
             {!isFullscreen ? (
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
