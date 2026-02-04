@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import {
   Billboard,
   Edges,
@@ -254,6 +254,40 @@ function planeToNorm(x, z, planeSize) {
   return { x: xNorm, y: yNorm };
 }
 
+// Distance-based visibility helper
+function shouldShowLabel(cameraPos, objectPos, maxDistance = 15) {
+  const dx = cameraPos.x - objectPos.x;
+  const dz = cameraPos.z - objectPos.z;
+  const distance = Math.sqrt(dx * dx + dz * dz);
+  return distance < maxDistance;
+}
+
+// Camera position tracker for distance-based optimizations
+function CameraTracker({ onCameraMove }) {
+  const { camera } = useThree();
+  const lastPos = useRef({ x: 0, y: 0, z: 0 });
+  const rafRef = useRef(0);
+
+  useFrame(() => {
+    const pos = camera.position;
+    // Only update if camera moved significantly (throttle updates)
+    const dx = pos.x - lastPos.current.x;
+    const dy = pos.y - lastPos.current.y;
+    const dz = pos.z - lastPos.current.z;
+    const moved = Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1 || Math.abs(dz) > 0.1;
+    
+    if (moved && !rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0;
+        lastPos.current = { x: pos.x, y: pos.y, z: pos.z };
+        onCameraMove({ x: pos.x, y: pos.y, z: pos.z });
+      });
+    }
+  });
+
+  return null;
+}
+
 const PlacedGLB = memo(function PlacedGLB({
   url,
   fitW = 0,
@@ -492,6 +526,7 @@ export default function DepartmentFloor3DViewer({
 }) {
   // Loading state for non-fullscreen canvas
   const [loading, setLoading] = useState(!fullScreen);
+  const [cameraPos, setCameraPos] = useState({ x: 0, y: 10, z: 0 });
   
   const containerRef = useRef(null);
   const [draggingId, setDraggingId] = useState("");
@@ -956,6 +991,7 @@ export default function DepartmentFloor3DViewer({
     const [cx, cy, cz] = cameraPosition;
     camera.position.set(cx, cy, cz);
     camera.lookAt(0, effectiveFloorY, 0);
+    setCameraPos({ x: cx, y: cy, z: cz });
     // Delay to ensure smooth transition
     setTimeout(() => setLoading(false), 400);
   }, [cameraPosition, effectiveFloorY]);
@@ -1013,21 +1049,22 @@ export default function DepartmentFloor3DViewer({
       >
         <Canvas
           camera={{ position: cameraPosition, fov: fullScreen ? 45 : 34 }}
-          // Lower DPR for better performance with many objects (100+)
+          // Optimized DPR for 100+ machines - lower pixel density = better performance
           dpr={[0.4, 0.8]}
           gl={{ 
             antialias: false, 
             powerPreference: "high-performance",
             stencil: false,
             depth: true,
-            // Additional performance optimizations
+            // Performance: low precision shaders, no logarithmic depth
             logarithmicDepthBuffer: false,
             precision: "lowp",
           }}
-          // Use demand for better performance - only render when needed
+          // Demand rendering: only updates when invalidate() is called
           frameloop="demand"
           onCreated={handleCanvasCreated}
         >
+          <CameraTracker onCameraMove={setCameraPos} />
           <CanvasPointerTracker
             enabled={draggingId || isAddMode}
             floorY={effectiveFloorY}
@@ -1814,7 +1851,8 @@ export default function DepartmentFloor3DViewer({
 
                     {showMachineLabels &&
                     el?.type === ELEMENT_TYPES.MACHINE &&
-                    labelText ? (
+                    labelText &&
+                    shouldShowLabel(cameraPos, pos, effectivePlaneSize * 1.5) ? (
                       <Billboard follow lockX lockZ>
                         <Text
                           position={[0, 0.38, 0]}
@@ -1834,7 +1872,8 @@ export default function DepartmentFloor3DViewer({
 
                     {!fullScreen &&
                     canOpenDetails &&
-                    hoveredMachineId === machineId ? (
+                    hoveredMachineId === machineId &&
+                    shouldShowLabel(cameraPos, pos, effectivePlaneSize * 1.2) ? (
                       // Cancel the machine model's rotation so the tooltip offset doesn't
                       // feel "aligned" to the machine orientation.
                       <group
@@ -1955,8 +1994,7 @@ export default function DepartmentFloor3DViewer({
               }
             }}
             makeDefault
-            enableDamping
-            dampingFactor={0.05}
+            enableDamping={false}
           />
         </Canvas>
       </ErrorBoundary>
