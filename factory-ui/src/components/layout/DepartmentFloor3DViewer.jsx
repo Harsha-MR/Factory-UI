@@ -308,11 +308,12 @@ const PlacedGLB = memo(function PlacedGLB({
 });
 
 function CanvasPointerTracker({ enabled, floorY, onMove }) {
-  const { gl, camera, raycaster } = useThree();
+  const { gl, camera, raycaster, invalidate } = useThree();
 
   const planeRef = useMemo(() => new Plane(new Vector3(0, 1, 0), 0), []);
   const hitRef = useMemo(() => new Vector3(), []);
   const ndcRef = useMemo(() => new Vector2(), []);
+  const rafRef = useRef(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -322,27 +323,37 @@ function CanvasPointerTracker({ enabled, floorY, onMove }) {
     const onPointerMove = (ev) => {
       if (typeof onMove !== "function") return;
       
-      const rect = el.getBoundingClientRect();
-      const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
-      ndcRef.set(x, y);
+      // Throttle with RAF for better performance with many objects
+      if (rafRef.current) return;
+      
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0;
+        
+        const rect = el.getBoundingClientRect();
+        const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+        const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+        ndcRef.set(x, y);
 
-      raycaster.setFromCamera(ndcRef, camera);
+        raycaster.setFromCamera(ndcRef, camera);
 
-      const yPlane =
-        (Number.isFinite(Number(floorY)) ? Number(floorY) : 0) + 0.001;
-      planeRef.normal.set(0, 1, 0);
-      planeRef.constant = -yPlane;
+        const yPlane =
+          (Number.isFinite(Number(floorY)) ? Number(floorY) : 0) + 0.001;
+        planeRef.normal.set(0, 1, 0);
+        planeRef.constant = -yPlane;
 
-      const hit = raycaster.ray.intersectPlane(planeRef, hitRef);
-      if (!hit) return;
-      onMove(hit.x, hit.z);
+        const hit = raycaster.ray.intersectPlane(planeRef, hitRef);
+        if (!hit) return;
+        onMove(hit.x, hit.z);
+        
+        // Request render update for demand frameloop
+        invalidate();
+      });
     };
 
-    // Direct listener without RAF throttling for immediate drag response
     el.addEventListener("pointermove", onPointerMove);
     return () => {
       el.removeEventListener("pointermove", onPointerMove);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [
     enabled,
@@ -354,6 +365,7 @@ function CanvasPointerTracker({ enabled, floorY, onMove }) {
     planeRef,
     hitRef,
     ndcRef,
+    invalidate,
   ]);
 
   return null;
@@ -753,7 +765,7 @@ export default function DepartmentFloor3DViewer({
     return { x: snap01(p.x), y: snap01(p.y) };
   };
 
-  const handleFloorMoveFromHit = (hitX, hitZ) => {
+  const handleFloorMoveFromHit = useCallback((hitX, hitZ) => {
     const raw = planeToNorm(hitX, hitZ, effectivePlaneSize);
     const next = snapNormPoint(raw);
 
@@ -763,7 +775,6 @@ export default function DepartmentFloor3DViewer({
 
     if (isAddMode) {
       // Throttle hover updates to avoid React re-rendering on every pointermove
-      // (helps on low-end GPUs/CPUs).
       if (!hoverRafRef.current) {
         hoverRafRef.current = requestAnimationFrame(() => {
           hoverRafRef.current = 0;
@@ -795,17 +806,15 @@ export default function DepartmentFloor3DViewer({
     if (draggingId) {
       let targetNorm = next;
       if (draggingOffsetRef.current) {
-        // Apply offset to maintain cursor position relative to object center
         targetNorm = {
           x: next.x + draggingOffsetRef.current.x,
           y: next.y + draggingOffsetRef.current.y,
         };
       }
 
-      // Store the normalized position
       draggingNormRef.current = targetNorm;
       
-      // Update object position immediately for smooth tracking
+      // Update object position directly without forcing matrix recalculation
       const obj = draggingObjectRef.current;
       if (obj) {
         const pos = normToPlane(
@@ -815,14 +824,10 @@ export default function DepartmentFloor3DViewer({
         );
         obj.position.x = pos.x;
         obj.position.z = pos.z;
-        
-        // Force render update for immediate visual feedback
-        if (typeof obj.updateMatrixWorld === 'function') {
-          obj.updateMatrixWorld(true);
-        }
+        // Matrix will be updated automatically on next render
       }
     }
-  };
+  }, [effectivePlaneSize, snapNormPoint, onPointerPositionChange, isAddMode, draggingId]);
 
   const getFloorHitFromEvent = (e) => {
     const ray = e?.ray;
@@ -1008,13 +1013,16 @@ export default function DepartmentFloor3DViewer({
       >
         <Canvas
           camera={{ position: cameraPosition, fov: fullScreen ? 45 : 34 }}
-          // Lower DPR for better performance with many objects
-          dpr={[0.5, 1]}
+          // Lower DPR for better performance with many objects (100+)
+          dpr={[0.4, 0.8]}
           gl={{ 
             antialias: false, 
             powerPreference: "high-performance",
             stencil: false,
             depth: true,
+            // Additional performance optimizations
+            logarithmicDepthBuffer: false,
+            precision: "lowp",
           }}
           // Use demand for better performance - only render when needed
           frameloop="demand"
