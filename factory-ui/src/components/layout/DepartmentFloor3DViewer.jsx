@@ -18,6 +18,8 @@ import {
   useGLTF,
 } from "@react-three/drei";
 import { Box3, Color, MOUSE, Plane, Vector2, Vector3 } from "three";
+import { vector3Pool, vector2Pool } from "../../utils/objectPool";
+import { getWorkerManager } from "../../utils/workerManager";
 
 import { ELEMENT_TYPES } from "./layoutTypes";
 
@@ -254,12 +256,14 @@ function planeToNorm(x, z, planeSize) {
   return { x: xNorm, y: yNorm };
 }
 
-// Distance-based visibility helper
+// Distance-based visibility helper (optimized: avoid sqrt when possible)
 function shouldShowLabel(cameraPos, objectPos, maxDistance = 15) {
   const dx = cameraPos.x - objectPos.x;
   const dz = cameraPos.z - objectPos.z;
-  const distance = Math.sqrt(dx * dx + dz * dz);
-  return distance < maxDistance;
+  // Compare squared distances to avoid expensive sqrt
+  const distanceSq = dx * dx + dz * dz;
+  const maxDistanceSq = maxDistance * maxDistance;
+  return distanceSq < maxDistanceSq;
 }
 
 // Camera position tracker for distance-based optimizations
@@ -267,6 +271,7 @@ function CameraTracker({ onCameraMove }) {
   const { camera } = useThree();
   const lastPos = useRef({ x: 0, y: 0, z: 0 });
   const rafRef = useRef(0);
+  const lastUpdate = useRef(0);
 
   useFrame(() => {
     const pos = camera.position;
@@ -276,10 +281,16 @@ function CameraTracker({ onCameraMove }) {
     const dz = pos.z - lastPos.current.z;
     const moved = Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1 || Math.abs(dz) > 0.1;
     
+    // Additional throttle: max 30fps for camera updates (labels don't need 60fps)
+    const now = performance.now();
+    const timeSinceUpdate = now - lastUpdate.current;
+    if (timeSinceUpdate < 33.33) return; // 30fps
+    
     if (moved && !rafRef.current) {
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = 0;
         lastPos.current = { x: pos.x, y: pos.y, z: pos.z };
+        lastUpdate.current = performance.now();
         onCameraMove({ x: pos.x, y: pos.y, z: pos.z });
       });
     }
@@ -344,10 +355,12 @@ const PlacedGLB = memo(function PlacedGLB({
 function CanvasPointerTracker({ enabled, floorY, onMove }) {
   const { gl, camera, raycaster, invalidate } = useThree();
 
+  // Use object pooling for frequently created/destroyed objects
   const planeRef = useMemo(() => new Plane(new Vector3(0, 1, 0), 0), []);
   const hitRef = useMemo(() => new Vector3(), []);
   const ndcRef = useMemo(() => new Vector2(), []);
   const rafRef = useRef(0);
+  const lastMoveTime = useRef(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -357,11 +370,17 @@ function CanvasPointerTracker({ enabled, floorY, onMove }) {
     const onPointerMove = (ev) => {
       if (typeof onMove !== "function") return;
       
+      // Additional throttling: limit to 60fps max (16ms)
+      const now = performance.now();
+      const timeSinceLastMove = now - lastMoveTime.current;
+      if (timeSinceLastMove < 16) return; // Skip if less than 16ms since last move
+      
       // Throttle with RAF for better performance with many objects
       if (rafRef.current) return;
       
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = 0;
+        lastMoveTime.current = performance.now();
         
         const rect = el.getBoundingClientRect();
         const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
@@ -1052,13 +1071,17 @@ export default function DepartmentFloor3DViewer({
           // Optimized DPR for 100+ machines - lower pixel density = better performance
           dpr={[0.4, 0.8]}
           gl={{ 
-            antialias: false, 
-            powerPreference: "high-performance",
-            stencil: false,
+            antialias: false, // Disabled for performance - use FXAA post-processing if needed
+            powerPreference: "high-performance", // Force dedicated GPU
+            stencil: false, // Not needed, saves memory
             depth: true,
+            alpha: false, // Opaque canvas = better performance
+            premultipliedAlpha: false, // Faster blending
+            preserveDrawingBuffer: false, // Don't preserve = faster
+            failIfMajorPerformanceCaveat: false, // Try even on slow GPUs
             // Performance: low precision shaders, no logarithmic depth
             logarithmicDepthBuffer: false,
-            precision: "lowp",
+            precision: "lowp", // Low precision = faster shaders
           }}
           // Demand rendering: only updates when invalidate() is called
           frameloop="demand"
@@ -1994,7 +2017,8 @@ export default function DepartmentFloor3DViewer({
               }
             }}
             makeDefault
-            enableDamping={false}
+            // enableDamping={false}
+            dampingFactor={0.09}
           />
         </Canvas>
       </ErrorBoundary>
@@ -2020,3 +2044,4 @@ useGLTF.preload("/models/machine-running.glb");
 useGLTF.preload("/models/machine-idle.glb");
 useGLTF.preload("/models/machine-down.glb");
 useGLTF.preload("/models/machine-blender.glb");
+

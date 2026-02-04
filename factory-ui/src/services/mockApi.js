@@ -7,6 +7,8 @@ const SEED_URL = '/mock/factory_efficiency_data.json'
 
 let seedCache = null
 let seedPromise = null
+let processedDataCache = null // Cache processed data to avoid re-computation
+let departmentSummaryCache = new Map() // Cache department summaries
 
 const IS_DEV = !!import.meta?.env?.DEV
 
@@ -27,6 +29,12 @@ function getDepartmentMachines(department) {
 }
 
 function computeDepartmentSummary(department) {
+  // Check cache first (avoid redundant calculations)
+  const cacheKey = `${department.id}-${department.updatedAt || ''}`;
+  if (departmentSummaryCache.has(cacheKey)) {
+    return departmentSummaryCache.get(cacheKey);
+  }
+  
   const machines = getDepartmentMachines(department)
 
   const counts = {
@@ -110,7 +118,7 @@ function computeDepartmentSummary(department) {
   // - CRITICAL (red): < 60
   const severity = oeePct < 60 ? 'CRITICAL' : oeePct <= 80 ? 'ACTION_REQUIRED' : 'OK'
 
-  return {
+  const summary = {
     severity,
     oeePct,
     availabilityPct: clamp01(availability) * 100,
@@ -123,7 +131,12 @@ function computeDepartmentSummary(department) {
       delta: goodParts - totalParts,
     },
     updatedAt: latestUpdatedAtMs ? new Date(latestUpdatedAtMs).toISOString() : null,
-  }
+  };
+  
+  // Cache the result for next time
+  departmentSummaryCache.set(cacheKey, summary);
+  
+  return summary;
 }
 
 function coerceSeedToHierarchyShape(seed) {
