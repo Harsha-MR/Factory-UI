@@ -84,3 +84,57 @@ export function logout() {
 export async function getCurrentUser() {
   return apiRequest('/user');
 }
+
+/**
+ * Get department layout (current and previous)
+ * @param {string} factoryId
+ * @param {string} plantId
+ * @param {string} departmentId
+ * @returns {Promise<{current: object|null, previous: object|null}>}
+ */
+export async function getDepartmentLayout(factoryId, plantId, departmentId) {
+  const params = new URLSearchParams({
+    factoryId: factoryId || '',
+    plantId: plantId || '',
+    departmentId: departmentId || '',
+  });
+  return apiRequest(`/layouts?${params}`);
+}
+
+/**
+ * Save department layout
+ * @param {string} factoryId
+ * @param {string} plantId
+ * @param {string} departmentId
+ * @param {object} layout - Layout object to save
+ * @returns {Promise<{current: object, previous: object|null}>}
+ */
+export async function saveDepartmentLayout(factoryId, plantId, departmentId, layout) {
+  const params = new URLSearchParams({
+    factoryId: factoryId || '',
+    plantId: plantId || '',
+    departmentId: departmentId || '',
+  });
+  return apiRequest(`/layouts?${params}`, {
+    method: 'POST',
+    body: JSON.stringify({ layout }),
+  });
+}
+
+/**
+ * Delete department layout
+ * @param {string} factoryId
+ * @param {string} plantId
+ * @param {string} departmentId
+ * @returns {Promise<{ok: boolean}>}
+ */
+export async function deleteDepartmentLayout(factoryId, plantId, departmentId) {
+  const params = new URLSearchParams({
+    factoryId: factoryId || '',
+    plantId: plantId || '',
+    departmentId: departmentId || '',
+  });
+  return apiRequest(`/layouts?${params}`, {
+    method: 'DELETE',
+  });
+}
