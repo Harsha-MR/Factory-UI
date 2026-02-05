@@ -580,7 +580,7 @@ export default function Department3DLayoutPage() {
         className={
           isFullscreen
             ? "relative h-screen w-screen bg-white p-4 flex flex-col"
-            : "relative h-[150%] w-[100%] bg-slate-950 p-4 flex flex-col"
+            : "relative h-full w-full bg-slate-950 p-4 flex flex-col"
         }
       >
         {toast ? (
@@ -695,7 +695,7 @@ export default function Department3DLayoutPage() {
           className={
             isFullscreen
               ? "relative mt-4 flex-1 min-h-0"
-              : "mt-4 flex justify-center"
+              : "mt-4 flex-1 flex flex-col justify-center min-h-0"
           }
         >
           {isFullscreen ? (
