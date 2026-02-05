@@ -829,11 +829,14 @@ export default function DepartmentFloor3DViewer({
   }, []);
 
   const maybeStartPanDrag = (e) => {
-    // Only allow double-click+drag panning when camera controls are active.
+    // Allow double-click+drag panning in both fullscreen and non-fullscreen modes
     const controls = orbitRef.current;
     if (!controls || !controls.enabled) return false;
-    if (!fullScreen) return false;
-    if (isOverlayAddToolActive || isTransforming || isAddDrawing || draggingId)
+    // In fullscreen, check for overlay/transform modes
+    if (fullScreen && (isOverlayAddToolActive || isTransforming || isAddDrawing || draggingId))
+      return false;
+    // In non-fullscreen, only check for transform/add modes
+    if (!fullScreen && (isTransforming || isAddDrawing || draggingId))
       return false;
 
     const ne = e?.nativeEvent;
@@ -1777,19 +1780,18 @@ export default function DepartmentFloor3DViewer({
             rotation={[-Math.PI / 2, 0, 0]}
             position={[0, effectiveFloorY + 0.001, 0]}
             onPointerMove={(e) => {
-              if (!fullScreen) return;
-              e.stopPropagation();
               handleFloorPointerMove(e);
             }}
             onPointerDown={(e) => {
-              if (!fullScreen) return;
               e.stopPropagation();
 
-              // Double-click + drag pans the camera.
+              // Double-click + drag pans the camera (works in both fullscreen and non-fullscreen)
               // Note: we only start it when the user clicks on the floor (not on objects).
               if (!isAddMode) {
                 maybeStartPanDrag(e);
               }
+
+              if (!fullScreen) return;
 
               if (!isAddMode) {
                 if (typeof onSelectElement === "function") onSelectElement("");

@@ -72,16 +72,16 @@ async function main() {
 
   app.post('/api/layouts', authRoutes.auth, async (req, res) => {
     try {
-      console.log('[API] 📥 POST /api/layouts received');
+      // console.log('[API] 📥 POST /api/layouts received');
       const factoryId = mustString(req.query.factoryId);
       const plantId = mustString(req.query.plantId);
       const departmentId = mustString(req.query.departmentId);
-      console.log('[API] Context:', { factoryId, plantId, departmentId });
+      // console.log('[API] Context:', { factoryId, plantId, departmentId });
       
       let userId;
       try {
         userId = getUserId(req);
-        console.log('[API] User authenticated:', userId);
+        // console.log('[API] User authenticated:', userId);
       } catch {
         console.error('[API] ❌ Authentication failed');
         return res.status(401).json({ error: 'Authentication required' });
@@ -95,10 +95,10 @@ async function main() {
         console.error('[API] ❌ Invalid layout data');
         return res.status(400).json({ error: 'Missing layout' });
       }
-      console.log('[API] Layout data received, elements:', layout.elements?.length);
+      // console.log('[API] Layout data received, elements:', layout.elements?.length);
       
       const existing = await layouts.findOne({ factoryId, plantId, departmentId, userId });
-      console.log('[API] Existing layout:', existing ? 'found' : 'not found');
+      // console.log('[API] Existing layout:', existing ? 'found' : 'not found');
       
       const nextCurrent = { ...layout, updatedAt: new Date().toISOString() };
       const next = {
@@ -111,13 +111,13 @@ async function main() {
         updatedAt: new Date().toISOString(),
       };
       
-      console.log('[API] Saving to MongoDB...');
+      // console.log('[API] Saving to MongoDB...');
       await layouts.updateOne(
         { factoryId, plantId, departmentId, userId },
         { $set: next, $setOnInsert: { createdAt: new Date().toISOString() } },
         { upsert: true },
       );
-      console.log('[API] ✅ Layout saved successfully to MongoDB');
+      // console.log('[API] ✅ Layout saved successfully to MongoDB');
       
       return res.json({ current: next.current, previous: next.previous });
     } catch (e) {

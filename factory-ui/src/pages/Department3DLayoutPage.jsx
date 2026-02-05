@@ -290,6 +290,12 @@ export default function Department3DLayoutPage() {
         typeof document !== "undefined" && !!document.fullscreenElement;
       setIsFullscreen(isFs);
       if (!isFs) setActiveTool("select");
+      // Clear toast when transitioning between fullscreen modes
+      setToast(null);
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = 0;
+      }
     };
     document.addEventListener("fullscreenchange", onFsChange);
     onFsChange();
@@ -426,18 +432,11 @@ export default function Department3DLayoutPage() {
     if (!draft) return;
     saveDepartmentCustomLayout(layoutCtx, draft);
     setLayoutView("current");
-    // Stay on the 3D layout route after saving.
-    navigate(`/departments/${departmentId}/layout-3d`, {
-      replace: true,
-      state: {
-        ...(location.state || {}),
-        layoutView: "current",
-        toast: {
-          kind: "success",
-          message: "Department layout saved",
-          ts: Date.now(),
-        },
-      },
+    // Show toast immediately when saving
+    pushToast({
+      kind: "success",
+      message: "Department layout saved",
+      ts: Date.now(),
     });
   };
 
@@ -584,12 +583,12 @@ export default function Department3DLayoutPage() {
         }
       >
         {toast ? (
-          <div className="absolute right-4 top-4 z-[9999]">
+          <div className="absolute left-1/2 top-20 z-[9999] -translate-x-1/2">
             <div
               className={
                 toast.kind === "success"
-                  ? "rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 shadow-sm"
-                  : "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm"
+                  ? "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-lg"
+                  : "rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-lg"
               }
               role="status"
               aria-live="polite"
@@ -623,71 +622,114 @@ export default function Department3DLayoutPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div
-              className={
-                isFullscreen
-                  ? "mr-1 inline-flex items-center gap-1 rounded-lg border bg-white px-1 py-1"
-                  : "mr-1 inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/40 px-1 py-1"
-              }
-              title="Switch between saved layouts"
-            >
-              <button
-                type="button"
-                className={
-                  layoutView === "current"
-                    ? isFullscreen
-                      ? "rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white"
-                      : "rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white"
-                    : isFullscreen
-                      ? "rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                      : "rounded-md px-2.5 py-1 text-xs text-slate-200 hover:bg-white/5"
-                }
-                onClick={() => applyLayoutView("current")}
-              >
-                Current
-              </button>
-              <button
-                type="button"
-                className={
-                  layoutView === "previous"
-                    ? isFullscreen
-                      ? "rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white"
-                      : "rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white"
-                    : isFullscreen
-                      ? "rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                      : "rounded-md px-2.5 py-1 text-xs text-slate-200 hover:bg-white/5"
-                }
-                onClick={() => applyLayoutView("previous")}
-                disabled={!layoutVersions?.previous}
-                title={
-                  layoutVersions?.previous
-                    ? "View previous saved layout"
-                    : "No previous saved layout yet"
-                }
-              >
-                Previous
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className={neutralBtnClass}
-              onClick={toggleFullscreen}
-              title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-            >
-              {isFullscreen ? "Exit full screen" : "Full screen"}
-            </button>
-
-            <button type="button" className={neutralBtnClass} onClick={onReset}>
-              Reset
-            </button>
-            <button
-              type="button"
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
-              onClick={onSave}
-            >
-              Save
-            </button>
+            {isFullscreen ? (
+              // Fullscreen mode: Reset, Save to DB, Current, Previous, Exit
+              <>
+                <button type="button" className={neutralBtnClass} onClick={onReset}>
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                  onClick={onSave}
+                >
+                  Save to DB
+                </button>
+                <div
+                  className="mr-1 inline-flex items-center gap-1 rounded-lg border bg-white px-1 py-1"
+                  title="Switch between saved layouts"
+                >
+                  <button
+                    type="button"
+                    className={
+                      layoutView === "current"
+                        ? "rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white"
+                        : "rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                    }
+                    onClick={() => applyLayoutView("current")}
+                  >
+                    Current
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      layoutView === "previous"
+                        ? "rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white"
+                        : "rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    }
+                    onClick={() => applyLayoutView("previous")}
+                    disabled={!layoutVersions?.previous}
+                    title={
+                      layoutVersions?.previous
+                        ? "View previous saved layout"
+                        : "No previous saved layout yet"
+                    }
+                  >
+                    Previous
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700"
+                  onClick={toggleFullscreen}
+                  title="Exit fullscreen"
+                >
+                  Exit
+                </button>
+              </>
+            ) : (
+              // Non-fullscreen mode: Back to Dashboard, Current, Previous, Full Screen
+              <>
+                <button
+                  type="button"
+                  className={neutralBtnClass}
+                  onClick={onCancel}
+                >
+                  Back to Dashboard
+                </button>
+                <div
+                  className="mr-1 inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/40 px-1 py-1"
+                  title="Switch between saved layouts"
+                >
+                  <button
+                    type="button"
+                    className={
+                      layoutView === "current"
+                        ? "rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white"
+                        : "rounded-md px-2.5 py-1 text-xs text-slate-200 hover:bg-white/5"
+                    }
+                    onClick={() => applyLayoutView("current")}
+                  >
+                    Current
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      layoutView === "previous"
+                        ? "rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white"
+                        : "rounded-md px-2.5 py-1 text-xs text-slate-200 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                    }
+                    onClick={() => applyLayoutView("previous")}
+                    disabled={!layoutVersions?.previous}
+                    title={
+                      layoutVersions?.previous
+                        ? "View previous saved layout"
+                        : "No previous saved layout yet"
+                    }
+                  >
+                    Previous
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className={neutralBtnClass}
+                  onClick={toggleFullscreen}
+                  title="Enter fullscreen"
+                >
+                  Full screen
+                </button>
+              </>
+            )}
           </div>
         </div>
 
