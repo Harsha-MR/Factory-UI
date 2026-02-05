@@ -25,7 +25,7 @@ import { getWorkerManager } from "../../utils/workerManager";
 
 import { ELEMENT_TYPES } from "./layoutTypes";
 
-const DEFAULT_PLANE_SIZE = 10;
+const DEFAULT_PLANE_SIZE = 20;
 
 const DEFAULT_MODEL_URLS = {
   [ELEMENT_TYPES.MACHINE]: "/models/machine.glb",
@@ -597,15 +597,30 @@ const MachineElement = memo(function MachineElement({
 });
 
 // Floor model component: scale like zones (fit width/depth, preserve height)
-const FloorModel3D = memo(function FloorModel3D({ width, depth }) {
+// Models from /models/pre-defined-models/ are rendered as-is without scaling
+// Models from /models/ are scaled to fit the specified width/depth for auto-layout
+const FloorModel3D = memo(function FloorModel3D({ width, depth, url }) {
   const w = Math.max(0.02, Number(width) || 1);
   const d = Math.max(0.02, Number(depth) || 1);
-  const { scene } = useGLTF("/models/floor-model.glb");
+  const modelUrl = url || "/models/floor-model.glb";
+  
+  // Check if this is a pre-defined model (should not be scaled)
+  const isPreDefinedModel = modelUrl.includes("/models/pre-defined-models/");
+  
+  const { scene } = useGLTF(modelUrl);
 
   const clonedScene = useMemo(() => {
     const clone = scene.clone(true);
 
-    // Calculate bounding box of the loaded model
+    if (isPreDefinedModel) {
+      // Pre-defined models: render as-is without any scaling or centering
+      // Just position at floor level
+      const box = new Box3().setFromObject(clone);
+      clone.position.set(0, -box.min.y, 0);
+      return clone;
+    }
+
+    // Auto-layout models: scale to fit the desired width and depth
     const box = new Box3().setFromObject(clone);
     const modelSize = new Vector3();
     box.getSize(modelSize);
@@ -623,7 +638,7 @@ const FloorModel3D = memo(function FloorModel3D({ width, depth }) {
     clone.position.set(-center.x * scaleX, -box.min.y * scaleY, -center.z * scaleZ);
 
     return clone;
-  }, [scene, w, d]);
+  }, [scene, w, d, modelUrl, isPreDefinedModel]);
 
   return <primitive object={clonedScene} />;
 });
@@ -1103,6 +1118,7 @@ export default function DepartmentFloor3DViewer({
         obj.position.z = pos.z;
         // Matrix will be updated automatically on next render
       }
+
     }
   }, [effectivePlaneSize, snapNormPoint, onPointerPositionChange, isAddMode, draggingId]);
 
@@ -1361,11 +1377,12 @@ export default function DepartmentFloor3DViewer({
               : [
                   {
                     id: "__default_floor__",
-                    x: 0.05,
-                    y: 0.05,
-                    w: 0.9,
-                    h: 0.9,
+                    x: 0.025,
+                    y: 0.025,
+                    w: 0.95,
+                    h: 0.95,
                     rotationDeg: 0,
+                    modelUrl: "/models/floor-model.glb",
                   },
                 ];
 
@@ -1380,6 +1397,7 @@ export default function DepartmentFloor3DViewer({
               const w = Math.max(0.02, wNorm) * effectivePlaneSize;
               const d = Math.max(0.02, hNorm) * effectivePlaneSize;
               const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180);
+              const floorModelUrl = el.modelUrl || "/models/floor-model.glb";
 
               // Disable all editing interactions in non-fullScreen
               const allowEdit = fullScreen;
@@ -1466,7 +1484,7 @@ export default function DepartmentFloor3DViewer({
                 >
                   {/* Load 3D floor model and scale only X and Z axes (preserve Y height) */}
                   <Suspense fallback={null}>
-                    <FloorModel3D width={w} depth={d} />
+                    <FloorModel3D width={w} depth={d} url={floorModelUrl} />
                   </Suspense>
                   
                   {id !== "__default_floor__" ? (
@@ -1703,10 +1721,16 @@ export default function DepartmentFloor3DViewer({
                           return;
                         }
                         e.stopPropagation();
+                        e.nativeEvent?.preventDefault?.();
                         if (typeof onSelectElement === "function")
                           onSelectElement(id);
 
                         if (isTransforming) return;
+
+                        if (activeTool === "select") {
+                          setOrbitEnabledNow(false);
+                          capturePointer(e);
+                        }
 
                         if (
                           typeof onMoveElement === "function" &&
@@ -1745,7 +1769,22 @@ export default function DepartmentFloor3DViewer({
                 onPointerMove={
                   allowEdit
                     ? (e) => {
+                        e.stopPropagation();
                         handleFloorPointerMove(e);
+                      }
+                    : undefined
+                }
+                onPointerUp={
+                  allowEdit
+                    ? () => {
+                        stopDragging();
+                        setCursor("default");
+                        setOrbitEnabledNow(
+                          !isOverlayAddToolActive &&
+                            !isTransforming &&
+                            !isAddDrawing &&
+                            !draggingId,
+                        );
                       }
                     : undefined
                 }
@@ -2299,6 +2338,7 @@ export default function DepartmentFloor3DViewer({
 
 // Preload all models at module load time for optimal performance
 useGLTF.preload("/models/floor-model.glb");
+useGLTF.preload("/models/pre-defined-models/floor/floor-plan1.glb");
 useGLTF.preload("/models/zone-green.glb");
 useGLTF.preload("/models/machine.glb");
 useGLTF.preload("/models/machine-running.glb");

@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { nanoid } from "nanoid";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls, useGLTF } from "@react-three/drei";
+import { Box3, Vector3 } from "three";
 import { getDepartmentLayout } from "../services/mockApi";
 
 import DepartmentFloor3DViewer from "../components/layout/DepartmentFloor3DViewer";
@@ -23,6 +26,32 @@ const MODEL_LIBRARY = {
     { label: "Tranporter (alt filename)", url: "/models/tranporter.glb" },
   ],
 };
+
+const FLOOR_MODEL_OPTIONS = [
+  { label: "Floor plan 1", url: "/models/pre-defined-models/floor/floor-plan1.glb" },
+  { label: "Floor plan(2x3)", url: "/models/pre-defined-models/floor/floor(2x3).glb" },
+  { label: "Floor plan(3x4)", url: "/models/pre-defined-models/floor/floor(2x3).glb" },
+];
+
+function FloorModelPreview({ url }) {
+  const { scene } = useGLTF(url);
+
+  const previewScene = useMemo(() => {
+    const clone = scene.clone(true);
+    const box = new Box3().setFromObject(clone);
+    const size = new Vector3();
+    box.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const scale = 1.2 / maxDim;
+    const center = new Vector3();
+    box.getCenter(center);
+    clone.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+    clone.scale.setScalar(scale);
+    return clone;
+  }, [scene]);
+
+  return <primitive object={previewScene} />;
+}
 
 function typeLabel(t) {
   if (t === ELEMENT_TYPES.FLOOR) return "Floor";
@@ -163,6 +192,7 @@ export default function Department3DLayoutPage() {
 
   const fullscreenRef = useRef(null);
   const lastPointerRef = useRef({ x: 0.5, y: 0.5 });
+  const lastCursorRef = useRef({ x: 0, y: 0 });
   const toastTimerRef = useRef(0);
 
   const [loading, setLoading] = useState(false);
@@ -188,6 +218,11 @@ export default function Department3DLayoutPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState(null); // { id, position: { x, y } }
   const [nameInputDialog, setNameInputDialog] = useState(null); // { type: 'floor'|'zone'|'walkway', pending: true }
   const [nameInput, setNameInput] = useState("");
+  const [selectedFloorModelUrl, setSelectedFloorModelUrl] = useState("");
+  const [selectedFloorModelLabel, setSelectedFloorModelLabel] = useState("");
+  const defaultFloorModelUrl = FLOOR_MODEL_OPTIONS[0]?.url || "";
+  const defaultFloorModelLabel = FLOOR_MODEL_OPTIONS[0]?.label || "";
+  const [showFloorPicker, setShowFloorPicker] = useState(false);
 
   const [activeTool, setActiveTool] = useState("select");
   const [selectedId, setSelectedId] = useState("");
@@ -199,6 +234,11 @@ export default function Department3DLayoutPage() {
     const x = clamp(pos.x, 0, 1);
     const y = clamp(pos.y, 0, 1);
     lastPointerRef.current = { x, y };
+  }, []);
+
+  const handleCursorMove = useCallback((e) => {
+    if (!e) return;
+    lastCursorRef.current = { x: e.clientX, y: e.clientY };
   }, []);
 
   const navToast = location.state?.toast;
@@ -218,6 +258,14 @@ export default function Department3DLayoutPage() {
   const [layoutView, setLayoutView] = useState("current");
 
   const plantName = location.state?.plantName || "";
+
+  const openFloorDialog = () => {
+    setNameInput("");
+    setNameInputDialog({ type: "floor" });
+    setSelectedFloorModelUrl(defaultFloorModelUrl);
+    setSelectedFloorModelLabel(defaultFloorModelLabel);
+    setShowFloorPicker(false);
+  };
 
   const layoutCtx = useMemo(() => {
     return {
@@ -451,9 +499,13 @@ export default function Department3DLayoutPage() {
         if (!container) return;
         
         const rect = container.getBoundingClientRect();
-        // Position popup near center or last known mouse position
-        const x = rect.width / 2;
-        const y = rect.height / 2;
+        const lastCursor = lastCursorRef.current || {};
+        const x = Number.isFinite(lastCursor.x)
+          ? lastCursor.x
+          : rect.left + rect.width / 2;
+        const y = Number.isFinite(lastCursor.y)
+          ? lastCursor.y
+          : rect.top + rect.height / 2;
         
         setDeleteConfirmation({
           id: selectedId,
@@ -600,7 +652,7 @@ export default function Department3DLayoutPage() {
   if (!draft) return null;
 
   const neutralBtnClass = isFullscreen
-    ? "rounded-lg border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+    ? "rounded-lg bg-yellow-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-yellow-700"
     : "rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-900";
 
   const floorScale = Number(draft?.threeD?.floorModelScale) || 1;
@@ -631,6 +683,7 @@ export default function Department3DLayoutPage() {
     <div className="space-y-3 h-full flex flex-col">
       <div
         ref={fullscreenRef}
+        onPointerMove={handleCursorMove}
         className={
           isFullscreen
             ? "relative h-screen w-screen bg-white p-4 flex flex-col"
@@ -658,8 +711,9 @@ export default function Department3DLayoutPage() {
           <div
             className="fixed z-[9999]"
             style={{
-              left: `${Math.min(Math.max(deleteConfirmation.position.x - 100, 20), window.innerWidth - 220)}px`,
-              top: `${Math.min(Math.max(deleteConfirmation.position.y - 60, 20), window.innerHeight - 140)}px`,
+              left: `${Math.min(Math.max(deleteConfirmation.position.x, 20), window.innerWidth - 20)}px`,
+              top: `${Math.min(Math.max(deleteConfirmation.position.y, 20), window.innerHeight - 20)}px`,
+              transform: "translate(-25%, -75%)",
             }}
           >
             <div className="rounded-lg border-2 border-red-500 bg-white p-4 shadow-2xl">
@@ -715,12 +769,12 @@ export default function Department3DLayoutPage() {
             {isFullscreen ? (
               // Fullscreen mode: Reset, Save to DB, Current, Previous, Exit
               <>
-                <button type="button" className={neutralBtnClass} onClick={onReset}>
+                <button type="button" className={neutralBtnClass} onClick={onReset} >
                   Reset
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-800"
                   onClick={onSave}
                 >
                   Save to DB
@@ -760,7 +814,7 @@ export default function Department3DLayoutPage() {
                 </div>
                 <button
                   type="button"
-                  className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700"
+                  className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-800"
                   onClick={toggleFullscreen}
                   title="Exit fullscreen"
                 >
@@ -816,7 +870,7 @@ export default function Department3DLayoutPage() {
                   onClick={toggleFullscreen}
                   title="Enter fullscreen"
                 >
-                  Full screen
+                  Customize Layout
                 </button>
               </>
             )}
@@ -900,8 +954,7 @@ export default function Department3DLayoutPage() {
                   }
                   title="Add floor"
                   onClick={() => {
-                    setNameInput("");
-                    setNameInputDialog({ type: 'floor' });
+                    openFloorDialog();
                   }}
                 >
                   <svg
@@ -1064,6 +1117,88 @@ export default function Department3DLayoutPage() {
                         autoFocus
                       />
                     </label>
+
+                    {nameInputDialog.type === "floor" ? (
+                      <div className="mt-3">
+                        <div className="text-[11px] font-semibold text-slate-700">
+                          Floor model
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-2 w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          onClick={() => setShowFloorPicker((prev) => !prev)}
+                        >
+                          Select from DB
+                        </button>
+                        {showFloorPicker ? (
+                          <div className="mt-2 max-h-[280px] space-y-2 overflow-y-auto">
+                            {FLOOR_MODEL_OPTIONS.map((opt) => (
+                              <button
+                                key={opt.url}
+                                type="button"
+                                className={
+                                  (selectedFloorModelUrl || defaultFloorModelUrl) === opt.url
+                                    ? "w-full rounded-md border border-sky-300 bg-sky-50 p-2 text-left"
+                                    : "w-full rounded-md border border-slate-200 bg-white p-2 text-left hover:bg-slate-50"
+                                }
+                                onClick={() => {
+                                  setSelectedFloorModelUrl(opt.url);
+                                  setSelectedFloorModelLabel(opt.label || opt.url);
+                                  setNameInput(opt.label || opt.url);
+                                  setShowFloorPicker(false);
+                                }}
+                              >
+                                <div className="text-xs font-semibold text-slate-800">
+                                  {opt.label}
+                                </div>
+                                <div className="mt-1 h-24 w-full overflow-hidden rounded-md border bg-white">
+                                  <Canvas camera={{ position: [0, 0.9, 1.6], fov: 40 }}>
+                                    <ambientLight intensity={0.8} />
+                                    <directionalLight position={[2, 3, 2]} intensity={1.1} />
+                                    <Suspense fallback={null}>
+                                      <FloorModelPreview url={opt.url} />
+                                    </Suspense>
+                                    <OrbitControls
+                                      enablePan={false}
+                                      enableZoom={false}
+                                      enableRotate={true}
+                                      autoRotate
+                                      autoRotateSpeed={1.2}
+                                    />
+                                  </Canvas>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mt-2 rounded-md border bg-slate-50 p-2">
+                            <div className="text-[11px] text-slate-600">
+                              Selected: {selectedFloorModelLabel || defaultFloorModelLabel}
+                            </div>
+                            {(selectedFloorModelUrl || defaultFloorModelUrl) ? (
+                              <div className="mt-2 h-32 w-full overflow-hidden rounded-md border bg-white">
+                                <Canvas camera={{ position: [0, 0.9, 1.6], fov: 40 }}>
+                                  <ambientLight intensity={0.8} />
+                                  <directionalLight position={[2, 3, 2]} intensity={1.1} />
+                                  <Suspense fallback={null}>
+                                    <FloorModelPreview
+                                      url={selectedFloorModelUrl || defaultFloorModelUrl}
+                                    />
+                                  </Suspense>
+                                  <OrbitControls
+                                    enablePan={false}
+                                    enableZoom={false}
+                                    enableRotate={true}
+                                    autoRotate
+                                    autoRotateSpeed={1.2}
+                                  />
+                                </Canvas>
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                     <div className="mt-2 flex gap-2">
                       <button
                         type="button"
@@ -1093,11 +1228,17 @@ export default function Department3DLayoutPage() {
                 ) : null}
 
                 {isFullscreen &&
-                (activeTool === "add:floor" || activeTool === "add:zone") ? (
+                (activeTool === "add:floor" ||
+                  activeTool === "add:zone" ||
+                  activeTool === "add:walkway") ? (
                   <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-600">
                     Placement: click and drag on the canvas to draw the
-                    {activeTool === "add:floor" ? " floor" : " zone"}. Release
-                    to place.
+                    {activeTool === "add:floor"
+                      ? " floor"
+                      : activeTool === "add:zone"
+                        ? " zone"
+                        : " walkway"}
+                    . Release to place.
                   </div>
                 ) : null}
 
@@ -1133,8 +1274,7 @@ export default function Department3DLayoutPage() {
                         : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                     }
                     onClick={() => {
-                      setNameInput("");
-                      setNameInputDialog({ type: "floor" });
+                      openFloorDialog();
                     }}
                   >
                     Add floor
@@ -1923,7 +2063,12 @@ export default function Department3DLayoutPage() {
 
                       const defaultsForType = () => {
                         if (t === ELEMENT_TYPES.FLOOR) {
-                          return { w: 0.9, h: 0.9, modelUrl: "/models/floor-model.glb" };
+                          const floorModelUrl = selectedFloorModelUrl || defaultFloorModelUrl || "/models/floor-model.glb";
+                          return {
+                            w: 0.95,
+                            h: 0.95,
+                            modelUrl: floorModelUrl,
+                          };
                         }
                         if (t === ELEMENT_TYPES.ZONE) {
                           return { w: 0.35, h: 0.22, color: "dark-green", modelUrl: "/models/zone-green.glb", scale: 1 };
