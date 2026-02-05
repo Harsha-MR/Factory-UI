@@ -596,57 +596,72 @@ const MachineElement = memo(function MachineElement({
   );
 });
 
-// Floor model component: scales only X and Z (width and depth), preserves Y (height)
+// Floor model component: scale like zones (fit width/depth, preserve height)
 const FloorModel3D = memo(function FloorModel3D({ width, depth }) {
+  const w = Math.max(0.02, Number(width) || 1);
+  const d = Math.max(0.02, Number(depth) || 1);
   const { scene } = useGLTF("/models/floor-model.glb");
 
-  const { scaleX, scaleZ, yOffset } = useMemo(() => {
-    try {
-      const tmp = scene.clone(true);
-      tmp.position.set(0, 0, 0);
-      tmp.rotation.set(0, 0, 0);
-      tmp.scale.set(1, 1, 1);
-      tmp.updateMatrixWorld(true);
-      
-      const box = new Box3().setFromObject(tmp);
-      const size = new Vector3();
-      box.getSize(size);
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone(true);
 
-      const modelX = Number(size.x) || 1;
-      const modelZ = Number(size.z) || 1;
-      const minY = Number(box.min.y);
+    // Calculate bounding box of the loaded model
+    const box = new Box3().setFromObject(clone);
+    const modelSize = new Vector3();
+    box.getSize(modelSize);
 
-      // Scale X and Z to fit target dimensions, keep Y at 1 (preserve height)
-      const targetW = Number(width) || 1;
-      const targetD = Number(depth) || 1;
-      
-      const computedScaleX = modelX > 0.000001 ? targetW / modelX : 1;
-      const computedScaleZ = modelZ > 0.000001 ? targetD / modelZ : 1;
-      const computedYOffset = Number.isFinite(minY) ? -minY : 0;
+    // Scale to fit the desired width and depth
+    const scaleX = modelSize.x > 0 ? w / modelSize.x : 1;
+    const scaleZ = modelSize.z > 0 ? d / modelSize.z : 1;
+    const scaleY = 1; // Keep original Y height
 
-      return {
-        scaleX: clamp(computedScaleX, 0.001, 100),
-        scaleZ: clamp(computedScaleZ, 0.001, 100),
-        yOffset: computedYOffset,
-      };
-    } catch {
-      return { scaleX: 1, scaleZ: 1, yOffset: 0 };
-    }
-  }, [scene, width, depth]);
+    clone.scale.set(scaleX, scaleY, scaleZ);
 
-  const cloned = useMemo(() => scene.clone(true), [scene]);
+    // Center the model at origin (floor level)
+    const center = new Vector3();
+    box.getCenter(center);
+    clone.position.set(-center.x * scaleX, -box.min.y * scaleY, -center.z * scaleZ);
 
-  return (
-    <primitive
-      object={cloned}
-      position={[0, yOffset, 0]}
-      scale={[scaleX, 1, scaleZ]}
-    />
-  );
+    return clone;
+  }, [scene, w, d]);
+
+  return <primitive object={clonedScene} />;
 });
 
 // Zone Model using zone-green.glb
 const ZoneModel3D = memo(function ZoneModel3D({ width, depth, color }) {
+  const w = Math.max(0.02, Number(width) || 1);
+  const d = Math.max(0.02, Number(depth) || 1);
+  const { scene } = useGLTF("/models/zone-green.glb");
+
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone(true);
+    
+    // Calculate bounding box of the loaded model
+    const box = new Box3().setFromObject(clone);
+    const modelSize = new Vector3();
+    box.getSize(modelSize);
+
+    // Scale to fit the desired width and depth
+    const scaleX = modelSize.x > 0 ? w / modelSize.x : 1;
+    const scaleZ = modelSize.z > 0 ? d / modelSize.z : 1;
+    const scaleY = 1; // Keep original Y height
+
+    clone.scale.set(scaleX, scaleY, scaleZ);
+
+    // Center the model at origin (floor level)
+    const center = new Vector3();
+    box.getCenter(center);
+    clone.position.set(-center.x * scaleX, -box.min.y * scaleY, -center.z * scaleZ);
+
+    return clone;
+  }, [scene, w, d]);
+
+  return <primitive object={clonedScene} />;
+});
+
+// Walkway Model using zone-green.glb temporarily (will be replaced with proper walkway model later)
+const WalkwayModel3D = memo(function WalkwayModel3D({ width, depth }) {
   const w = Math.max(0.02, Number(width) || 1);
   const d = Math.max(0.02, Number(depth) || 1);
   const { scene } = useGLTF("/models/zone-green.glb");
@@ -753,6 +768,7 @@ export default function DepartmentFloor3DViewer({
   const containerRef = useRef(null);
   const [draggingId, setDraggingId] = useState("");
   const [hoverNorm, setHoverNorm] = useState(null);
+  const [hoverNormRaw, setHoverNormRaw] = useState(null);
   const [hoveredMachineId, setHoveredMachineId] = useState("");
   const [isTransforming, setIsTransforming] = useState(false);
   const [isAddDrawing, setIsAddDrawing] = useState(false);
@@ -1039,6 +1055,7 @@ export default function DepartmentFloor3DViewer({
         hoverRafRef.current = requestAnimationFrame(() => {
           hoverRafRef.current = 0;
           setHoverNorm(next);
+          setHoverNormRaw(raw);
         });
       }
     }
@@ -1352,7 +1369,7 @@ export default function DepartmentFloor3DViewer({
                   },
                 ];
 
-            return list.slice(0, 1).map((el) => {
+            return list.map((el) => {
               const id = String(el.id);
               const isSelected = selectedId && String(selectedId) === id;
               const wNorm = clamp01(Number(el.w) || 0.9);
@@ -1381,8 +1398,47 @@ export default function DepartmentFloor3DViewer({
                           }
                           if (id === "__default_floor__") return;
                           e.stopPropagation();
+                          e.nativeEvent?.preventDefault?.();
                           if (typeof onSelectElement === "function")
                             onSelectElement(id);
+
+                          if (activeTool === "select" && !isTransforming) {
+                            setOrbitEnabledNow(false);
+                            capturePointer(e);
+                          }
+
+                          if (isTransforming) return;
+
+                          if (
+                            typeof onMoveElement === "function" &&
+                            activeTool === "select"
+                          ) {
+                            draggingObjectRef.current = e.currentTarget;
+                            draggingNormRef.current = null;
+                            if (typeof getFloorHitFromEvent === "function") {
+                              const hit = getFloorHitFromEvent(e);
+                              if (hit) {
+                                const pointerNorm = planeToNorm(
+                                  hit.x,
+                                  hit.z,
+                                  effectivePlaneSize,
+                                );
+                                // Store precise offset from cursor to center
+                                draggingOffsetRef.current = {
+                                  x: cx - pointerNorm.x,
+                                  y: cy - pointerNorm.y,
+                                };
+                              } else {
+                                draggingOffsetRef.current = null;
+                              }
+                            } else {
+                              draggingOffsetRef.current = null;
+                            }
+                            setDraggingId(id);
+                            setCursor("grabbing");
+                            setOrbitEnabledNow(false);
+                            capturePointer(e);
+                          }
                         }
                       : undefined
                   }
@@ -1390,6 +1446,20 @@ export default function DepartmentFloor3DViewer({
                     allowEdit
                       ? (e) => {
                           handleFloorPointerMove(e);
+                        }
+                      : undefined
+                  }
+                  onPointerUp={
+                    allowEdit
+                      ? () => {
+                          stopDragging();
+                          setCursor("default");
+                          setOrbitEnabledNow(
+                            !isOverlayAddToolActive &&
+                              !isTransforming &&
+                              !isAddDrawing &&
+                              !draggingId,
+                          );
                         }
                       : undefined
                   }
@@ -1471,35 +1541,23 @@ export default function DepartmentFloor3DViewer({
                           return;
                         }
                         e.stopPropagation();
+                        e.nativeEvent?.preventDefault?.();
                         
                         if (isTransforming) return;
                         
                         if (typeof onSelectElement === "function")
                           onSelectElement(id);
 
-                        // Don't initiate drag immediately - wait for actual pointer movement
-                      }
-                    : undefined
-                }
-                onPointerMove={
-                  allowEdit
-                    ? (e) => {
-                        e.stopPropagation();
-                        handleFloorPointerMove(e);
-                        
-                        // Only start dragging if pointer is down and we haven't started yet
+                        if (activeTool === "select") {
+                          setOrbitEnabledNow(false);
+                          capturePointer(e);
+                        }
+
                         if (
-                          !draggingId &&
-                          !isTransforming &&
-                          !isAddMode &&
-                          selectedId &&
-                          String(selectedId) === id &&
-                          e.buttons === 1 && // Left mouse button is pressed
                           typeof onMoveElement === "function" &&
                           activeTool === "select"
                         ) {
-                          // eventObject is one of the meshes; move its parent group.
-                          draggingObjectRef.current = e.eventObject?.parent || null;
+                          draggingObjectRef.current = e.currentTarget;
                           draggingNormRef.current = null;
                           if (typeof getFloorHitFromEvent === "function") {
                             const hit = getFloorHitFromEvent(e);
@@ -1521,10 +1579,34 @@ export default function DepartmentFloor3DViewer({
                           }
                           setDraggingId(id);
                           setCursor("grabbing");
-                          // Immediately disable orbit controls to prevent camera movement
                           setOrbitEnabledNow(false);
-                          capturePointer(e);
                         }
+
+                        // Don't initiate drag immediately - wait for actual pointer movement
+                      }
+                    : undefined
+                }
+                onPointerMove={
+                  allowEdit
+                    ? (e) => {
+                        e.stopPropagation();
+                        handleFloorPointerMove(e);
+                        
+                        // Dragging is initiated on pointer down to prevent camera movement
+                      }
+                    : undefined
+                }
+                onPointerUp={
+                  allowEdit
+                    ? () => {
+                        stopDragging();
+                        setCursor("default");
+                        setOrbitEnabledNow(
+                          !isOverlayAddToolActive &&
+                            !isTransforming &&
+                            !isAddDrawing &&
+                            !draggingId,
+                        );
                       }
                     : undefined
                 }
@@ -1668,20 +1750,14 @@ export default function DepartmentFloor3DViewer({
                     : undefined
                 }
               >
-                <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
-                  <planeGeometry args={[w, d]} />
-                  <meshBasicMaterial
-                    color="#000000"
-                    transparent
-                    opacity={0.85}
-                    depthWrite={false}
-                    polygonOffset
-                    polygonOffsetFactor={-1}
-                    polygonOffsetUnits={-1}
-                  />
-                </mesh>
+                {/* Load 3D walkway model (temporarily using zone-green.glb) */}
+                <Suspense fallback={null}>
+                  <WalkwayModel3D width={w} depth={d} />
+                </Suspense>
+
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
+                  position={[0, 0.01, 0]}
                   renderOrder={10}
                   onPointerOver={
                     allowEdit
@@ -2147,11 +2223,12 @@ export default function DepartmentFloor3DViewer({
               })()
             : null}
 
-          {showMachineMarkers && isAddMode && hoverNorm && addElementType
+          {showMachineMarkers && isAddMode && (hoverNormRaw || hoverNorm) && addElementType
             ? (() => {
+                const previewNorm = hoverNormRaw || hoverNorm;
                 const pos = normToPlane(
-                  hoverNorm.x,
-                  hoverNorm.y,
+                  previewNorm.x,
+                  previewNorm.y,
                   effectivePlaneSize,
                 );
                 return (
@@ -2195,6 +2272,7 @@ export default function DepartmentFloor3DViewer({
                 stopDragging();
                 clearAddDrag();
                 setHoverNorm(null);
+                setHoverNormRaw(null);
               }
             }}
             makeDefault

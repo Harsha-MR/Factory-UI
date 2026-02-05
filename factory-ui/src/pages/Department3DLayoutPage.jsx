@@ -185,6 +185,9 @@ export default function Department3DLayoutPage() {
   });
   const [machineFormError, setMachineFormError] = useState("");
   const [pendingMachinePlacement, setPendingMachinePlacement] = useState(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState(null); // { id, position: { x, y } }
+  const [nameInputDialog, setNameInputDialog] = useState(null); // { type: 'floor'|'zone'|'walkway', pending: true }
+  const [nameInput, setNameInput] = useState("");
 
   const [activeTool, setActiveTool] = useState("select");
   const [selectedId, setSelectedId] = useState("");
@@ -411,6 +414,58 @@ export default function Department3DLayoutPage() {
     navigate("/dashboard");
   };
 
+  // Delete element handler
+  const handleDeleteElement = (elementId) => {
+    if (!elementId || !draft) return;
+    
+    setDraft((prev) =>
+      prev
+        ? {
+            ...prev,
+            elements: (prev.elements || []).filter(
+              (e) => String(e.id) !== String(elementId)
+            ),
+          }
+        : prev
+    );
+    setSelectedId("");
+    setDeleteConfirmation(null);
+    pushToast({
+      kind: "success",
+      message: "Element deleted",
+      ts: Date.now(),
+    });
+  };
+
+  // Keyboard event handler for delete
+  useEffect(() => {
+    if (!isFullscreen || !selectedId) return;
+
+    const handleKeyDown = (e) => {
+      // Check if 'x' or 'X' or 'Delete' key is pressed
+      if ((e.key === 'x' || e.key === 'X' || e.key === 'Delete') && selectedId) {
+        e.preventDefault();
+        
+        // Get cursor position for popup
+        const container = fullscreenRef.current;
+        if (!container) return;
+        
+        const rect = container.getBoundingClientRect();
+        // Position popup near center or last known mouse position
+        const x = rect.width / 2;
+        const y = rect.height / 2;
+        
+        setDeleteConfirmation({
+          id: selectedId,
+          position: { x, y }
+        });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen, selectedId]);
+
   const toggleFullscreen = async () => {
     try {
       const el = fullscreenRef.current;
@@ -597,6 +652,41 @@ export default function Department3DLayoutPage() {
             </div>
           </div>
         ) : null}
+
+        {/* Delete Confirmation Popup */}
+        {deleteConfirmation && isFullscreen ? (
+          <div
+            className="fixed z-[9999]"
+            style={{
+              left: `${Math.min(Math.max(deleteConfirmation.position.x - 100, 20), window.innerWidth - 220)}px`,
+              top: `${Math.min(Math.max(deleteConfirmation.position.y - 60, 20), window.innerHeight - 140)}px`,
+            }}
+          >
+            <div className="rounded-lg border-2 border-red-500 bg-white p-4 shadow-2xl">
+              <div className="text-sm font-semibold text-slate-900 mb-3">
+                Delete this object?
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700"
+                  onClick={() => handleDeleteElement(deleteConfirmation.id)}
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  onClick={() => setDeleteConfirmation(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Name Input Dialog moved to left sidebar */}
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -809,7 +899,10 @@ export default function Department3DLayoutPage() {
                       : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
                   }
                   title="Add floor"
-                  onClick={() => setActiveTool("add:floor")}
+                  onClick={() => {
+                    setNameInput("");
+                    setNameInputDialog({ type: 'floor' });
+                  }}
                 >
                   <svg
                     width="18"
@@ -841,7 +934,10 @@ export default function Department3DLayoutPage() {
                       : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
                   }
                   title="Add zone"
-                  onClick={() => setActiveTool("add:zone")}
+                  onClick={() => {
+                    setNameInput("");
+                    setNameInputDialog({ type: 'zone' });
+                  }}
                 >
                   <svg
                     width="18"
@@ -873,7 +969,10 @@ export default function Department3DLayoutPage() {
                       : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
                   }
                   title="Add walkway"
-                  onClick={() => setActiveTool("add:walkway")}
+                  onClick={() => {
+                    setNameInput("");
+                    setActiveTool("add:walkway");
+                  }}
                 >
                   <svg
                     width="18"
@@ -936,6 +1035,72 @@ export default function Department3DLayoutPage() {
                   Tools
                 </div>
 
+                {nameInputDialog ? (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="text-xs font-semibold text-slate-800">
+                      {nameInputDialog.type === "floor"
+                        ? "Add Floor"
+                        : nameInputDialog.type === "zone"
+                          ? "Add Zone"
+                          : "Add Walkway"}
+                    </div>
+                    <label className="mt-2 block text-xs text-slate-600">
+                      Name
+                      <input
+                        type="text"
+                        className="mt-1 w-full rounded-md border px-2 py-1 text-xs"
+                        placeholder={`Enter ${nameInputDialog.type} name...`}
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && nameInput.trim()) {
+                            setActiveTool(`add:${nameInputDialog.type}`);
+                            setNameInputDialog(null);
+                          } else if (e.key === "Escape") {
+                            setNameInputDialog(null);
+                            setNameInput("");
+                          }
+                        }}
+                        autoFocus
+                      />
+                    </label>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        onClick={() => {
+                          setNameInputDialog(null);
+                          setNameInput("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="flex-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                        disabled={!nameInput.trim()}
+                        onClick={() => {
+                          if (nameInput.trim()) {
+                            setActiveTool(`add:${nameInputDialog.type}`);
+                            setNameInputDialog(null);
+                          }
+                        }}
+                      >
+                        Continue
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {isFullscreen &&
+                (activeTool === "add:floor" || activeTool === "add:zone") ? (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-600">
+                    Placement: click and drag on the canvas to draw the
+                    {activeTool === "add:floor" ? " floor" : " zone"}. Release
+                    to place.
+                  </div>
+                ) : null}
+
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -967,7 +1132,10 @@ export default function Department3DLayoutPage() {
                         ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
                         : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                     }
-                    onClick={() => setActiveTool("add:floor")}
+                    onClick={() => {
+                      setNameInput("");
+                      setNameInputDialog({ type: "floor" });
+                    }}
                   >
                     Add floor
                   </button>
@@ -979,7 +1147,10 @@ export default function Department3DLayoutPage() {
                         ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
                         : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                     }
-                    onClick={() => setActiveTool("add:zone")}
+                    onClick={() => {
+                      setNameInput("");
+                      setNameInputDialog({ type: "zone" });
+                    }}
                   >
                     Add zone
                   </button>
@@ -991,7 +1162,10 @@ export default function Department3DLayoutPage() {
                         ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
                         : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                     }
-                    onClick={() => setActiveTool("add:walkway")}
+                    onClick={() => {
+                      setNameInput("");
+                      setActiveTool("add:walkway");
+                    }}
                   >
                     Add walkway
                   </button>
@@ -1096,36 +1270,6 @@ export default function Department3DLayoutPage() {
                   </div>
                 ) : null}
 
-                <div className="mt-4 rounded-lg border p-2">
-                  <div className="text-xs font-semibold text-slate-700">
-                    Floor
-                  </div>
-                  <div className="mt-2 text-[11px] text-slate-500">
-                    Floor is a 2D white overlay rectangle. Use “Add floor”, then
-                    click + drag + release.
-                  </div>
-
-                  <label className="mt-3 flex items-center gap-2 text-xs text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={!!draft?.threeD?.floorModelAutoRotate}
-                      onChange={(e) =>
-                        setDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                threeD: {
-                                  ...(prev.threeD || {}),
-                                  floorModelAutoRotate: e.target.checked,
-                                },
-                              }
-                            : prev,
-                        )
-                      }
-                    />
-                    Auto-rotate
-                  </label>
-                </div>
 
                 <div className="mt-3 rounded-lg border p-2">
                   <div className="flex items-center justify-between gap-2">
@@ -1146,29 +1290,36 @@ export default function Department3DLayoutPage() {
 
                   <div className="mt-2 max-h-[180px] space-y-1 overflow-auto">
                     {placeableElements.length ? (
-                      placeableElements.map((el) => (
-                        <button
-                          key={String(el.id)}
-                          type="button"
-                          className={
-                            String(selectedId) === String(el.id)
-                              ? "w-full rounded-md bg-sky-50 px-2 py-1 text-left text-xs text-sky-800"
-                              : "w-full rounded-md px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-50"
-                          }
-                          onClick={() => {
-                            setSelectedId(String(el.id));
-                            setActiveTool("select");
-                          }}
-                        >
-                          <div className="font-medium">
-                            {el.label ||
-                              `${typeLabel(el.type)} ${String(el.id).slice(0, 4)}`}
-                          </div>
-                          <div className="text-[11px] text-slate-500">
-                            {typeLabel(el.type)}
-                          </div>
-                        </button>
-                      ))
+                      placeableElements.map((el) => {
+                        // Get actual machine name from JSON data if it's a machine
+                        let displayName = el.label || `${typeLabel(el.type)} ${String(el.id).slice(0, 4)}`;
+                        if (el.type === ELEMENT_TYPES.MACHINE && el.machineId && machineMetaById?.[el.machineId]) {
+                          displayName = machineMetaById[el.machineId].name || displayName;
+                        }
+                        
+                        return (
+                          <button
+                            key={String(el.id)}
+                            type="button"
+                            className={
+                              String(selectedId) === String(el.id)
+                                ? "w-full rounded-md bg-sky-50 px-2 py-1 text-left text-xs text-sky-800"
+                                : "w-full rounded-md px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-50"
+                            }
+                            onClick={() => {
+                              setSelectedId(String(el.id));
+                              setActiveTool("select");
+                            }}
+                          >
+                            <div className="font-medium">
+                              {displayName}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {typeLabel(el.type)}
+                            </div>
+                          </button>
+                        );
+                      })
                     ) : (
                       <div className="text-[11px] text-slate-500">
                         No items yet. Use Add buttons above.
@@ -1277,7 +1428,86 @@ export default function Department3DLayoutPage() {
                       </label>
                     </div>
 
-                    {selectedElement.type === ELEMENT_TYPES.ZONE ? (
+                    {selectedElement.type === ELEMENT_TYPES.FLOOR ? (
+                      <>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <label className="block text-xs text-slate-600">
+                            Length (1-100 units)
+                            <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
+                              className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
+                              inputMode="decimal"
+                              value={String(
+                                Math.round(
+                                  Number(selectedElement.w ?? 0.9) * 100,
+                                ),
+                              )}
+                              onChange={(e) => {
+                                const displayValue = Math.max(
+                                  1,
+                                  Math.min(100, Number(e.target.value) || 1),
+                                );
+                                const normalizedValue = displayValue / 100;
+                                setDraft((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        elements: (prev.elements || []).map(
+                                          (x) =>
+                                            String(x.id) ===
+                                            String(selectedElement.id)
+                                              ? { ...x, w: normalizedValue }
+                                              : x,
+                                        ),
+                                      }
+                                    : prev,
+                                );
+                              }}
+                            />
+                          </label>
+                          <label className="block text-xs text-slate-600">
+                            Breadth (1-100 units)
+                            <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
+                              className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
+                              inputMode="decimal"
+                              value={String(
+                                Math.round(
+                                  Number(selectedElement.h ?? 0.9) * 100,
+                                ),
+                              )}
+                              onChange={(e) => {
+                                const displayValue = Math.max(
+                                  1,
+                                  Math.min(100, Number(e.target.value) || 1),
+                                );
+                                const normalizedValue = displayValue / 100;
+                                setDraft((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        elements: (prev.elements || []).map(
+                                          (x) =>
+                                            String(x.id) ===
+                                            String(selectedElement.id)
+                                              ? { ...x, h: normalizedValue }
+                                              : x,
+                                        ),
+                                      }
+                                    : prev,
+                                );
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </>
+                    ) : selectedElement.type === ELEMENT_TYPES.ZONE ? (
                       <>
                         <label className="mt-2 block text-xs text-slate-600">
                           Fill color
@@ -1310,15 +1540,20 @@ export default function Department3DLayoutPage() {
 
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           <label className="block text-xs text-slate-600">
-                            Width
+                            Length (1-100 units)
                             <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
                               className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
                               inputMode="decimal"
                               value={String(
-                                Number(selectedElement.w ?? 0.2).toFixed(3),
+                                Math.round(Number(selectedElement.w ?? 0.2) * 100)
                               )}
                               onChange={(e) => {
-                                const value = clamp(e.target.value, 0.02, 1);
+                                const displayValue = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                                const normalizedValue = displayValue / 100;
                                 setDraft((prev) =>
                                   prev
                                     ? {
@@ -1327,7 +1562,7 @@ export default function Department3DLayoutPage() {
                                           (x) =>
                                             String(x.id) ===
                                             String(selectedElement.id)
-                                              ? { ...x, w: value }
+                                              ? { ...x, w: normalizedValue }
                                               : x,
                                         ),
                                       }
@@ -1337,15 +1572,20 @@ export default function Department3DLayoutPage() {
                             />
                           </label>
                           <label className="block text-xs text-slate-600">
-                            Height
+                            Breadth (1-100 units)
                             <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
                               className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
                               inputMode="decimal"
                               value={String(
-                                Number(selectedElement.h ?? 0.12).toFixed(3),
+                                Math.round(Number(selectedElement.h ?? 0.12) * 100)
                               )}
                               onChange={(e) => {
-                                const value = clamp(e.target.value, 0.02, 1);
+                                const displayValue = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                                const normalizedValue = displayValue / 100;
                                 setDraft((prev) =>
                                   prev
                                     ? {
@@ -1354,7 +1594,7 @@ export default function Department3DLayoutPage() {
                                           (x) =>
                                             String(x.id) ===
                                             String(selectedElement.id)
-                                              ? { ...x, h: value }
+                                              ? { ...x, h: normalizedValue }
                                               : x,
                                         ),
                                       }
@@ -1372,15 +1612,20 @@ export default function Department3DLayoutPage() {
                         </div>
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           <label className="block text-xs text-slate-600">
-                            Width
+                            Length (1-100 units)
                             <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
                               className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
                               inputMode="decimal"
                               value={String(
-                                Number(selectedElement.w ?? 0.25).toFixed(3),
+                                Math.round(Number(selectedElement.w ?? 0.25) * 100)
                               )}
                               onChange={(e) => {
-                                const value = clamp(e.target.value, 0.02, 1);
+                                const displayValue = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                                const normalizedValue = displayValue / 100;
                                 setDraft((prev) =>
                                   prev
                                     ? {
@@ -1389,7 +1634,7 @@ export default function Department3DLayoutPage() {
                                           (x) =>
                                             String(x.id) ===
                                             String(selectedElement.id)
-                                              ? { ...x, w: value }
+                                              ? { ...x, w: normalizedValue }
                                               : x,
                                         ),
                                       }
@@ -1399,15 +1644,20 @@ export default function Department3DLayoutPage() {
                             />
                           </label>
                           <label className="block text-xs text-slate-600">
-                            Height
+                            Breadth (1-100 units)
                             <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
                               className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
                               inputMode="decimal"
                               value={String(
-                                Number(selectedElement.h ?? 0.06).toFixed(3),
+                                Math.round(Number(selectedElement.h ?? 0.06) * 100)
                               )}
                               onChange={(e) => {
-                                const value = clamp(e.target.value, 0.02, 1);
+                                const displayValue = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                                const normalizedValue = displayValue / 100;
                                 setDraft((prev) =>
                                   prev
                                     ? {
@@ -1416,7 +1666,7 @@ export default function Department3DLayoutPage() {
                                           (x) =>
                                             String(x.id) ===
                                             String(selectedElement.id)
-                                              ? { ...x, h: value }
+                                              ? { ...x, h: normalizedValue }
                                               : x,
                                         ),
                                       }
@@ -1662,19 +1912,24 @@ export default function Department3DLayoutPage() {
                         t === ELEMENT_TYPES.MACHINE && pendingMachinePlacement
                           ? pendingMachinePlacement
                           : null;
+                      
+                      // Use custom name from dialog for floor/zone/walkway, or machine name, or default
                       const label =
-                        machineSeed?.machineName ||
-                        `${typeLabel(t)} ${newId.slice(0, 4)}`;
+                        (t === ELEMENT_TYPES.FLOOR || t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY) && nameInput.trim()
+                          ? nameInput.trim()
+                          : machineSeed?.machineName
+                            ? machineSeed.machineName
+                            : `${typeLabel(t)} ${newId.slice(0, 4)}`;
 
                       const defaultsForType = () => {
                         if (t === ELEMENT_TYPES.FLOOR) {
-                          return { w: 0.9, h: 0.9 };
+                          return { w: 0.9, h: 0.9, modelUrl: "/models/floor-model.glb" };
                         }
                         if (t === ELEMENT_TYPES.ZONE) {
-                          return { w: 0.35, h: 0.22, color: "dark-green" };
+                          return { w: 0.35, h: 0.22, color: "dark-green", modelUrl: "/models/zone-green.glb", scale: 1 };
                         }
                         if (t === ELEMENT_TYPES.WALKWAY) {
-                          return { w: 0.3, h: 0.06 };
+                          return { w: 0.3, h: 0.06, modelUrl: "/models/zone-green.glb", scale: 1 };
                         }
                         if (t === ELEMENT_TYPES.MACHINE) {
                           return {
@@ -1814,6 +2069,12 @@ export default function Department3DLayoutPage() {
                       );
                       setSelectedId(newId);
                       setActiveTool("select");
+                      
+                      // Clear name input after adding floor/zone/walkway
+                      if (t === ELEMENT_TYPES.FLOOR || t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY) {
+                        setNameInput("");
+                      }
+                      
                       if (machineSeed) {
                         setPendingMachinePlacement(null);
                         pushToast({
