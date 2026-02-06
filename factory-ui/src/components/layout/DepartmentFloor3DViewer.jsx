@@ -543,20 +543,20 @@ const MachineElement = memo(function MachineElement({
 
       {showLabel &&
       el?.type === ELEMENT_TYPES.MACHINE &&
-      labelText ? (
+      (labelText || machineName) ? (
         <Billboard follow lockX lockZ>
           <Text
-            position={[0, 0.38, 0]}
+            position={[0, 0.65, 0]}
             fontSize={0.14}
             color={fullScreen ? "#ffffff" : markerColor}
             outlineWidth={0.012}
             outlineColor="#000000"
             anchorX="center"
-            anchorY="middle"
+            anchorY="bottom"
             material-depthTest={false}
             material-transparent
           >
-            {labelText}
+            {fullScreen ? labelText : labelText}
           </Text>
         </Billboard>
       ) : null}
@@ -605,7 +605,9 @@ const FloorModel3D = memo(function FloorModel3D({ width, depth, url }) {
   const modelUrl = url || "/models/floor-model.glb";
   
   // Check if this is a pre-defined model (should not be scaled)
-  const isPreDefinedModel = modelUrl.includes("/models/pre-defined-models/");
+  // Check by path or by query parameter (for database-stored models)
+  const isPreDefinedModel = modelUrl.includes("/models/pre-defined-models/") || 
+                            modelUrl.includes("?predef=true");
   
   const { scene } = useGLTF(modelUrl);
 
