@@ -73,7 +73,7 @@
                       {
                         "id": "m8",
                         "name": "TestRig-009",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m9",
@@ -94,7 +94,7 @@
                       {
                         "id": "m11",
                         "name": "Press-012",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m12",
@@ -115,7 +115,7 @@
                       {
                         "id": "m14",
                         "name": "Pump-015",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m15",
@@ -154,7 +154,7 @@
                       {
                         "id": "m19",
                         "name": "CNC-020",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m20",
@@ -191,7 +191,7 @@
                       {
                         "id": "m24",
                         "name": "Pump-025",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m25",
@@ -228,7 +228,7 @@
                       {
                         "id": "m29",
                         "name": "CNC-030",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m30",
@@ -243,7 +243,7 @@
                       {
                         "id": "m32",
                         "name": "Conveyor-033",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -293,7 +293,7 @@
                       {
                         "id": "m38",
                         "name": "TestRig-039",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m39",
@@ -398,7 +398,7 @@
                       {
                         "id": "m53",
                         "name": "Oven-054",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   }
@@ -464,7 +464,7 @@
                       {
                         "id": "m61",
                         "name": "Press-062",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m62",
@@ -491,7 +491,7 @@
                       {
                         "id": "m64",
                         "name": "Pump-065",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -584,7 +584,7 @@
                       {
                         "id": "m75",
                         "name": "Compressor-076",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m76",
@@ -594,7 +594,7 @@
                       {
                         "id": "m77",
                         "name": "Laser-078",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m78",
@@ -610,7 +610,7 @@
                       {
                         "id": "m79",
                         "name": "CNC-080",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m80",
@@ -642,7 +642,7 @@
                       {
                         "id": "m83",
                         "name": "Oven-084",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m84",
@@ -681,7 +681,7 @@
                       {
                         "id": "m88",
                         "name": "TestRig-089",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m89",
@@ -718,7 +718,7 @@
                       {
                         "id": "m93",
                         "name": "Oven-094",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m94",
@@ -749,7 +749,7 @@
                       {
                         "id": "m98",
                         "name": "TestRig-099",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m99",
@@ -759,7 +759,7 @@
                       {
                         "id": "m100",
                         "name": "Robot-101",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -785,7 +785,7 @@
                       {
                         "id": "m104",
                         "name": "Pump-105",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m105",
@@ -920,7 +920,7 @@
                       {
                         "id": "m121",
                         "name": "Press-122",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m122",
@@ -949,7 +949,7 @@
                       {
                         "id": "m124",
                         "name": "Pump-125",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -1069,7 +1069,7 @@
                       {
                         "id": "m138",
                         "name": "TestRig-139",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m139",
@@ -1100,7 +1100,7 @@
                       {
                         "id": "m143",
                         "name": "Oven-144",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m144",
@@ -1126,7 +1126,7 @@
                       {
                         "id": "m147",
                         "name": "Laser-148",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m148",
@@ -1142,12 +1142,12 @@
                       {
                         "id": "m149",
                         "name": "CNC-150",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m150",
                         "name": "Robot-151",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -1168,7 +1168,7 @@
                       {
                         "id": "m153",
                         "name": "Oven-154",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m154",
@@ -1254,7 +1254,7 @@
                       {
                         "id": "m165",
                         "name": "Compressor-166",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m166",
@@ -1264,7 +1264,7 @@
                       {
                         "id": "m167",
                         "name": "Laser-168",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m168",
@@ -1285,7 +1285,7 @@
                       {
                         "id": "m170",
                         "name": "Robot-171",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m171",
@@ -1333,17 +1333,17 @@
                       {
                         "id": "m176",
                         "name": "Welder-177",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m177",
                         "name": "Laser-178",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m178",
                         "name": "TestRig-179",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m179",
@@ -1382,7 +1382,7 @@
                       {
                         "id": "m183",
                         "name": "Oven-184",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -1393,7 +1393,7 @@
                       {
                         "id": "m184",
                         "name": "Pump-185",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m185",
@@ -1430,7 +1430,7 @@
                       {
                         "id": "m189",
                         "name": "CNC-190",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -1461,7 +1461,7 @@
                       {
                         "id": "m194",
                         "name": "Pump-195",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -1472,7 +1472,7 @@
                       {
                         "id": "m195",
                         "name": "Compressor-196",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m196",
@@ -1501,7 +1501,7 @@
                       {
                         "id": "m198",
                         "name": "TestRig-199",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m199",
@@ -1527,7 +1527,7 @@
                       {
                         "id": "m202",
                         "name": "Conveyor-203",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m203",
@@ -1542,12 +1542,12 @@
                       {
                         "id": "m205",
                         "name": "Compressor-206",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m206",
                         "name": "Welder-207",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -1605,7 +1605,7 @@
                       {
                         "id": "m214",
                         "name": "Pump-215",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m215",
@@ -1667,7 +1667,7 @@
                       {
                         "id": "m220",
                         "name": "Robot-221",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m221",
@@ -1709,7 +1709,7 @@
                       {
                         "id": "m226",
                         "name": "Welder-227",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -1808,7 +1808,7 @@
                       {
                         "id": "m237",
                         "name": "Laser-238",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -1819,7 +1819,7 @@
                       {
                         "id": "m238",
                         "name": "TestRig-239",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m239",
@@ -1855,7 +1855,7 @@
                       {
                         "id": "m244",
                         "name": "Pump-245",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -1871,7 +1871,7 @@
                       {
                         "id": "m246",
                         "name": "Welder-247",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m247",
@@ -1881,7 +1881,7 @@
                       {
                         "id": "m248",
                         "name": "TestRig-249",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   }
@@ -1947,7 +1947,7 @@
                       {
                         "id": "m256",
                         "name": "Welder-257",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m257",
@@ -1993,7 +1993,7 @@
                       {
                         "id": "m264",
                         "name": "Pump-265",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -2064,7 +2064,7 @@
                       {
                         "id": "m273",
                         "name": "Oven-274",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -2075,7 +2075,7 @@
                       {
                         "id": "m274",
                         "name": "Pump-275",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m275",
@@ -2106,7 +2106,7 @@
                       {
                         "id": "m279",
                         "name": "CNC-280",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m280",
@@ -2354,7 +2354,7 @@
                       {
                         "id": "m311",
                         "name": "Press-312",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m312",
@@ -2364,7 +2364,7 @@
                       {
                         "id": "m313",
                         "name": "Oven-314",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m314",
@@ -2385,7 +2385,7 @@
                       {
                         "id": "m316",
                         "name": "Welder-317",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m317",
@@ -2442,7 +2442,7 @@
                       {
                         "id": "m325",
                         "name": "Compressor-326",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -2463,7 +2463,7 @@
                       {
                         "id": "m328",
                         "name": "TestRig-329",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   }
@@ -2529,7 +2529,7 @@
                       {
                         "id": "m336",
                         "name": "Welder-337",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -2576,7 +2576,7 @@
                       {
                         "id": "m343",
                         "name": "Oven-344",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m344",
@@ -2597,12 +2597,12 @@
                       {
                         "id": "m346",
                         "name": "Welder-347",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m347",
                         "name": "Laser-348",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m348",
@@ -2631,12 +2631,12 @@
                       {
                         "id": "m350",
                         "name": "Robot-351",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m351",
                         "name": "Press-352",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m352",
@@ -2652,7 +2652,7 @@
                       {
                         "id": "m353",
                         "name": "Oven-354",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m354",
@@ -2684,7 +2684,7 @@
                       {
                         "id": "m357",
                         "name": "Laser-358",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m358",
@@ -2699,7 +2699,7 @@
                       {
                         "id": "m360",
                         "name": "Robot-361",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -2798,17 +2798,17 @@
                       {
                         "id": "m371",
                         "name": "Press-372",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m372",
                         "name": "Conveyor-373",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m373",
                         "name": "Oven-374",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -2829,7 +2829,7 @@
                       {
                         "id": "m376",
                         "name": "Welder-377",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -2845,7 +2845,7 @@
                       {
                         "id": "m378",
                         "name": "TestRig-379",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m379",
@@ -2964,7 +2964,7 @@
                       {
                         "id": "m393",
                         "name": "Oven-394",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -2990,7 +2990,7 @@
                       {
                         "id": "m397",
                         "name": "Laser-398",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m398",
@@ -3019,7 +3019,7 @@
                       {
                         "id": "m400",
                         "name": "Robot-401",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -3104,7 +3104,7 @@
                       {
                         "id": "m411",
                         "name": "Press-412",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m412",
@@ -3185,7 +3185,7 @@
                       {
                         "id": "m422",
                         "name": "Conveyor-423",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m423",
@@ -3232,7 +3232,7 @@
                       {
                         "id": "m429",
                         "name": "CNC-430",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       }
                     ]
                   },
@@ -3248,12 +3248,12 @@
                       {
                         "id": "m431",
                         "name": "Press-432",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m432",
                         "name": "Conveyor-433",
-                        "status": "OFFLINE"
+                        "status": "RUNNING"
                       },
                       {
                         "id": "m433",
@@ -3276,3 +3276,4 @@
     }
   ]
 }
+

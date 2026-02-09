@@ -19,7 +19,16 @@ import {
   TransformControls,
   useGLTF,
 } from "@react-three/drei";
-import { Box3, Color, Frustum, Matrix4, MOUSE, Plane, Vector2, Vector3 } from "three";
+import {
+  Box3,
+  Color,
+  Frustum,
+  Matrix4,
+  MOUSE,
+  Plane,
+  Vector2,
+  Vector3,
+} from "three";
 import { vector3Pool, vector2Pool } from "../../utils/objectPool";
 import { getWorkerManager } from "../../utils/workerManager";
 
@@ -94,7 +103,6 @@ function statusColor(status) {
   if (s === "IDLE") return "#eab308";
   if (s === "WARNING") return "#f59e0b";
   if (s === "MAINTENANCE") return "#a855f7";
-  if (s === "OFFLINE") return "#94a3b8";
   return "#22c55e"; // RUNNING (default)
 }
 
@@ -133,12 +141,9 @@ function computeMachineOeePct(machine) {
 function machineModelUrlForStatus(status, fullScreen = false) {
   // Use generic machine.glb in fullscreen for consistent appearance
   if (fullScreen) return "/models/machine.glb";
-  
-  // Use status-based models in preview mode for visual status indication
-  const s = String(status || "").toUpperCase();
-  if (s === "DOWN") return "/models/machine-down.glb";
-  if (s === "IDLE") return "/models/machine-idle.glb";
-  // Default to RUNNING for unknown/other states.
+
+  // Use a single base model in preview mode and tint by status
+  // so all colors share the exact same geometry/material feel.
   return "/models/machine-running.glb";
 }
 
@@ -152,7 +157,13 @@ function noRaycast() {
 }
 
 // HTML-based tooltip for fixed screen-space size (doesn't scale with canvas zoom)
-function MachineHoverTooltipHTML({ title, status, oeePct, accentColor, position }) {
+function MachineHoverTooltipHTML({
+  title,
+  status,
+  oeePct,
+  accentColor,
+  position,
+}) {
   const safeTitle = String(title || "Machine");
   const safeStatus = String(status || "—");
   const oeeText = oeePct == null ? "—" : `${Number(oeePct).toFixed(1)}%`;
@@ -166,7 +177,7 @@ function MachineHoverTooltipHTML({ title, status, oeePct, accentColor, position 
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        transform: 'translate(-50%, -120%)', // Center horizontally, position above
+        transform: "translate(-50%, -120%)", // Center horizontally, position above
       }}
     >
       <div className="rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm">
@@ -194,9 +205,9 @@ function MachineHoverTooltipHTML({ title, status, oeePct, accentColor, position 
         style={{
           width: 0,
           height: 0,
-          borderLeft: '6px solid transparent',
-          borderRight: '6px solid transparent',
-          borderTop: '6px solid rgb(15 23 42 / 0.95)',
+          borderLeft: "6px solid transparent",
+          borderRight: "6px solid transparent",
+          borderTop: "6px solid rgb(15 23 42 / 0.95)",
         }}
       />
     </div>
@@ -229,22 +240,22 @@ function shouldShowLabel(cameraPos, objectPos, maxDistance = 15) {
 function useFrustumCulling(objects, camera, enabled = true) {
   return useMemo(() => {
     if (!enabled || !camera) return objects;
-    
+
     try {
       const frustum = new Frustum();
       const matrix = new Matrix4().multiplyMatrices(
         camera.projectionMatrix,
-        camera.matrixWorldInverse
+        camera.matrixWorldInverse,
       );
       frustum.setFromProjectionMatrix(matrix);
-      
-      return objects.filter(obj => {
+
+      return objects.filter((obj) => {
         // Use bounding sphere for fast culling
         const pos = obj.position || { x: 0, y: 0, z: 0 };
         const radius = obj.radius || 0.5; // Approximate machine size
         const sphere = new THREE.Sphere(
           new Vector3(pos.x, pos.y || 0, pos.z),
-          radius
+          radius,
         );
         return frustum.intersectsSphere(sphere);
       });
@@ -255,27 +266,32 @@ function useFrustumCulling(objects, camera, enabled = true) {
 }
 
 // Limit visible labels based on camera distance - only show closest N labels
-function useLimitedLabels(elements, cameraPos, maxLabels = 25, maxDistance = 15) {
+function useLimitedLabels(
+  elements,
+  cameraPos,
+  maxLabels = 25,
+  maxDistance = 15,
+) {
   return useMemo(() => {
     if (!elements || elements.length === 0) return [];
-    
+
     // Calculate distances and sort
-    const withDistance = elements.map(el => {
+    const withDistance = elements.map((el) => {
       const dx = cameraPos.x - (el.pos?.x || 0);
       const dz = cameraPos.z - (el.pos?.z || 0);
       const distanceSq = dx * dx + dz * dz;
       return { el, distanceSq };
     });
-    
+
     // Sort by distance (closest first)
     withDistance.sort((a, b) => a.distanceSq - b.distanceSq);
-    
+
     // Return only closest N elements within max distance
     const maxDistanceSq = maxDistance * maxDistance;
     return withDistance
-      .filter(item => item.distanceSq < maxDistanceSq)
+      .filter((item) => item.distanceSq < maxDistanceSq)
       .slice(0, maxLabels)
-      .map(item => item.el);
+      .map((item) => item.el);
   }, [elements, cameraPos.x, cameraPos.z, maxLabels, maxDistance]);
 }
 
@@ -292,13 +308,14 @@ function CameraTracker({ onCameraMove }) {
     const dx = pos.x - lastPos.current.x;
     const dy = pos.y - lastPos.current.y;
     const dz = pos.z - lastPos.current.z;
-    const moved = Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1 || Math.abs(dz) > 0.1;
-    
+    const moved =
+      Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1 || Math.abs(dz) > 0.1;
+
     // Additional throttle: max 30fps for camera updates (labels don't need 60fps)
     const now = performance.now();
     const timeSinceUpdate = now - lastUpdate.current;
     if (timeSinceUpdate < 33.33) return; // 30fps
-    
+
     if (moved && !rafRef.current) {
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = 0;
@@ -316,6 +333,7 @@ const PlacedGLB = memo(function PlacedGLB({
   url,
   fitW = 0,
   fitD = 0,
+  tintColor = null,
 }) {
   const { scene } = useGLTF(url);
 
@@ -355,8 +373,38 @@ const PlacedGLB = memo(function PlacedGLB({
     }
   }, [measured, fitW, fitD]);
 
-  // No tint color - use status-specific models directly for better performance
-  const cloned = useMemo(() => scene.clone(true), [scene]);
+  const cloned = useMemo(() => {
+    const clone = scene.clone(true);
+    if (!tintColor) return clone;
+
+    const tint = new Color(tintColor);
+    clone.traverse((obj) => {
+      if (!obj?.isMesh || !obj.material) return;
+
+      const applyTint = (mat) => {
+        if (!mat) return mat;
+        const next = mat.clone();
+        if (next.color) {
+          const c = next.color.clone();
+          const luminance = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+          if (luminance > 0.2) {
+            next.color.set(tint);
+          }
+        }
+        if (next.emissive) next.emissive.set(0x000000);
+        next.needsUpdate = true;
+        return next;
+      };
+
+      if (Array.isArray(obj.material)) {
+        obj.material = obj.material.map((m) => applyTint(m));
+      } else {
+        obj.material = applyTint(obj.material);
+      }
+    });
+
+    return clone;
+  }, [scene, tintColor]);
 
   return (
     <group position={[0, yOffset, 0]}>
@@ -382,19 +430,19 @@ function CanvasPointerTracker({ enabled, floorY, onMove }) {
 
     const onPointerMove = (ev) => {
       if (typeof onMove !== "function") return;
-      
+
       // Additional throttling: limit to 60fps max (16ms)
       const now = performance.now();
       const timeSinceLastMove = now - lastMoveTime.current;
       if (timeSinceLastMove < 16) return; // Skip if less than 16ms since last move
-      
+
       // Throttle with RAF for better performance with many objects
       if (rafRef.current) return;
-      
+
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = 0;
         lastMoveTime.current = performance.now();
-        
+
         const rect = el.getBoundingClientRect();
         const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
         const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
@@ -410,7 +458,7 @@ function CanvasPointerTracker({ enabled, floorY, onMove }) {
         const hit = raycaster.ray.intersectPlane(planeRef, hitRef);
         if (!hit) return;
         onMove(hit.x, hit.z);
-        
+
         // Request render update for demand frameloop
         invalidate();
       });
@@ -447,154 +495,148 @@ const FallbackMarker = memo(function FallbackMarker({ selected }) {
 });
 
 // Memoized Machine Element Component - prevents expensive re-renders
-const MachineElement = memo(function MachineElement({
-  el,
-  effectivePlaneSize,
-  machineY,
-  isSelected,
-  isDragging,
-  machineId,
-  machineName,
-  machineStatus,
-  url,
-  fitW,
-  fitD,
-  uniformScale,
-  markerColor,
-  labelText,
-  oeePct,
-  hoveredMachineId,
-  fullScreen,
-  showLabel,
-  allowEdit,
-  canOpenDetails,
-  onPointerDown,
-  onPointerMove,
-  onPointerOver,
-  onPointerOut,
-  onPointerEnter,
-  onPointerLeave,
-  onPointerMoveOverMachine,
-  onClick,
-  selectedObjectRef,
-}) {
-  const wNorm = clamp01(Number(el.w) || 0.12);
-  const hNorm = clamp01(Number(el.h) || 0.12);
-  const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2);
-  const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2);
-  const pos = normToPlane(cx, cy, effectivePlaneSize);
+const MachineElement = memo(
+  function MachineElement({
+    el,
+    effectivePlaneSize,
+    machineY,
+    isSelected,
+    isDragging,
+    machineId,
+    machineName,
+    machineStatus,
+    url,
+    fitW,
+    fitD,
+    uniformScale,
+    markerColor,
+    labelText,
+    oeePct,
+    hoveredMachineId,
+    fullScreen,
+    showLabel,
+    allowEdit,
+    canOpenDetails,
+    onPointerDown,
+    onPointerMove,
+    onPointerOver,
+    onPointerOut,
+    onPointerEnter,
+    onPointerLeave,
+    onPointerMoveOverMachine,
+    onClick,
+    selectedObjectRef,
+  }) {
+    const wNorm = clamp01(Number(el.w) || 0.12);
+    const hNorm = clamp01(Number(el.h) || 0.12);
+    const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2);
+    const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2);
+    const pos = normToPlane(cx, cy, effectivePlaneSize);
 
-  const content = (
-    <group
-      ref={isSelected ? selectedObjectRef : undefined}
-      position={[pos.x, machineY, pos.z]}
-      renderOrder={200}
-      scale={[uniformScale, uniformScale, uniformScale]}
-      rotation={[
-        0,
-        (Number(el.rotationDeg) || 0) * (Math.PI / 180),
-        0,
-      ]}
-      onPointerDown={onPointerDown}
-      onPointerMove={(e) => {
-        onPointerMove?.(e);
-        onPointerMoveOverMachine?.(e);
-      }}
-      onPointerOver={onPointerOver}
-      onPointerOut={onPointerOut}
-      onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
-      onClick={onClick}
-    >
-      <ErrorBoundary
-        fallback={() => (
-          <FallbackMarker selected={isSelected || isDragging} />
-        )}
+    const content = (
+      <group
+        ref={isSelected ? selectedObjectRef : undefined}
+        position={[pos.x, machineY, pos.z]}
+        renderOrder={200}
+        scale={[uniformScale, uniformScale, uniformScale]}
+        rotation={[0, (Number(el.rotationDeg) || 0) * (Math.PI / 180), 0]}
+        onPointerDown={onPointerDown}
+        onPointerMove={(e) => {
+          onPointerMove?.(e);
+          onPointerMoveOverMachine?.(e);
+        }}
+        onPointerOver={onPointerOver}
+        onPointerOut={onPointerOut}
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
+        onClick={onClick}
       >
-        <Suspense
-          fallback={
+        <ErrorBoundary
+          fallback={() => (
             <FallbackMarker selected={isSelected || isDragging} />
-          }
+          )}
         >
-          {url ? (
-            <PlacedGLB
-              url={url}
-              fitW={fitW}
-              fitD={fitD}
-            />
-          ) : null}
-        </Suspense>
-      </ErrorBoundary>
-
-      <mesh position={[0, 0.08, 0]}>
-        <boxGeometry args={[0.25, 0.16, 0.25]} />
-        <meshStandardMaterial
-          color={
-            isSelected
-              ? "#0ea5e9"
-              : isDragging
-                ? "#0ea5e9"
-                : markerColor
-          }
-          transparent
-          opacity={url ? 0.05 : 1}
-        />
-      </mesh>
-
-      {showLabel &&
-      el?.type === ELEMENT_TYPES.MACHINE &&
-      (labelText || machineName) ? (
-        <Billboard follow lockX lockZ>
-          <Text
-            position={[0, 0.65, 0]}
-            fontSize={0.14}
-            color={fullScreen ? "#ffffff" : markerColor}
-            outlineWidth={0.012}
-            outlineColor="#000000"
-            anchorX="center"
-            anchorY="bottom"
-            material-depthTest={false}
-            material-transparent
+          <Suspense
+            fallback={<FallbackMarker selected={isSelected || isDragging} />}
           >
-            {fullScreen ? labelText : labelText}
-          </Text>
-        </Billboard>
-      ) : null}
+            {url ? (
+              <PlacedGLB
+                url={url}
+                fitW={fitW}
+                fitD={fitD}
+                tintColor={fullScreen ? null : statusColor(machineStatus)}
+              />
+            ) : null}
+          </Suspense>
+        </ErrorBoundary>
 
-      {/* Removed 3D Billboard tooltip - now using HTML overlay for better performance and fixed sizing */}
-
-      {isSelected && allowEdit ? (
-        <mesh
-          position={[0, 0.08, 0]}
-          onPointerOver={(ev) => {
-            ev.stopPropagation();
-            setCursor("grab");
-          }}
-          onPointerOut={() => {
-            setCursor("default");
-          }}
-        >
-          <boxGeometry args={[0.28, 0.18, 0.28]} />
-          <meshBasicMaterial color="#fdba74" wireframe />
+        <mesh position={[0, 0.08, 0]}>
+          <boxGeometry args={[0.25, 0.16, 0.25]} />
+          <meshStandardMaterial
+            color={
+              isSelected ? "#0ea5e9" : isDragging ? "#0ea5e9" : markerColor
+            }
+            transparent
+            opacity={url ? 0.05 : 1}
+          />
         </mesh>
-      ) : null}
-    </group>
-  );
 
-  return content;
-}, (prev, next) => {
-  // Custom comparison - only re-render if these properties change
-  return (
-    prev.el === next.el &&
-    prev.isSelected === next.isSelected &&
-    prev.isDragging === next.isDragging &&
-    prev.hoveredMachineId === next.hoveredMachineId &&
-    prev.showLabel === next.showLabel &&
-    prev.uniformScale === next.uniformScale &&
-    prev.machineStatus === next.machineStatus &&
-    prev.fullScreen === next.fullScreen
-  );
-});
+        {showLabel &&
+        el?.type === ELEMENT_TYPES.MACHINE &&
+        (labelText || machineName) ? (
+          <Billboard follow lockX lockZ>
+            <Text
+              position={[0, 0.65, 0]}
+              fontSize={0.14}
+              color={fullScreen ? "#ffffff" : markerColor}
+              outlineWidth={0.012}
+              outlineColor="#000000"
+              anchorX="center"
+              anchorY="bottom"
+              material-depthTest={false}
+              material-transparent
+            >
+              {fullScreen ? labelText : labelText}
+            </Text>
+          </Billboard>
+        ) : null}
+
+        {/* Removed 3D Billboard tooltip - now using HTML overlay for better performance and fixed sizing */}
+
+        {isSelected && allowEdit ? (
+          <mesh
+            position={[0, 0.08, 0]}
+            onPointerOver={(ev) => {
+              ev.stopPropagation();
+              setCursor("grab");
+            }}
+            onPointerOut={() => {
+              setCursor("default");
+            }}
+          >
+            <boxGeometry args={[0.28, 0.18, 0.28]} />
+            <meshBasicMaterial color="#fdba74" wireframe />
+          </mesh>
+        ) : null}
+      </group>
+    );
+
+    return content;
+  },
+  (prev, next) => {
+    // Custom comparison - only re-render if these properties change
+    return (
+      prev.el === next.el &&
+      prev.isSelected === next.isSelected &&
+      prev.isDragging === next.isDragging &&
+      prev.hoveredMachineId === next.hoveredMachineId &&
+      prev.showLabel === next.showLabel &&
+      prev.uniformScale === next.uniformScale &&
+      prev.machineStatus === next.machineStatus &&
+      prev.fullScreen === next.fullScreen
+    );
+  },
+);
 
 // Floor model component: handles both auto-scaled and predefined floor models
 // - Predefined models (from /models/pre-defined-models/) are rendered as-is without scaling
@@ -605,12 +647,13 @@ const FloorModel3D = memo(function FloorModel3D({ width, depth, url }) {
   const w = Math.max(0.02, Number(width) || 1);
   const d = Math.max(0.02, Number(depth) || 1);
   const modelUrl = url || "/models/floor-model.glb";
-  
+
   // Check if this is a pre-defined model (should not be scaled)
   // Predefined models are loaded directly from /models/pre-defined-models/ folder
-  const isPreDefinedModel = modelUrl.includes("/models/pre-defined-models/") || 
-                            modelUrl.includes("?predef=true");
-  
+  const isPreDefinedModel =
+    modelUrl.includes("/models/pre-defined-models/") ||
+    modelUrl.includes("?predef=true");
+
   const { scene } = useGLTF(modelUrl);
 
   const clonedScene = useMemo(() => {
@@ -639,7 +682,11 @@ const FloorModel3D = memo(function FloorModel3D({ width, depth, url }) {
     // Center the model at origin (floor level)
     const center = new Vector3();
     box.getCenter(center);
-    clone.position.set(-center.x * scaleX, -box.min.y * scaleY, -center.z * scaleZ);
+    clone.position.set(
+      -center.x * scaleX,
+      -box.min.y * scaleY,
+      -center.z * scaleZ,
+    );
 
     return clone;
   }, [scene, w, d, modelUrl, isPreDefinedModel]);
@@ -655,7 +702,7 @@ const ZoneModel3D = memo(function ZoneModel3D({ width, depth, color }) {
 
   const clonedScene = useMemo(() => {
     const clone = scene.clone(true);
-    
+
     // Calculate bounding box of the loaded model
     const box = new Box3().setFromObject(clone);
     const modelSize = new Vector3();
@@ -671,7 +718,11 @@ const ZoneModel3D = memo(function ZoneModel3D({ width, depth, color }) {
     // Center the model at origin (floor level)
     const center = new Vector3();
     box.getCenter(center);
-    clone.position.set(-center.x * scaleX, -box.min.y * scaleY, -center.z * scaleZ);
+    clone.position.set(
+      -center.x * scaleX,
+      -box.min.y * scaleY,
+      -center.z * scaleZ,
+    );
 
     return clone;
   }, [scene, w, d]);
@@ -687,7 +738,7 @@ const WalkwayModel3D = memo(function WalkwayModel3D({ width, depth }) {
 
   const clonedScene = useMemo(() => {
     const clone = scene.clone(true);
-    
+
     // Calculate bounding box of the loaded model
     const box = new Box3().setFromObject(clone);
     const modelSize = new Vector3();
@@ -703,7 +754,11 @@ const WalkwayModel3D = memo(function WalkwayModel3D({ width, depth }) {
     // Center the model at origin (floor level)
     const center = new Vector3();
     box.getCenter(center);
-    clone.position.set(-center.x * scaleX, -box.min.y * scaleY, -center.z * scaleZ);
+    clone.position.set(
+      -center.x * scaleX,
+      -box.min.y * scaleY,
+      -center.z * scaleZ,
+    );
 
     return clone;
   }, [scene, w, d]);
@@ -749,27 +804,30 @@ export default function DepartmentFloor3DViewer({
       "/models/machine-running.glb",
       "/models/machine-idle.glb",
       "/models/machine-down.glb",
+      "/models/machine-maintenance.glb",
       "/models/transporter.glb",
       "/models/walkway.glb",
     ];
-    
+
     // Preload all models in parallel
-    modelUrls.forEach(url => {
+    modelUrls.forEach((url) => {
       try {
         useGLTF.preload(url);
       } catch (e) {
         console.warn(`Failed to preload model: ${url}`, e);
       }
     });
-    
+
     // Also preload any custom models from elements
     if (Array.isArray(elements)) {
-      const customUrls = [...new Set(
-        elements
-          .map(el => el?.modelUrl)
-          .filter(url => url && typeof url === 'string' && url.trim())
-      )];
-      customUrls.forEach(url => {
+      const customUrls = [
+        ...new Set(
+          elements
+            .map((el) => el?.modelUrl)
+            .filter((url) => url && typeof url === "string" && url.trim()),
+        ),
+      ];
+      customUrls.forEach((url) => {
         try {
           useGLTF.preload(url);
         } catch (e) {
@@ -783,7 +841,7 @@ export default function DepartmentFloor3DViewer({
   const [loading, setLoading] = useState(!fullScreen);
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 10, z: 0 });
   const [hoveredTooltipPosition, setHoveredTooltipPosition] = useState(null);
-  
+
   const containerRef = useRef(null);
   const [draggingId, setDraggingId] = useState("");
   const [hoverNorm, setHoverNorm] = useState(null);
@@ -868,7 +926,10 @@ export default function DepartmentFloor3DViewer({
     const controls = orbitRef.current;
     if (!controls || !controls.enabled) return false;
     // In fullscreen, check for overlay/transform modes
-    if (fullScreen && (isOverlayAddToolActive || isTransforming || isAddDrawing || draggingId))
+    if (
+      fullScreen &&
+      (isOverlayAddToolActive || isTransforming || isAddDrawing || draggingId)
+    )
       return false;
     // In non-fullscreen, only check for transform/add modes
     if (!fullScreen && (isTransforming || isAddDrawing || draggingId))
@@ -972,45 +1033,53 @@ export default function DepartmentFloor3DViewer({
               ? ELEMENT_TYPES.TRANSPORTER
               : null;
 
-  const normalizedElements = useMemo(() => 
-    Array.isArray(elements) ? elements.filter(Boolean) : []
-  , [elements]);
-  
-  const floorElements = useMemo(() => 
-    normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.FLOOR)
-  , [normalizedElements]);
-  
-  const zoneElements = useMemo(() => 
-    normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE)
-  , [normalizedElements]);
-  
-  // Walkway is rendered as a 2D overlay on the floor.
-  const walkwayElements = useMemo(() => 
-    normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.WALKWAY)
-  , [normalizedElements]);
-  
-  // 3D placeables (GLBs)
-  const placeableElements = useMemo(() => 
-    normalizedElements.filter((e) =>
-      [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.TRANSPORTER].includes(e?.type)
-    )
-  , [normalizedElements]);
+  const normalizedElements = useMemo(
+    () => (Array.isArray(elements) ? elements.filter(Boolean) : []),
+    [elements],
+  );
 
-  const visiblePlaceableElements = useMemo(() => 
-    placeableElements.filter((el) => {
-      if (el?.type !== ELEMENT_TYPES.MACHINE) return true;
-      const mid = String(el?.machineId || "");
-      const status =
-        machineMetaById && mid && machineMetaById[mid]?.status
-          ? machineMetaById[mid].status
-          : "RUNNING";
-      const v =
-        machineStatusVisibility && typeof machineStatusVisibility === "object"
-          ? machineStatusVisibility[String(status).toUpperCase()]
-          : undefined;
-      return v !== false;
-    })
-  , [placeableElements, machineMetaById, machineStatusVisibility]);
+  const floorElements = useMemo(
+    () => normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.FLOOR),
+    [normalizedElements],
+  );
+
+  const zoneElements = useMemo(
+    () => normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE),
+    [normalizedElements],
+  );
+
+  // Walkway is rendered as a 2D overlay on the floor.
+  const walkwayElements = useMemo(
+    () => normalizedElements.filter((e) => e?.type === ELEMENT_TYPES.WALKWAY),
+    [normalizedElements],
+  );
+
+  // 3D placeables (GLBs)
+  const placeableElements = useMemo(
+    () =>
+      normalizedElements.filter((e) =>
+        [ELEMENT_TYPES.MACHINE, ELEMENT_TYPES.TRANSPORTER].includes(e?.type),
+      ),
+    [normalizedElements],
+  );
+
+  const visiblePlaceableElements = useMemo(
+    () =>
+      placeableElements.filter((el) => {
+        if (el?.type !== ELEMENT_TYPES.MACHINE) return true;
+        const mid = String(el?.machineId || "");
+        const status =
+          machineMetaById && mid && machineMetaById[mid]?.status
+            ? machineMetaById[mid].status
+            : "RUNNING";
+        const v =
+          machineStatusVisibility && typeof machineStatusVisibility === "object"
+            ? machineStatusVisibility[String(status).toUpperCase()]
+            : undefined;
+        return v !== false;
+      }),
+    [placeableElements, machineMetaById, machineStatusVisibility],
+  );
 
   const addOverlayType =
     addElementType === ELEMENT_TYPES.FLOOR ||
@@ -1060,71 +1129,79 @@ export default function DepartmentFloor3DViewer({
     return { x: snap01(p.x), y: snap01(p.y) };
   };
 
-  const handleFloorMoveFromHit = useCallback((hitX, hitZ) => {
-    const raw = planeToNorm(hitX, hitZ, effectivePlaneSize);
-    const next = snapNormPoint(raw);
+  const handleFloorMoveFromHit = useCallback(
+    (hitX, hitZ) => {
+      const raw = planeToNorm(hitX, hitZ, effectivePlaneSize);
+      const next = snapNormPoint(raw);
 
-    if (typeof onPointerPositionChange === "function") {
-      onPointerPositionChange(next);
-    }
-
-    if (isAddMode) {
-      // Throttle hover updates to avoid React re-rendering on every pointermove
-      if (!hoverRafRef.current) {
-        hoverRafRef.current = requestAnimationFrame(() => {
-          hoverRafRef.current = 0;
-          setHoverNorm(next);
-          setHoverNormRaw(raw);
-        });
-      }
-    }
-
-    // Click-drag adding for Zone/Walkway
-    if (isAddMode && addDragRef.current) {
-      addDragRef.current.current = next;
-
-      if (!addPreviewRafRef.current) {
-        addPreviewRafRef.current = requestAnimationFrame(() => {
-          addPreviewRafRef.current = 0;
-          const drag = addDragRef.current;
-          if (!drag) return;
-          const a = drag.start;
-          const b = drag.current;
-          const x = clamp01(Math.min(a.x, b.x));
-          const y = clamp01(Math.min(a.y, b.y));
-          const w = clamp01(Math.abs(a.x - b.x));
-          const h = clamp01(Math.abs(a.y - b.y));
-          setAddPreview({ x, y, w, h });
-        });
-      }
-    }
-
-    if (draggingId) {
-      let targetNorm = next;
-      if (draggingOffsetRef.current) {
-        targetNorm = {
-          x: next.x + draggingOffsetRef.current.x,
-          y: next.y + draggingOffsetRef.current.y,
-        };
+      if (typeof onPointerPositionChange === "function") {
+        onPointerPositionChange(next);
       }
 
-      draggingNormRef.current = targetNorm;
-      
-      // Update object position directly without forcing matrix recalculation
-      const obj = draggingObjectRef.current;
-      if (obj) {
-        const pos = normToPlane(
-          clamp01(targetNorm.x),
-          clamp01(targetNorm.y),
-          effectivePlaneSize
-        );
-        obj.position.x = pos.x;
-        obj.position.z = pos.z;
-        // Matrix will be updated automatically on next render
+      if (isAddMode) {
+        // Throttle hover updates to avoid React re-rendering on every pointermove
+        if (!hoverRafRef.current) {
+          hoverRafRef.current = requestAnimationFrame(() => {
+            hoverRafRef.current = 0;
+            setHoverNorm(next);
+            setHoverNormRaw(raw);
+          });
+        }
       }
 
-    }
-  }, [effectivePlaneSize, snapNormPoint, onPointerPositionChange, isAddMode, draggingId]);
+      // Click-drag adding for Zone/Walkway
+      if (isAddMode && addDragRef.current) {
+        addDragRef.current.current = next;
+
+        if (!addPreviewRafRef.current) {
+          addPreviewRafRef.current = requestAnimationFrame(() => {
+            addPreviewRafRef.current = 0;
+            const drag = addDragRef.current;
+            if (!drag) return;
+            const a = drag.start;
+            const b = drag.current;
+            const x = clamp01(Math.min(a.x, b.x));
+            const y = clamp01(Math.min(a.y, b.y));
+            const w = clamp01(Math.abs(a.x - b.x));
+            const h = clamp01(Math.abs(a.y - b.y));
+            setAddPreview({ x, y, w, h });
+          });
+        }
+      }
+
+      if (draggingId) {
+        let targetNorm = next;
+        if (draggingOffsetRef.current) {
+          targetNorm = {
+            x: next.x + draggingOffsetRef.current.x,
+            y: next.y + draggingOffsetRef.current.y,
+          };
+        }
+
+        draggingNormRef.current = targetNorm;
+
+        // Update object position directly without forcing matrix recalculation
+        const obj = draggingObjectRef.current;
+        if (obj) {
+          const pos = normToPlane(
+            clamp01(targetNorm.x),
+            clamp01(targetNorm.y),
+            effectivePlaneSize,
+          );
+          obj.position.x = pos.x;
+          obj.position.z = pos.z;
+          // Matrix will be updated automatically on next render
+        }
+      }
+    },
+    [
+      effectivePlaneSize,
+      snapNormPoint,
+      onPointerPositionChange,
+      isAddMode,
+      draggingId,
+    ],
+  );
 
   const getFloorHitFromEvent = (e) => {
     const ray = e?.ray;
@@ -1205,20 +1282,20 @@ export default function DepartmentFloor3DViewer({
 
       const wNorm = clamp01(Number(dragged?.w) || 0.12);
       const hNorm = clamp01(Number(dragged?.h) || 0.12);
-      
+
       // Use the actual dragged center position directly
       // Calculate top-left from the final center position where cursor released
       const centerX = clamp01(Number(nextCenter?.x) || 0);
       const centerY = clamp01(Number(nextCenter?.y) || 0);
-      
+
       // Convert center to top-left, ensuring we stay within bounds
       let newX = centerX - wNorm / 2;
       let newY = centerY - hNorm / 2;
-      
+
       // Clamp to ensure the entire element stays within [0,1]
       newX = Math.max(0, Math.min(1 - wNorm, newX));
       newY = Math.max(0, Math.min(1 - hNorm, newY));
-      
+
       const patch = {
         x: newX,
         y: newY,
@@ -1248,15 +1325,18 @@ export default function DepartmentFloor3DViewer({
   }, [fullScreen]);
 
   // Hide loading toast when Canvas is ready
-  const handleCanvasCreated = useCallback(({ camera }) => {
-    cameraRef.current = camera;
-    const [cx, cy, cz] = cameraPosition;
-    camera.position.set(cx, cy, cz);
-    camera.lookAt(0, effectiveFloorY, 0);
-    setCameraPos({ x: cx, y: cy, z: cz });
-    // Delay to ensure smooth transition
-    setTimeout(() => setLoading(false), 400);
-  }, [cameraPosition, effectiveFloorY]);
+  const handleCanvasCreated = useCallback(
+    ({ camera }) => {
+      cameraRef.current = camera;
+      const [cx, cy, cz] = cameraPosition;
+      camera.position.set(cx, cy, cz);
+      camera.lookAt(0, effectiveFloorY, 0);
+      setCameraPos({ x: cx, y: cy, z: cz });
+      // Delay to ensure smooth transition
+      setTimeout(() => setLoading(false), 400);
+    },
+    [cameraPosition, effectiveFloorY],
+  );
 
   // In preview mode, prevent the page from scrolling while the user zooms the canvas.
   useEffect(() => {
@@ -1288,32 +1368,41 @@ export default function DepartmentFloor3DViewer({
       }
     >
       {/* Loading toast for non-fullscreen */}
-      <LoadingToast show={!fullScreen && loading} message="Loading 3D view..." />
-      
+      <LoadingToast
+        show={!fullScreen && loading}
+        message="Loading 3D view..."
+      />
+
       {/* HTML tooltip overlay - only render for hovered machine */}
-      {!fullScreen && hoveredMachineId && hoveredTooltipPosition && (() => {
-        const machineData = visiblePlaceableElements.find(
-          el => el?.type === ELEMENT_TYPES.MACHINE && String(el?.machineId || "") === hoveredMachineId
-        );
-        if (!machineData) return null;
-        
-        const machineMeta = machineMetaById?.[hoveredMachineId];
-        const machineName = machineMeta?.name || machineData?.label || hoveredMachineId;
-        const machineStatus = machineMeta?.status || "RUNNING";
-        const markerColor = statusColor(machineStatus);
-        const oeePct = computeMachineOeePct(machineMeta);
-        
-        return (
-          <MachineHoverTooltipHTML
-            title={machineName}
-            status={machineStatus}
-            oeePct={oeePct}
-            accentColor={markerColor}
-            position={hoveredTooltipPosition}
-          />
-        );
-      })()}
-      
+      {!fullScreen &&
+        hoveredMachineId &&
+        hoveredTooltipPosition &&
+        (() => {
+          const machineData = visiblePlaceableElements.find(
+            (el) =>
+              el?.type === ELEMENT_TYPES.MACHINE &&
+              String(el?.machineId || "") === hoveredMachineId,
+          );
+          if (!machineData) return null;
+
+          const machineMeta = machineMetaById?.[hoveredMachineId];
+          const machineName =
+            machineMeta?.name || machineData?.label || hoveredMachineId;
+          const machineStatus = machineMeta?.status || "RUNNING";
+          const markerColor = statusColor(machineStatus);
+          const oeePct = computeMachineOeePct(machineMeta);
+
+          return (
+            <MachineHoverTooltipHTML
+              title={machineName}
+              status={machineStatus}
+              oeePct={oeePct}
+              accentColor={markerColor}
+              position={hoveredTooltipPosition}
+            />
+          );
+        })()}
+
       <ErrorBoundary
         fallback={() => (
           <div className="flex h-full w-full items-center justify-center p-4">
@@ -1337,7 +1426,7 @@ export default function DepartmentFloor3DViewer({
           camera={{ position: cameraPosition, fov: fullScreen ? 45 : 34 }}
           // Optimized DPR for 100+ machines - lower pixel density = better performance
           dpr={[0.4, 0.8]}
-          gl={{ 
+          gl={{
             antialias: false, // Disabled for performance - use FXAA post-processing if needed
             powerPreference: "high-performance", // Force dedicated GPU
             stencil: false, // Not needed, saves memory
@@ -1496,7 +1585,7 @@ export default function DepartmentFloor3DViewer({
                   <Suspense fallback={null}>
                     <FloorModel3D width={w} depth={d} url={floorModelUrl} />
                   </Suspense>
-                  
+
                   {id !== "__default_floor__" ? (
                     <mesh
                       rotation={[-Math.PI / 2, 0, 0]}
@@ -1571,9 +1660,9 @@ export default function DepartmentFloor3DViewer({
                         e.nativeEvent?.stopPropagation?.();
                         e.nativeEvent?.stopImmediatePropagation?.();
                         e.nativeEvent?.preventDefault?.();
-                        
+
                         if (isTransforming) return;
-                        
+
                         if (typeof onSelectElement === "function")
                           onSelectElement(id);
 
@@ -1625,7 +1714,7 @@ export default function DepartmentFloor3DViewer({
                         e.nativeEvent?.stopPropagation?.();
                         e.nativeEvent?.stopImmediatePropagation?.();
                         handleFloorPointerMove(e);
-                        
+
                         // Dragging is initiated on pointer down to prevent camera movement
                       }
                     : undefined
@@ -1700,17 +1789,25 @@ export default function DepartmentFloor3DViewer({
               const zoneY = Number(zone.y) || 0;
               const zoneW = Number(zone.w) || 0.15;
               const zoneH = Number(zone.h) || 0.12;
-              return pointX >= zoneX && pointX <= zoneX + zoneW &&
-                     pointY >= zoneY && pointY <= zoneY + zoneH;
+              return (
+                pointX >= zoneX &&
+                pointX <= zoneX + zoneW &&
+                pointY >= zoneY &&
+                pointY <= zoneY + zoneH
+              );
             };
 
             // Calculate machine centers for each zone
             const zoneMachineCenters = zoneElements.reduce((acc, zone) => {
-              const machinesInZone = placeableElements.filter(machine => {
+              const machinesInZone = placeableElements.filter((machine) => {
                 const machineWNorm = clamp01(Number(machine.w) || 0.12);
                 const machineHNorm = clamp01(Number(machine.h) || 0.12);
-                const machineCx = clamp01((Number(machine.x) || 0.5) + machineWNorm / 2);
-                const machineCy = clamp01((Number(machine.y) || 0.5) + machineHNorm / 2);
+                const machineCx = clamp01(
+                  (Number(machine.x) || 0.5) + machineWNorm / 2,
+                );
+                const machineCy = clamp01(
+                  (Number(machine.y) || 0.5) + machineHNorm / 2,
+                );
                 return isPointInZone(machineCx, machineCy, zone);
               });
 
@@ -1725,10 +1822,10 @@ export default function DepartmentFloor3DViewer({
                   const mCy = clamp01((Number(m.y) || 0.5) + mHNorm / 2);
                   return sum + mCy;
                 }, 0);
-                
+
                 acc[zone.id] = {
                   cx: sumX / machinesInZone.length,
-                  cy: sumY / machinesInZone.length
+                  cy: sumY / machinesInZone.length,
                 };
               } else {
                 // No machines in zone, use zone center
@@ -1736,7 +1833,7 @@ export default function DepartmentFloor3DViewer({
                 const hNorm = clamp01(Number(zone.h) || 0.12);
                 acc[zone.id] = {
                   cx: clamp01((Number(zone.x) || 0) + wNorm / 2),
-                  cy: clamp01((Number(zone.y) || 0) + hNorm / 2)
+                  cy: clamp01((Number(zone.y) || 0) + hNorm / 2),
                 };
               }
               return acc;
@@ -1747,10 +1844,20 @@ export default function DepartmentFloor3DViewer({
               const labelCenter = zoneMachineCenters[zone.id];
               if (!labelCenter) return null;
 
-              const labelPos = normToPlane(labelCenter.cx, labelCenter.cy, effectivePlaneSize);
+              const labelPos = normToPlane(
+                labelCenter.cx,
+                labelCenter.cy,
+                effectivePlaneSize,
+              );
 
               return (
-                <Billboard key={`zone-label-${zone.id}`} follow lockX lockZ position={[labelPos.x, 1.5, labelPos.z]}>
+                <Billboard
+                  key={`zone-label-${zone.id}`}
+                  follow
+                  lockX
+                  lockZ
+                  position={[labelPos.x, 1.5, labelPos.z]}
+                >
                   <Text
                     fontSize={0.28}
                     color="#ffffff"
@@ -2084,125 +2191,132 @@ export default function DepartmentFloor3DViewer({
                   machinesWithPositions,
                   cameraPos,
                   25,
-                  effectivePlaneSize * 1.5
+                  effectivePlaneSize * 1.5,
                 );
                 const labelIds = useMemo(
-                  () => new Set(machinesWithLabels.map(m => m.id)),
-                  [machinesWithLabels]
+                  () => new Set(machinesWithLabels.map((m) => m.id)),
+                  [machinesWithLabels],
                 );
 
                 // Memoized event handler factories
-                const createPointerDownHandler = useCallback((el, isSelected, machineId, canOpenDetails, allowEdit) => (e) => {
-                  if (allowEdit) {
-                    if (isAddMode) {
-                      handleAddPointerDown(e);
-                      return;
-                    }
-                    e.stopPropagation();
-                    if (isTransforming) return;
-                    if (typeof onSelectElement === "function")
-                      onSelectElement(String(el.id));
-                  } else if (canOpenDetails) {
-                    e.stopPropagation();
-                    onOpenMachineDetails(machineId);
-                  }
-                }, [isAddMode, isTransforming, onSelectElement, onOpenMachineDetails]);
+                const createPointerDownHandler = useCallback(
+                  (el, isSelected, machineId, canOpenDetails, allowEdit) =>
+                    (e) => {
+                      if (allowEdit) {
+                        if (isAddMode) {
+                          handleAddPointerDown(e);
+                          return;
+                        }
+                        e.stopPropagation();
+                        if (isTransforming) return;
+                        if (typeof onSelectElement === "function")
+                          onSelectElement(String(el.id));
+                      } else if (canOpenDetails) {
+                        e.stopPropagation();
+                        onOpenMachineDetails(machineId);
+                      }
+                    },
+                  [
+                    isAddMode,
+                    isTransforming,
+                    onSelectElement,
+                    onOpenMachineDetails,
+                  ],
+                );
 
-                const createPointerMoveHandler = useCallback((el, isSelected, allowEdit) => (e) => {
-                  if (!allowEdit) return;
-                  handleFloorPointerMove(e);
-                  
-                  if (
-                    !draggingId &&
-                    !isTransforming &&
-                    !isAddMode &&
-                    selectedId &&
-                    String(selectedId) === String(el.id) &&
-                    e.buttons === 1 &&
-                    typeof onMoveElement === "function" &&
-                    activeTool === "select"
-                  ) {
-                    draggingObjectRef.current = e.eventObject;
-                    draggingNormRef.current = null;
-                    if (typeof getFloorHitFromEvent === "function") {
-                      const hit = getFloorHitFromEvent(e);
-                      if (hit) {
-                        const pointerNorm = planeToNorm(
-                          hit.x,
-                          hit.z,
-                          effectivePlaneSize,
-                        );
-                        const wNorm = clamp01(Number(el.w) || 0.12);
-                        const hNorm = clamp01(Number(el.h) || 0.12);
-                        const elX = clamp01(Number(el.x) || 0);
-                        const elY = clamp01(Number(el.y) || 0);
-                        const center = {
-                          x: elX + wNorm / 2,
-                          y: elY + hNorm / 2,
-                        };
-                        draggingOffsetRef.current = {
-                          x: center.x - pointerNorm.x,
-                          y: center.y - pointerNorm.y,
-                        };
+                const createPointerMoveHandler = useCallback(
+                  (el, isSelected, allowEdit) => (e) => {
+                    if (!allowEdit) return;
+                    handleFloorPointerMove(e);
+
+                    if (
+                      !draggingId &&
+                      !isTransforming &&
+                      !isAddMode &&
+                      selectedId &&
+                      String(selectedId) === String(el.id) &&
+                      e.buttons === 1 &&
+                      typeof onMoveElement === "function" &&
+                      activeTool === "select"
+                    ) {
+                      draggingObjectRef.current = e.eventObject;
+                      draggingNormRef.current = null;
+                      if (typeof getFloorHitFromEvent === "function") {
+                        const hit = getFloorHitFromEvent(e);
+                        if (hit) {
+                          const pointerNorm = planeToNorm(
+                            hit.x,
+                            hit.z,
+                            effectivePlaneSize,
+                          );
+                          const wNorm = clamp01(Number(el.w) || 0.12);
+                          const hNorm = clamp01(Number(el.h) || 0.12);
+                          const elX = clamp01(Number(el.x) || 0);
+                          const elY = clamp01(Number(el.y) || 0);
+                          const center = {
+                            x: elX + wNorm / 2,
+                            y: elY + hNorm / 2,
+                          };
+                          draggingOffsetRef.current = {
+                            x: center.x - pointerNorm.x,
+                            y: center.y - pointerNorm.y,
+                          };
+                        } else {
+                          draggingOffsetRef.current = null;
+                        }
                       } else {
                         draggingOffsetRef.current = null;
                       }
-                    } else {
-                      draggingOffsetRef.current = null;
+                      setDraggingId(String(el.id));
+                      setCursor("grabbing");
+                      setOrbitEnabledNow(false);
+                      capturePointer(e);
                     }
-                    setDraggingId(String(el.id));
-                    setCursor("grabbing");
-                    setOrbitEnabledNow(false);
-                    capturePointer(e);
-                  }
-                }, [
-                  draggingId,
-                  isTransforming,
-                  isAddMode,
-                  selectedId,
-                  onMoveElement,
-                  activeTool,
-                  effectivePlaneSize,
-                  getFloorHitFromEvent,
-                  setOrbitEnabledNow,
-                ]);
+                  },
+                  [
+                    draggingId,
+                    isTransforming,
+                    isAddMode,
+                    selectedId,
+                    onMoveElement,
+                    activeTool,
+                    effectivePlaneSize,
+                    getFloorHitFromEvent,
+                    setOrbitEnabledNow,
+                  ],
+                );
 
-                const createPointerOverHandler = useCallback((allowEdit) => (e) => {
-                  if (!allowEdit) return;
-                  if (isAddMode) return;
-                  e.stopPropagation();
-                  setCursor(
-                    activeTool === "select" && !isAddMode
-                      ? "grab"
-                      : "pointer",
-                  );
-                }, [isAddMode, activeTool]);
+                const createPointerOverHandler = useCallback(
+                  (allowEdit) => (e) => {
+                    if (!allowEdit) return;
+                    if (isAddMode) return;
+                    e.stopPropagation();
+                    setCursor(
+                      activeTool === "select" && !isAddMode
+                        ? "grab"
+                        : "pointer",
+                    );
+                  },
+                  [isAddMode, activeTool],
+                );
 
-                const createPointerOutHandler = useCallback((allowEdit) => () => {
-                  if (!allowEdit) return;
-                  setCursor("default");
-                }, []);
+                const createPointerOutHandler = useCallback(
+                  (allowEdit) => () => {
+                    if (!allowEdit) return;
+                    setCursor("default");
+                  },
+                  [],
+                );
 
-                const createPointerEnterHandler = useCallback((machineId, canOpenDetails) => (e) => {
-                  if (!canOpenDetails) return;
-                  e.stopPropagation();
-                  setHoveredMachineId((prev) => prev === machineId ? prev : machineId);
-                  
-                  // Calculate screen position for HTML tooltip
-                  const canvas = e?.nativeEvent?.target;
-                  if (canvas && e.nativeEvent) {
-                    const rect = canvas.getBoundingClientRect();
-                    const x = e.nativeEvent.clientX - rect.left;
-                    const y = e.nativeEvent.clientY - rect.top;
-                    setHoveredTooltipPosition({ x, y });
-                  }
-                  setCursor("pointer");
-                }, []);
+                const createPointerEnterHandler = useCallback(
+                  (machineId, canOpenDetails) => (e) => {
+                    if (!canOpenDetails) return;
+                    e.stopPropagation();
+                    setHoveredMachineId((prev) =>
+                      prev === machineId ? prev : machineId,
+                    );
 
-                const createPointerMoveOverMachineHandler = useCallback((machineId, canOpenDetails) => (e) => {
-                  if (!canOpenDetails) return;
-                  // Update tooltip position as mouse moves over machine
-                  if (hoveredMachineId === machineId) {
+                    // Calculate screen position for HTML tooltip
                     const canvas = e?.nativeEvent?.target;
                     if (canvas && e.nativeEvent) {
                       const rect = canvas.getBoundingClientRect();
@@ -2210,21 +2324,48 @@ export default function DepartmentFloor3DViewer({
                       const y = e.nativeEvent.clientY - rect.top;
                       setHoveredTooltipPosition({ x, y });
                     }
-                  }
-                }, [hoveredMachineId]);
+                    setCursor("pointer");
+                  },
+                  [],
+                );
 
-                const createPointerLeaveHandler = useCallback((machineId, canOpenDetails) => () => {
-                  if (!canOpenDetails) return;
-                  setHoveredMachineId((prev) => prev === machineId ? "" : prev);
-                  setHoveredTooltipPosition(null);
-                  setCursor("default");
-                }, []);
+                const createPointerMoveOverMachineHandler = useCallback(
+                  (machineId, canOpenDetails) => (e) => {
+                    if (!canOpenDetails) return;
+                    // Update tooltip position as mouse moves over machine
+                    if (hoveredMachineId === machineId) {
+                      const canvas = e?.nativeEvent?.target;
+                      if (canvas && e.nativeEvent) {
+                        const rect = canvas.getBoundingClientRect();
+                        const x = e.nativeEvent.clientX - rect.left;
+                        const y = e.nativeEvent.clientY - rect.top;
+                        setHoveredTooltipPosition({ x, y });
+                      }
+                    }
+                  },
+                  [hoveredMachineId],
+                );
 
-                const createClickHandler = useCallback((machineId, canOpenDetails) => (e) => {
-                  if (!canOpenDetails) return;
-                  e.stopPropagation();
-                  onOpenMachineDetails(machineId);
-                }, [onOpenMachineDetails]);
+                const createPointerLeaveHandler = useCallback(
+                  (machineId, canOpenDetails) => () => {
+                    if (!canOpenDetails) return;
+                    setHoveredMachineId((prev) =>
+                      prev === machineId ? "" : prev,
+                    );
+                    setHoveredTooltipPosition(null);
+                    setCursor("default");
+                  },
+                  [],
+                );
+
+                const createClickHandler = useCallback(
+                  (machineId, canOpenDetails) => (e) => {
+                    if (!canOpenDetails) return;
+                    e.stopPropagation();
+                    onOpenMachineDetails(machineId);
+                  },
+                  [onOpenMachineDetails],
+                );
 
                 return machinesWithPositions.map(({ el, pos }) => {
                   const wNorm = clamp01(Number(el.w) || 0.12);
@@ -2244,7 +2385,8 @@ export default function DepartmentFloor3DViewer({
                     machineId && machineMetaById
                       ? machineMetaById[machineId]
                       : null;
-                  const machineName = machineMeta?.name || el?.label || machineId;
+                  const machineName =
+                    machineMeta?.name || el?.label || machineId;
                   const machineStatus = machineMeta?.status || "RUNNING";
 
                   const rawModelUrl =
@@ -2282,7 +2424,8 @@ export default function DepartmentFloor3DViewer({
                     typeof onOpenMachineDetails === "function";
 
                   // Only show label if this machine is in the limited label set
-                  const showLabel = showMachineLabels && labelIds.has(String(el.id));
+                  const showLabel =
+                    showMachineLabels && labelIds.has(String(el.id));
 
                   const machineElement = (
                     <MachineElement
@@ -2307,13 +2450,32 @@ export default function DepartmentFloor3DViewer({
                       showLabel={showLabel}
                       allowEdit={allowEdit}
                       canOpenDetails={canOpenDetails}
-                      onPointerDown={createPointerDownHandler(el, isSelected, machineId, canOpenDetails, allowEdit)}
-                      onPointerMove={createPointerMoveHandler(el, isSelected, allowEdit)}
+                      onPointerDown={createPointerDownHandler(
+                        el,
+                        isSelected,
+                        machineId,
+                        canOpenDetails,
+                        allowEdit,
+                      )}
+                      onPointerMove={createPointerMoveHandler(
+                        el,
+                        isSelected,
+                        allowEdit,
+                      )}
                       onPointerOver={createPointerOverHandler(allowEdit)}
                       onPointerOut={createPointerOutHandler(allowEdit)}
-                      onPointerEnter={createPointerEnterHandler(machineId, canOpenDetails)}
-                      onPointerLeave={createPointerLeaveHandler(machineId, canOpenDetails)}
-                      onPointerMoveOverMachine={createPointerMoveOverMachineHandler(machineId, canOpenDetails)}
+                      onPointerEnter={createPointerEnterHandler(
+                        machineId,
+                        canOpenDetails,
+                      )}
+                      onPointerLeave={createPointerLeaveHandler(
+                        machineId,
+                        canOpenDetails,
+                      )}
+                      onPointerMoveOverMachine={createPointerMoveOverMachineHandler(
+                        machineId,
+                        canOpenDetails,
+                      )}
                       onClick={createClickHandler(machineId, canOpenDetails)}
                       selectedObjectRef={selectedObjectRef}
                     />
@@ -2345,7 +2507,10 @@ export default function DepartmentFloor3DViewer({
               })()
             : null}
 
-          {showMachineMarkers && isAddMode && (hoverNormRaw || hoverNorm) && addElementType
+          {showMachineMarkers &&
+          isAddMode &&
+          (hoverNormRaw || hoverNorm) &&
+          addElementType
             ? (() => {
                 const previewNorm = hoverNormRaw || hoverNorm;
                 const pos = normToPlane(
@@ -2400,7 +2565,7 @@ export default function DepartmentFloor3DViewer({
                 }
                 return;
               }
-              
+
               // Only stop dragging if orbit controls are actually starting
               // This prevents interference during drag operations
               if (controlsEnabled) {
@@ -2440,8 +2605,7 @@ useGLTF.preload("/models/machine.glb");
 useGLTF.preload("/models/machine-running.glb");
 useGLTF.preload("/models/machine-idle.glb");
 useGLTF.preload("/models/machine-down.glb");
+useGLTF.preload("/models/machine-maintenance.glb");
 useGLTF.preload("/models/machine-blender.glb");
 useGLTF.preload("/models/transporter.glb");
 useGLTF.preload("/models/walkway.glb");
-
-

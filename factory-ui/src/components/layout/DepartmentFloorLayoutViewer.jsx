@@ -8,7 +8,6 @@ function statusStyle(status) {
   if (status === 'DOWN') return { tintBg: 'bg-red-500', glyphText: 'text-red-600' }
   if (status === 'IDLE') return { tintBg: 'bg-amber-500', glyphText: 'text-amber-600' }
   if (status === 'WARNING') return { tintBg: 'bg-yellow-500', glyphText: 'text-yellow-600' }
-  if (status === 'OFFLINE') return { tintBg: 'bg-slate-400', glyphText: 'text-slate-500' }
   if (status === 'MAINTENANCE') return { tintBg: 'bg-purple-500', glyphText: 'text-purple-600' }
   return { tintBg: 'bg-emerald-500', glyphText: 'text-emerald-600' }
 }

@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const STATUSES = ['RUNNING', 'WARNING', 'DOWN', 'OFFLINE', 'MAINTENANCE']
+const STATUSES = ['RUNNING', 'WARNING', 'DOWN', 'MAINTENANCE']
 
 function randomIntInclusive(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min

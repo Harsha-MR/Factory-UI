@@ -8,8 +8,6 @@ export function statusColor(status) {
       return 'bg-yellow-500'
     case 'DOWN':
       return 'bg-red-500'
-    case 'OFFLINE':
-      return 'bg-gray-400'
     case 'MAINTENANCE':
       return 'bg-blue-500'
     default:
@@ -27,8 +25,6 @@ export function statusSoftBg(status) {
       return 'bg-yellow-500/10'
     case 'DOWN':
       return 'bg-red-500/10'
-    case 'OFFLINE':
-      return 'bg-gray-500/10'
     case 'MAINTENANCE':
       return 'bg-blue-500/10'
     default:
