@@ -2064,6 +2064,7 @@ export default function Department3DLayoutPage() {
               showMachineMarkers={showMachineMarkers}
               showMachineLabels={showMachineLabels}
               machineMetaById={machineMetaById}
+              departmentZones={deptResult?.department?.zones}
               onOpenMachineDetails={
                 !isFullscreen ? onOpenMachineDetails : undefined
               }

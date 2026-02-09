@@ -739,6 +739,7 @@ export default function DepartmentFloor3DViewer({
   machineStatusVisibility = null,
   planeSize = DEFAULT_PLANE_SIZE,
   fullScreen = false,
+  departmentZones = null, // Zone metadata for displaying zone labels on predefined floors
 }) {
   // Preload all models at component mount for better performance
   useEffect(() => {
@@ -1692,81 +1693,153 @@ export default function DepartmentFloor3DViewer({
             );
           })}
 
-          {/* Render zone labels separately in world space (not rotated with zones) */}
+          {/* Render zone labels: Smart strategy selection based on layout type */}
           {(() => {
-            // Helper function to check if a point is inside a zone
-            const isPointInZone = (pointX, pointY, zone) => {
-              const zoneX = Number(zone.x) || 0;
-              const zoneY = Number(zone.y) || 0;
-              const zoneW = Number(zone.w) || 0.15;
-              const zoneH = Number(zone.h) || 0.12;
-              return pointX >= zoneX && pointX <= zoneX + zoneW &&
-                     pointY >= zoneY && pointY <= zoneY + zoneH;
-            };
+            // Detect if using predefined floor model
+            const hasPredefinedFloor = floorElements.some(
+              (e) => e?.modelUrl && 
+              (e.modelUrl.includes("/models/pre-defined-models/") || e.modelUrl.includes("?predef=true"))
+            );
+            
+            // Strategy 1: For auto-layout with rendered zones (default behavior)
+            // Only use if NOT using predefined floor
+            if (zoneElements.length > 0 && !hasPredefinedFloor) {
+              // Helper function to check if a point is inside a zone
+              const isPointInZone = (pointX, pointY, zone) => {
+                const zoneX = Number(zone.x) || 0;
+                const zoneY = Number(zone.y) || 0;
+                const zoneW = Number(zone.w) || 0.15;
+                const zoneH = Number(zone.h) || 0.12;
+                return pointX >= zoneX && pointX <= zoneX + zoneW &&
+                       pointY >= zoneY && pointY <= zoneY + zoneH;
+              };
 
-            // Calculate machine centers for each zone
-            const zoneMachineCenters = zoneElements.reduce((acc, zone) => {
-              const machinesInZone = placeableElements.filter(machine => {
-                const machineWNorm = clamp01(Number(machine.w) || 0.12);
-                const machineHNorm = clamp01(Number(machine.h) || 0.12);
-                const machineCx = clamp01((Number(machine.x) || 0.5) + machineWNorm / 2);
-                const machineCy = clamp01((Number(machine.y) || 0.5) + machineHNorm / 2);
-                return isPointInZone(machineCx, machineCy, zone);
+              // Calculate machine centers for each zone
+              const zoneMachineCenters = zoneElements.reduce((acc, zone) => {
+                const machinesInZone = placeableElements.filter(machine => {
+                  const machineWNorm = clamp01(Number(machine.w) || 0.12);
+                  const machineHNorm = clamp01(Number(machine.h) || 0.12);
+                  const machineCx = clamp01((Number(machine.x) || 0.5) + machineWNorm / 2);
+                  const machineCy = clamp01((Number(machine.y) || 0.5) + machineHNorm / 2);
+                  return isPointInZone(machineCx, machineCy, zone);
+                });
+
+                if (machinesInZone.length > 0) {
+                  const sumX = machinesInZone.reduce((sum, m) => {
+                    const mWNorm = clamp01(Number(m.w) || 0.12);
+                    const mCx = clamp01((Number(m.x) || 0.5) + mWNorm / 2);
+                    return sum + mCx;
+                  }, 0);
+                  const sumY = machinesInZone.reduce((sum, m) => {
+                    const mHNorm = clamp01(Number(m.h) || 0.12);
+                    const mCy = clamp01((Number(m.y) || 0.5) + mHNorm / 2);
+                    return sum + mCy;
+                  }, 0);
+                  
+                  acc[zone.id] = {
+                    cx: sumX / machinesInZone.length,
+                    cy: sumY / machinesInZone.length
+                  };
+                } else {
+                  // No machines in zone, use zone center
+                  const wNorm = clamp01(Number(zone.w) || 0.15);
+                  const hNorm = clamp01(Number(zone.h) || 0.12);
+                  acc[zone.id] = {
+                    cx: clamp01((Number(zone.x) || 0) + wNorm / 2),
+                    cy: clamp01((Number(zone.y) || 0) + hNorm / 2)
+                  };
+                }
+                return acc;
+              }, {});
+
+              return zoneElements.map((zone) => {
+                const zoneName = String(zone.label || "").trim() || "Zone";
+                const labelCenter = zoneMachineCenters[zone.id];
+                if (!labelCenter) return null;
+
+                const labelPos = normToPlane(labelCenter.cx, labelCenter.cy, effectivePlaneSize);
+
+                return (
+                  <Billboard key={`zone-label-${zone.id}`} follow lockX lockZ position={[labelPos.x, 1.5, labelPos.z]}>
+                    <Text
+                      fontSize={0.28}
+                      color="#ffffff"
+                      outlineWidth={0.025}
+                      outlineColor="#000000"
+                      anchorX="center"
+                      anchorY="middle"
+                      renderOrder={150}
+                      material-depthTest={false}
+                      material-transparent
+                    >
+                      {zoneName}
+                    </Text>
+                  </Billboard>
+                );
+              });
+            }
+
+            // Strategy 2: OPTIMIZED for predefined floors with machine clusters
+            // Only use when: predefined floor + (no zone elements OR prefer optimized)
+            // This prevents zone labels from appearing in auto-layout mode
+            if (hasPredefinedFloor && departmentZones && Array.isArray(departmentZones) && machineMetaById) {
+              // Group machines by zone name from metadata
+              const machinesByZone = {};
+              
+              visiblePlaceableElements.forEach((el) => {
+                if (el?.type !== ELEMENT_TYPES.MACHINE || !el?.machineId) return;
+                const machineId = String(el.machineId);
+                const machineMeta = machineMetaById[machineId];
+                if (!machineMeta || !machineMeta.zoneName) return;
+                
+                const zoneName = machineMeta.zoneName;
+                if (!machinesByZone[zoneName]) {
+                  machinesByZone[zoneName] = [];
+                }
+                machinesByZone[zoneName].push(el);
               });
 
-              if (machinesInZone.length > 0) {
-                const sumX = machinesInZone.reduce((sum, m) => {
+              // Calculate centroid for each zone's machines
+              return Object.entries(machinesByZone).map(([zoneName, machines]) => {
+                if (machines.length === 0) return null;
+
+                // Calculate average position of all machines in this zone
+                const sumX = machines.reduce((sum, m) => {
                   const mWNorm = clamp01(Number(m.w) || 0.12);
                   const mCx = clamp01((Number(m.x) || 0.5) + mWNorm / 2);
                   return sum + mCx;
                 }, 0);
-                const sumY = machinesInZone.reduce((sum, m) => {
+                const sumY = machines.reduce((sum, m) => {
                   const mHNorm = clamp01(Number(m.h) || 0.12);
                   const mCy = clamp01((Number(m.y) || 0.5) + mHNorm / 2);
                   return sum + mCy;
                 }, 0);
-                
-                acc[zone.id] = {
-                  cx: sumX / machinesInZone.length,
-                  cy: sumY / machinesInZone.length
-                };
-              } else {
-                // No machines in zone, use zone center
-                const wNorm = clamp01(Number(zone.w) || 0.15);
-                const hNorm = clamp01(Number(zone.h) || 0.12);
-                acc[zone.id] = {
-                  cx: clamp01((Number(zone.x) || 0) + wNorm / 2),
-                  cy: clamp01((Number(zone.y) || 0) + hNorm / 2)
-                };
-              }
-              return acc;
-            }, {});
 
-            return zoneElements.map((zone) => {
-              const zoneName = String(zone.label || "").trim() || "Zone";
-              const labelCenter = zoneMachineCenters[zone.id];
-              if (!labelCenter) return null;
+                const avgX = sumX / machines.length;
+                const avgY = sumY / machines.length;
+                const labelPos = normToPlane(avgX, avgY, effectivePlaneSize);
 
-              const labelPos = normToPlane(labelCenter.cx, labelCenter.cy, effectivePlaneSize);
+                return (
+                  <Billboard key={`zone-label-${zoneName}`} follow lockX lockZ position={[labelPos.x, 1.5, labelPos.z]}>
+                    <Text
+                      fontSize={0.32}
+                      color="#ffffff"
+                      outlineWidth={0.028}
+                      outlineColor="#000000"
+                      anchorX="center"
+                      anchorY="middle"
+                      renderOrder={150}
+                      material-depthTest={false}
+                      material-transparent
+                    >
+                      {zoneName}
+                    </Text>
+                  </Billboard>
+                );
+              }).filter(Boolean);
+            }
 
-              return (
-                <Billboard key={`zone-label-${zone.id}`} follow lockX lockZ position={[labelPos.x, 1.5, labelPos.z]}>
-                  <Text
-                    fontSize={0.28}
-                    color="#ffffff"
-                    outlineWidth={0.025}
-                    outlineColor="#000000"
-                    anchorX="center"
-                    anchorY="middle"
-                    renderOrder={150}
-                    material-depthTest={false}
-                    material-transparent
-                  >
-                    {zoneName}
-                  </Text>
-                </Billboard>
-              );
-            });
+            return null;
           })()}
 
           {walkwayElements.map((el) => {
