@@ -43,6 +43,8 @@ const DEFAULT_MODEL_URLS = {
   [ELEMENT_TYPES.TRANSPORTER]: "/models/transporter.glb",
 };
 
+const modelBoundsCache = new Map();
+
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -316,10 +318,10 @@ function CameraTracker({ onCameraMove }) {
     const moved =
       Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1 || Math.abs(dz) > 0.1;
 
-    // Additional throttle: max 30fps for camera updates (labels don't need 60fps)
+    // Additional throttle: low-frequency camera updates to avoid expensive re-renders on zoom
     const now = performance.now();
     const timeSinceUpdate = now - lastUpdate.current;
-    if (timeSinceUpdate < 33.33) return; // 30fps
+    if (timeSinceUpdate < 120) return; // ~8fps
 
     if (moved && !rafRef.current) {
       rafRef.current = requestAnimationFrame(() => {
@@ -334,18 +336,29 @@ function CameraTracker({ onCameraMove }) {
   return null;
 }
 
+function OrbitControlsWithInvalidate(props) {
+  const { invalidate } = useThree();
+  const { onChange, ...rest } = props;
+
+  return (
+    <OrbitControls
+      {...rest}
+      onChange={(e) => {
+        onChange?.(e);
+        invalidate();
+      }}
+    />
+  );
+}
+
 const PlacedGLB = memo(function PlacedGLB({ url, fitW = 0, fitD = 0 }) {
   const { scene } = useGLTF(url);
-
-  const measured = useMemo(() => scene.clone(true), [scene]);
-
-  const { fitScale, yOffset } = useMemo(() => {
+  const bounds = useMemo(() => {
+    if (!url) return { modelXZ: 0, minY: 0 };
+    const cached = modelBoundsCache.get(url);
+    if (cached) return cached;
     try {
-      const w = Number(fitW) || 0;
-      const d = Number(fitD) || 0;
-      const target = Math.max(0, Math.min(w, d));
-
-      const tmp = measured.clone(true);
+      const tmp = scene.clone(true);
       tmp.position.set(0, 0, 0);
       tmp.rotation.set(0, 0, 0);
       tmp.scale.set(1, 1, 1);
@@ -353,9 +366,25 @@ const PlacedGLB = memo(function PlacedGLB({ url, fitW = 0, fitD = 0 }) {
       const box = new Box3().setFromObject(tmp);
       const size = new Vector3();
       box.getSize(size);
-
       const modelXZ = Math.max(Number(size.x) || 0, Number(size.z) || 0);
       const minY = Number(box.min.y);
+      const next = { modelXZ, minY };
+      modelBoundsCache.set(url, next);
+      return next;
+    } catch {
+      const fallback = { modelXZ: 0, minY: 0 };
+      modelBoundsCache.set(url, fallback);
+      return fallback;
+    }
+  }, [scene, url]);
+
+  const { fitScale, yOffset } = useMemo(() => {
+    try {
+      const w = Number(fitW) || 0;
+      const d = Number(fitD) || 0;
+      const target = Math.max(0, Math.min(w, d));
+      const modelXZ = Number(bounds.modelXZ) || 0;
+      const minY = Number(bounds.minY);
 
       const hasTarget = Number.isFinite(target) && target > 0;
       const hasModelXZ = Number.isFinite(modelXZ) && modelXZ > 0.000001;
@@ -371,7 +400,7 @@ const PlacedGLB = memo(function PlacedGLB({ url, fitW = 0, fitD = 0 }) {
     } catch {
       return { fitScale: 1, yOffset: 0 };
     }
-  }, [measured, fitW, fitD]);
+  }, [bounds, fitW, fitD]);
 
   // No tint color - use status-specific models directly for better performance
   const cloned = useMemo(() => scene.clone(true), [scene]);
@@ -747,46 +776,63 @@ export default function DepartmentFloor3DViewer({
   planeSize = DEFAULT_PLANE_SIZE,
   fullScreen = false,
 }) {
-  // Preload all models at component mount for better performance
-  useEffect(() => {
-    const modelUrls = [
-      "/models/floor-model.glb",
-      "/models/zone-green.glb",
-      "/models/machine.glb",
-      "/models/machine-running.glb",
-      "/models/machine-idle.glb",
-      "/models/machine-down.glb",
-      "/models/transporter.glb",
-      "/models/walkway.glb",
-    ];
+  const preloadUrls = useMemo(() => {
+    if (!Array.isArray(elements)) return [];
+    const urls = new Set();
+    let hasFloor = false;
 
-    // Preload all models in parallel
-    modelUrls.forEach((url) => {
+    elements.forEach((el) => {
+      const type = el?.type;
+      const rawModelUrl =
+        typeof el?.modelUrl === "string" ? el.modelUrl.trim() : "";
+
+      if (type === ELEMENT_TYPES.FLOOR) {
+        hasFloor = true;
+        urls.add(rawModelUrl || "/models/floor-model.glb");
+        return;
+      }
+
+      if (type === ELEMENT_TYPES.ZONE || type === ELEMENT_TYPES.WALKWAY) {
+        urls.add("/models/zone-green.glb");
+        return;
+      }
+
+      if (type === ELEMENT_TYPES.TRANSPORTER) {
+        urls.add(rawModelUrl || DEFAULT_MODEL_URLS[ELEMENT_TYPES.TRANSPORTER]);
+        return;
+      }
+
+      if (type === ELEMENT_TYPES.MACHINE) {
+        if (rawModelUrl) {
+          urls.add(rawModelUrl);
+          return;
+        }
+
+        const machineId = String(el?.machineId || "");
+        const status =
+          machineMetaById && machineId && machineMetaById[machineId]?.status
+            ? machineMetaById[machineId].status
+            : "RUNNING";
+        urls.add(machineModelUrlForStatus(status, fullScreen));
+      }
+    });
+
+    if (!hasFloor) {
+      urls.add("/models/floor-model.glb");
+    }
+
+    return Array.from(urls);
+  }, [elements, machineMetaById, fullScreen]);
+
+  useEffect(() => {
+    preloadUrls.forEach((url) => {
       try {
         useGLTF.preload(url);
       } catch (e) {
         console.warn(`Failed to preload model: ${url}`, e);
       }
     });
-
-    // Also preload any custom models from elements
-    if (Array.isArray(elements)) {
-      const customUrls = [
-        ...new Set(
-          elements
-            .map((el) => el?.modelUrl)
-            .filter((url) => url && typeof url === "string" && url.trim()),
-        ),
-      ];
-      customUrls.forEach((url) => {
-        try {
-          useGLTF.preload(url);
-        } catch (e) {
-          console.warn(`Failed to preload custom model: ${url}`, e);
-        }
-      });
-    }
-  }, [elements]);
+  }, [preloadUrls]);
 
   // Loading state for non-fullscreen canvas
   const [loading, setLoading] = useState(!fullScreen);
@@ -1485,7 +1531,7 @@ export default function DepartmentFloor3DViewer({
             precision: "lowp", // Low precision = faster shaders
           }}
           // Demand rendering: only updates when invalidate() is called
-          frameloop="always"
+          frameloop="demand"
           onCreated={handleCanvasCreated}
         >
           <CameraTracker onCameraMove={setCameraPos} />
@@ -2575,7 +2621,7 @@ export default function DepartmentFloor3DViewer({
             </instancedMesh>
           )}
 
-          <OrbitControls
+          <OrbitControlsWithInvalidate
             ref={orbitRef}
             enablePan={fullScreen}
             enableZoom={true}
@@ -2632,15 +2678,3 @@ export default function DepartmentFloor3DViewer({
     </div>
   );
 }
-
-// Preload all models at module load time for optimal performance
-useGLTF.preload("/models/floor-model.glb");
-useGLTF.preload("/models/pre-defined-models/floor/floor-plan1.glb");
-useGLTF.preload("/models/zone-green.glb");
-useGLTF.preload("/models/machine.glb");
-useGLTF.preload("/models/machine-running.glb");
-useGLTF.preload("/models/machine-idle.glb");
-useGLTF.preload("/models/machine-down.glb");
-useGLTF.preload("/models/machine-blender.glb");
-useGLTF.preload("/models/transporter.glb");
-useGLTF.preload("/models/walkway.glb");

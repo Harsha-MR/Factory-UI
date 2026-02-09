@@ -1,41 +1,41 @@
-import { fetchDepartmentCustomLayoutVersions } from './layoutStorage'
+import { fetchDepartmentCustomLayoutVersions } from "./layoutStorage";
 
-const NETWORK_MS = 350
+const NETWORK_MS = 350;
 
 // const SEED_URL = '/mock/factoryHierarchy.json'
-const SEED_URL = '/mock/factory_efficiency_data.json'
+const SEED_URL = "/mock/factory_efficiency_data.json";
 
-let seedCache = null
-let seedPromise = null
-let processedDataCache = null // Cache processed data to avoid re-computation
-let departmentSummaryCache = new Map() // Cache department summaries
+let seedCache = null;
+let seedPromise = null;
+let processedDataCache = null; // Cache processed data to avoid re-computation
+let departmentSummaryCache = new Map(); // Cache department summaries
 
-const IS_DEV = !!import.meta?.env?.DEV
+const IS_DEV = !!import.meta?.env?.DEV;
 
 // In-memory "live" copy (this mimics real-world changing state)
-let live = null
+let live = null;
 
 function clamp01(n) {
-  if (!Number.isFinite(n)) return 0
-  return Math.min(1, Math.max(0, n))
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(1, Math.max(0, n));
 }
 
 function getDepartmentMachines(department) {
-  const machines = []
+  const machines = [];
   for (const z of department?.zones || []) {
-    for (const m of z?.machines || []) machines.push(m)
+    for (const m of z?.machines || []) machines.push(m);
   }
-  return machines
+  return machines;
 }
 
 function computeDepartmentSummary(department) {
   // Check cache first (avoid redundant calculations)
-  const cacheKey = `${department.id}-${department.updatedAt || ''}`;
+  const cacheKey = `${department.id}-${department.updatedAt || ""}`;
   if (departmentSummaryCache.has(cacheKey)) {
     return departmentSummaryCache.get(cacheKey);
   }
-  
-  const machines = getDepartmentMachines(department)
+
+  const machines = getDepartmentMachines(department);
 
   const counts = {
     total: machines.length,
@@ -46,77 +46,80 @@ function computeDepartmentSummary(department) {
     offline: 0,
     maintenance: 0,
     critical: 0,
-  }
+  };
 
-  let plannedProductionTime = 0
-  let runTime = 0
-  let idealTimeForOutput = 0
+  let plannedProductionTime = 0;
+  let runTime = 0;
+  let idealTimeForOutput = 0;
 
-  let totalParts = 0
-  let goodParts = 0
+  let totalParts = 0;
+  let goodParts = 0;
 
-  let latestUpdatedAtMs = 0
+  let latestUpdatedAtMs = 0;
   for (const m of machines) {
     switch (m.status) {
-      case 'RUNNING':
-        counts.running++
-        break
-      case 'DOWN':
-        counts.down++
-        counts.critical++
-        break
-      case 'IDLE':
-        counts.idle++
-        break
-      case 'WARNING':
-        counts.warning++
-        break
-      case 'OFFLINE':
-        counts.offline++
-        counts.critical++
-        break
-      case 'MAINTENANCE':
-        counts.maintenance++
-        counts.critical++
-        break
+      case "RUNNING":
+        counts.running++;
+        break;
+      case "DOWN":
+        counts.down++;
+        counts.critical++;
+        break;
+      case "IDLE":
+        counts.idle++;
+        break;
+      case "WARNING":
+        counts.warning++;
+        break;
+      case "OFFLINE":
+        counts.offline++;
+        counts.critical++;
+        break;
+      case "MAINTENANCE":
+        counts.maintenance++;
+        counts.critical++;
+        break;
       default:
-        break
+        break;
     }
 
-    const tm = m.timeMetrics
-    const pm = m.productionMetrics
+    const tm = m.timeMetrics;
+    const pm = m.productionMetrics;
 
-    const mPlanned = Number(tm?.plannedProductionTime || 0)
-    const mRun = Number(tm?.runTime || 0)
-    plannedProductionTime += mPlanned
-    runTime += mRun
+    const mPlanned = Number(tm?.plannedProductionTime || 0);
+    const mRun = Number(tm?.runTime || 0);
+    plannedProductionTime += mPlanned;
+    runTime += mRun;
 
-    const idealCycleTime = Number(pm?.idealCycleTime || 0)
-    const parts = Number(pm?.totalPartsProduced || 0)
-    const good = Number(pm?.goodParts || 0)
-    totalParts += parts
-    goodParts += good
+    const idealCycleTime = Number(pm?.idealCycleTime || 0);
+    const parts = Number(pm?.totalPartsProduced || 0);
+    const good = Number(pm?.goodParts || 0);
+    totalParts += parts;
+    goodParts += good;
 
     // Used for performance numerator
-    idealTimeForOutput += idealCycleTime * parts
+    idealTimeForOutput += idealCycleTime * parts;
 
     if (m.updatedAt) {
-      const t = new Date(m.updatedAt).getTime()
-      if (Number.isFinite(t)) latestUpdatedAtMs = Math.max(latestUpdatedAtMs, t)
+      const t = new Date(m.updatedAt).getTime();
+      if (Number.isFinite(t))
+        latestUpdatedAtMs = Math.max(latestUpdatedAtMs, t);
     }
   }
 
-  const availability = plannedProductionTime > 0 ? runTime / plannedProductionTime : 0
-  const performance = runTime > 0 ? idealTimeForOutput / runTime : 0
-  const quality = totalParts > 0 ? goodParts / totalParts : 0
-  const oee = clamp01(availability) * clamp01(performance) * clamp01(quality)
+  const availability =
+    plannedProductionTime > 0 ? runTime / plannedProductionTime : 0;
+  const performance = runTime > 0 ? idealTimeForOutput / runTime : 0;
+  const quality = totalParts > 0 ? goodParts / totalParts : 0;
+  const oee = clamp01(availability) * clamp01(performance) * clamp01(quality);
 
-  const oeePct = clamp01(oee) * 100
+  const oeePct = clamp01(oee) * 100;
   // Thresholds:
   // - OK (green): > 80
   // - ACTION REQUIRED (amber): 60..80
   // - CRITICAL (red): < 60
-  const severity = oeePct < 60 ? 'CRITICAL' : oeePct <= 80 ? 'ACTION_REQUIRED' : 'OK'
+  const severity =
+    oeePct < 60 ? "CRITICAL" : oeePct <= 80 ? "ACTION_REQUIRED" : "OK";
 
   const summary = {
     severity,
@@ -130,48 +133,50 @@ function computeDepartmentSummary(department) {
       totalParts,
       delta: goodParts - totalParts,
     },
-    updatedAt: latestUpdatedAtMs ? new Date(latestUpdatedAtMs).toISOString() : null,
+    updatedAt: latestUpdatedAtMs
+      ? new Date(latestUpdatedAtMs).toISOString()
+      : null,
   };
-  
+
   // Cache the result for next time
   departmentSummaryCache.set(cacheKey, summary);
-  
+
   return summary;
 }
 
 function coerceSeedToHierarchyShape(seed) {
-  if (!seed?.factories) return { factories: [] }
+  if (!seed?.factories) return { factories: [] };
 
   // Support both schemas:
   // - hierarchy: factories[].id/name/plants[].id/name/departments[].id/name/layout.zones
   // - efficiency: factories[].factoryId/factoryName/plants[].plantId/plantName/departments[].departmentId/departmentName/machines[]
-  const firstFactory = seed.factories[0]
+  const firstFactory = seed.factories[0];
   const looksLikeEfficiency =
     !!firstFactory &&
-    ('factoryId' in firstFactory ||
-      'factoryName' in firstFactory ||
-      'plants' in firstFactory)
+    ("factoryId" in firstFactory ||
+      "factoryName" in firstFactory ||
+      "plants" in firstFactory);
 
-  if (!looksLikeEfficiency) return seed
+  if (!looksLikeEfficiency) return seed;
 
-  const generatedAt = seed.generatedAt || new Date().toISOString()
+  const generatedAt = seed.generatedAt || new Date().toISOString();
 
   function ensureZones(departmentId, zones, machinesFlat) {
-    const z = Array.isArray(zones) ? zones.filter(Boolean) : []
+    const z = Array.isArray(zones) ? zones.filter(Boolean) : [];
     if (z.length) {
       return z.map((zone, idx) => ({
         ...zone,
         id: zone.id ?? `${departmentId}-z-${idx + 1}`,
         name: zone.name ?? `Zone ${idx + 1}`,
         machines: Array.isArray(zone.machines) ? zone.machines : [],
-      }))
+      }));
     }
 
-    const ms = Array.isArray(machinesFlat) ? machinesFlat : []
-    if (!ms.length) return []
+    const ms = Array.isArray(machinesFlat) ? machinesFlat : [];
+    if (!ms.length) return [];
 
     // If the data doesn't include zones/layout, put everything in a single zone.
-    return [{ id: `${departmentId}-z-1`, name: 'Zone A', machines: ms }]
+    return [{ id: `${departmentId}-z-1`, name: "Zone A", machines: ms }];
   }
 
   return {
@@ -184,18 +189,23 @@ function coerceSeedToHierarchyShape(seed) {
         id: p.plantId ?? p.id,
         name: p.plantName ?? p.name,
         departments: (p.departments || []).map((d) => {
-          const departmentId = d.departmentId ?? d.id
+          const departmentId = d.departmentId ?? d.id;
+          const normalizeStatus = (s) =>
+            String(s || "RUNNING")
+              .trim()
+              .toUpperCase();
+
           const coerceMachine = (m) => ({
             ...m,
             id: m.machineId ?? m.id,
             name: m.machineName ?? m.name,
-            status: m.status ?? 'RUNNING',
+            status: normalizeStatus(m.status),
             updatedAt: m.updatedAt ?? generatedAt,
-          })
+          });
 
-          const machines = (d.machines || []).map(coerceMachine)
+          const machines = (d.machines || []).map(coerceMachine);
 
-          const zonesRaw = d.zones || d.layout?.zones
+          const zonesRaw = d.zones || d.layout?.zones;
           const zonesNormalized = Array.isArray(zonesRaw)
             ? zonesRaw.map((z, idx) => ({
                 ...z,
@@ -203,41 +213,41 @@ function coerceSeedToHierarchyShape(seed) {
                 name: z.name ?? `Zone ${idx + 1}`,
                 machines: (z.machines || []).map(coerceMachine),
               }))
-            : null
+            : null;
 
           const machinesFromZones = zonesNormalized
             ? zonesNormalized.flatMap((z) => z.machines || [])
-            : []
+            : [];
 
           // If the data doesn't include zones/layout, group machines into one zone.
           const zones = ensureZones(
             departmentId,
             zonesNormalized,
             machines.length ? machines : machinesFromZones,
-          )
+          );
 
           return {
             id: departmentId,
             name: d.departmentName ?? d.name,
             zones,
-          }
+          };
         }),
       })),
     })),
-  }
+  };
 }
 
 function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeHierarchy(root) {
-  if (!root?.factories) return
+  if (!root?.factories) return;
   for (const f of root.factories) {
     for (const p of f.plants || []) {
       for (const d of p.departments || []) {
-        if (d?.layout?.zones && !d.zones) d.zones = d.layout.zones
-        if (d?.layout) delete d.layout
+        if (d?.layout?.zones && !d.zones) d.zones = d.layout.zones;
+        if (d?.layout) delete d.layout;
       }
     }
   }
@@ -245,106 +255,106 @@ function normalizeHierarchy(root) {
 
 async function loadSeed() {
   // In dev, the JSON file changes frequently; avoid serving stale cached data.
-  if (seedCache && !IS_DEV) return seedCache
-  if (seedPromise) return seedPromise
+  if (seedCache && !IS_DEV) return seedCache;
+  if (seedPromise) return seedPromise;
 
   seedPromise = (async () => {
     const res = await fetch(SEED_URL, {
-      headers: { Accept: 'application/json' },
-      cache: IS_DEV ? 'no-store' : 'default',
-    })
+      headers: { Accept: "application/json" },
+      cache: IS_DEV ? "no-store" : "default",
+    });
 
     if (!res.ok) {
       throw new Error(
         `Failed to load seed data (${res.status} ${res.statusText})`,
-      )
+      );
     }
 
-    const json = await res.json()
-    seedCache = coerceSeedToHierarchyShape(json)
-    return seedCache
-  })()
+    const json = await res.json();
+    seedCache = coerceSeedToHierarchyShape(json);
+    return seedCache;
+  })();
 
   try {
-    return await seedPromise
+    return await seedPromise;
   } finally {
-    seedPromise = null
+    seedPromise = null;
   }
 }
 
 async function ensureLive() {
   // In dev we want API calls to reflect the latest JSON file contents.
   // In prod we can cache in-memory.
-  if (live && !IS_DEV) return
-  const seed = await loadSeed()
-  live = coerceSeedToHierarchyShape(structuredClone(seed))
-  normalizeHierarchy(live)
+  if (live && !IS_DEV) return;
+  const seed = await loadSeed();
+  live = coerceSeedToHierarchyShape(structuredClone(seed));
+  normalizeHierarchy(live);
 }
 
 function findFactory(factoryId) {
-  return (live?.factories || []).find((f) => f.id === factoryId) || null
+  return (live?.factories || []).find((f) => f.id === factoryId) || null;
 }
 
 function findPlant(plantId) {
   for (const f of live?.factories || []) {
-    const p = (f.plants || []).find((x) => x.id === plantId)
-    if (p) return { factory: f, plant: p }
+    const p = (f.plants || []).find((x) => x.id === plantId);
+    if (p) return { factory: f, plant: p };
   }
-  return null
+  return null;
 }
 
 function findDepartment(departmentId) {
   for (const f of live?.factories || []) {
     for (const p of f.plants || []) {
-      const d = (p.departments || []).find((x) => x.id === departmentId)
-      if (d) return { factory: f, plant: p, department: d }
+      const d = (p.departments || []).find((x) => x.id === departmentId);
+      if (d) return { factory: f, plant: p, department: d };
     }
   }
-  return null
+  return null;
 }
 
 export async function getFactories() {
-  await ensureLive()
-  await delay(NETWORK_MS)
-  return (live?.factories || []).map(({ id, name }) => ({ id, name }))
+  await ensureLive();
+  await delay(NETWORK_MS);
+  return (live?.factories || []).map(({ id, name }) => ({ id, name }));
 }
 
 export async function getPlantsByFactory(factoryId) {
-  await ensureLive()
-  await delay(NETWORK_MS)
-  const f = findFactory(factoryId)
-  if (!f) return []
-  return f.plants.map(({ id, name }) => ({ id, name }))
+  await ensureLive();
+  await delay(NETWORK_MS);
+  const f = findFactory(factoryId);
+  if (!f) return [];
+  return f.plants.map(({ id, name }) => ({ id, name }));
 }
 
 export async function getDepartmentsByPlant(plantId) {
-  await ensureLive()
-  await delay(NETWORK_MS)
-  const found = findPlant(plantId)
-  if (!found) return []
+  await ensureLive();
+  await delay(NETWORK_MS);
+  const found = findPlant(plantId);
+  if (!found) return [];
   return found.plant.departments.map((d) => ({
     id: d.id,
     name: d.name,
     summary: computeDepartmentSummary(d),
     machines: structuredClone(getDepartmentMachines(d)),
     zones: structuredClone(d.zones || []),
-  }))
+  }));
 }
 
 export async function getDepartmentLayout(departmentId) {
-  await ensureLive()
-  await delay(NETWORK_MS)
-  const found = findDepartment(departmentId)
-  if (!found) throw new Error(`Department not found: ${departmentId}`)
+  await ensureLive();
+  await delay(NETWORK_MS);
+  const found = findDepartment(departmentId);
+  if (!found) throw new Error(`Department not found: ${departmentId}`);
 
-  const summary = computeDepartmentSummary(found.department)
+  const summary = computeDepartmentSummary(found.department);
 
   const versions = await fetchDepartmentCustomLayoutVersions({
     factoryId: found.factory?.id,
     plantId: found.plant?.id,
     departmentId: found.department?.id,
-  })
-  const customLayout = versions?.current || null
+  });
+  const customLayout = versions?.current || null;
 
   // Return a copy to avoid UI accidentally mutating live state
   return {
@@ -358,18 +368,18 @@ export async function getDepartmentLayout(departmentId) {
     customLayout,
     summary,
     meta: { simulated: false, fetchedAt: new Date().toISOString() },
-  }
+  };
 }
 
 export async function getMachinesSnapshot() {
-  await ensureLive()
-  await delay(NETWORK_MS)
+  await ensureLive();
+  await delay(NETWORK_MS);
 
-  const out = []
+  const out = [];
   for (const f of live?.factories || []) {
     for (const p of f.plants || []) {
       for (const d of p.departments || []) {
-        const zones = d?.zones || []
+        const zones = d?.zones || [];
         for (const z of zones) {
           for (const m of z?.machines || []) {
             out.push({
@@ -378,17 +388,17 @@ export async function getMachinesSnapshot() {
               department: { id: d.id, name: d.name },
               zone: { id: z?.id, name: z?.name },
               machine: structuredClone(m),
-            })
+            });
           }
         }
       }
     }
   }
 
-  return out
+  return out;
 }
 
 export function resetLiveData() {
-  live = seedCache ? structuredClone(seedCache) : null
-  if (live) normalizeHierarchy(live)
+  live = seedCache ? structuredClone(seedCache) : null;
+  if (live) normalizeHierarchy(live);
 }
