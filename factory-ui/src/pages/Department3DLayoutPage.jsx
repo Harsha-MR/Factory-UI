@@ -28,9 +28,10 @@ const MODEL_LIBRARY = {
 };
 
 const FLOOR_MODEL_OPTIONS = [
-  { label: "Floor plan 1", url: "/models/pre-defined-models/floor/floor-plan1.glb" },
+  // { label: "Floor plan 1", url: "/models/pre-defined-models/floor/floor-plan1.glb" },
   { label: "Floor plan(2x3)", url: "/models/pre-defined-models/floor/floor(2x3).glb" },
-  { label: "Floor plan(3x4)", url: "/models/pre-defined-models/floor/floor(2x3).glb" },
+  { label: "Floor plan(2x2)", url: "/models/pre-defined-models/floor/floor(2x2).glb" },
+  { label: "Floor plan(1x2)", url: "/models/pre-defined-models/floor/floor(1x2).glb" },
 ];
 
 function FloorModelPreview({ url }) {
@@ -94,13 +95,36 @@ function mergeLayoutWithDepartment(layout, department) {
   // If we don't have department data, nothing to sync against.
   if (!dept) return base;
 
-  // Generate the current auto-layout from the department so we can borrow positions
-  // for any newly-added zones/machines.
-  const auto = withThreeDDefaults(createDefaultLayoutForDepartment(dept));
-
   const baseElements = Array.isArray(base.elements) ? base.elements : [];
+  
+  // Check if user has a custom/saved layout with predefined floor
+  const hasFloor = baseElements.some((e) => e?.type === ELEMENT_TYPES.FLOOR);
+  const hasPredefinedFloor = baseElements.some(
+    (e) => e?.type === ELEMENT_TYPES.FLOOR && 
+    e?.modelUrl && 
+    (e.modelUrl.includes("/models/pre-defined-models/") || e.modelUrl.includes("?predef=true"))
+  );
+  
+  // IMPORTANT: If user has a predefined floor, don't add ANY auto-generated content
+  // Only render what the user explicitly added/saved
+  // This prevents auto-layout zones/machines from appearing with custom floor plans
+  if (hasPredefinedFloor) {
+    return base;
+  }
+  
+  // If there are ANY saved elements beyond just a default floor, respect the user's layout
+  // and don't auto-add zones/machines (user is customizing)
+  const hasCustomElements = baseElements.some(
+    (e) => e?.type === ELEMENT_TYPES.ZONE || 
+           e?.type === ELEMENT_TYPES.MACHINE || 
+           e?.type === ELEMENT_TYPES.WALKWAY ||
+           e?.type === ELEMENT_TYPES.TRANSPORTER
+  );
+  
+  // Generate the current auto-layout from the department so we can borrow positions
+  // for any newly-added zones/machines (only for default/auto-layout mode).
+  const auto = withThreeDDefaults(createDefaultLayoutForDepartment(dept));
   const autoElements = Array.isArray(auto.elements) ? auto.elements : [];
-
   const autoById = new Map(autoElements.map((e) => [String(e.id), e]));
   const autoMachineById = new Map(
     autoElements
@@ -108,7 +132,6 @@ function mergeLayoutWithDepartment(layout, department) {
       .map((e) => [String(e.machineId), e]),
   );
 
-  const hasFloor = baseElements.some((e) => e?.type === ELEMENT_TYPES.FLOOR);
   const existingZoneElementIds = new Set(
     baseElements
       .filter((e) => e?.type === ELEMENT_TYPES.ZONE)
@@ -122,6 +145,7 @@ function mergeLayoutWithDepartment(layout, department) {
 
   const toAdd = [];
 
+  // Only add auto-generated floor if user hasn't customized
   if (!hasFloor) {
     const floor =
       autoElements.find((e) => e?.type === ELEMENT_TYPES.FLOOR) ||
@@ -129,50 +153,66 @@ function mergeLayoutWithDepartment(layout, department) {
     if (floor) toAdd.push(floor);
   }
 
-  const zones = Array.isArray(dept?.zones) ? dept.zones : [];
-  for (let zi = 0; zi < zones.length; zi += 1) {
-    const z = zones[zi];
-    const zoneId = String(z?.id || "").trim();
-    if (!zoneId) continue;
+  // If user has started customizing (has any zones, machines, walkways), 
+  // DON'T auto-add zones to respect their custom layout
+  // Only auto-add zones if this is a completely fresh/default layout
+  const shouldAutoAddZones = !hasCustomElements && baseElements.length === 0;
 
-    // Our default layout uses ids like: `zone-${zone.id}`.
-    const zoneElementId = `zone-${zoneId}`;
-    if (!existingZoneElementIds.has(zoneElementId)) {
-      const fromAuto = autoById.get(zoneElementId);
-      toAdd.push(
-        fromAuto || {
-          id: zoneElementId,
-          type: ELEMENT_TYPES.ZONE,
-          label: z?.name || `Zone ${zi + 1}`,
-          x: 0.12,
-          y: 0.12,
-          w: 0.22,
-          h: 0.18,
-          rotationDeg: 0,
-          color: "dark-green",
-        },
-      );
+  if (shouldAutoAddZones) {
+    const zones = Array.isArray(dept?.zones) ? dept.zones : [];
+    for (let zi = 0; zi < zones.length; zi += 1) {
+      const z = zones[zi];
+      const zoneId = String(z?.id || "").trim();
+      if (!zoneId) continue;
+
+      // Our default layout uses ids like: `zone-${zone.id}`.
+      const zoneElementId = `zone-${zoneId}`;
+      if (!existingZoneElementIds.has(zoneElementId)) {
+        const fromAuto = autoById.get(zoneElementId);
+        toAdd.push(
+          fromAuto || {
+            id: zoneElementId,
+            type: ELEMENT_TYPES.ZONE,
+            label: z?.name || `Zone ${zi + 1}`,
+            x: 0.12,
+            y: 0.12,
+            w: 0.22,
+            h: 0.18,
+            rotationDeg: 0,
+            color: "dark-green",
+          },
+        );
+      }
     }
+  }
 
-    const machines = Array.isArray(z?.machines) ? z.machines : [];
-    for (const m of machines) {
-      const mid = String(m?.id || "").trim();
-      if (!mid) continue;
-      if (existingMachineIds.has(mid)) continue;
+  // For machines: only auto-add if this is a completely fresh layout
+  // This prevents auto-adding machines when user has a custom/predefined floor
+  const shouldAutoAddMachines = !hasCustomElements && baseElements.length === 0;
+  
+  if (shouldAutoAddMachines) {
+    const zones = Array.isArray(dept?.zones) ? dept.zones : [];
+    for (const z of zones) {
+      const machines = Array.isArray(z?.machines) ? z.machines : [];
+      for (const m of machines) {
+        const mid = String(m?.id || "").trim();
+        if (!mid) continue;
+        if (existingMachineIds.has(mid)) continue;
 
-      const fromAuto = autoMachineById.get(mid);
-      toAdd.push(
-        fromAuto || {
-          id: `machine-${mid}`,
-          type: ELEMENT_TYPES.MACHINE,
-          machineId: mid,
-          x: 0.16,
-          y: 0.16,
-          w: 0.06,
-          h: 0.06,
-          rotationDeg: 0,
-        },
-      );
+        const fromAuto = autoMachineById.get(mid);
+        toAdd.push(
+          fromAuto || {
+            id: `machine-${mid}`,
+            type: ELEMENT_TYPES.MACHINE,
+            machineId: mid,
+            x: 0.16,
+            y: 0.16,
+            w: 0.06,
+            h: 0.06,
+            rotationDeg: 0,
+          },
+        );
+      }
     }
   }
 
