@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { nanoid } from "nanoid";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls, useGLTF } from "@react-three/drei";
+import { Box3, Vector3 } from "three";
 import { getDepartmentLayout } from "../services/mockApi";
 
 import DepartmentFloor3DViewer from "../components/layout/DepartmentFloor3DViewer";
@@ -23,6 +26,33 @@ const MODEL_LIBRARY = {
     { label: "Tranporter (alt filename)", url: "/models/tranporter.glb" },
   ],
 };
+
+const FLOOR_MODEL_OPTIONS = [
+  // { label: "Floor plan 1", url: "/models/pre-defined-models/floor/floor-plan1.glb" },
+  { label: "Floor plan(2x3)", url: "/models/pre-defined-models/floor/floor(2x3).glb" },
+  { label: "Floor plan(2x2)", url: "/models/pre-defined-models/floor/floor(2x2).glb" },
+  { label: "Floor plan(1x2)", url: "/models/pre-defined-models/floor/floor(1x2).glb" },
+];
+
+function FloorModelPreview({ url }) {
+  const { scene } = useGLTF(url);
+
+  const previewScene = useMemo(() => {
+    const clone = scene.clone(true);
+    const box = new Box3().setFromObject(clone);
+    const size = new Vector3();
+    box.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const scale = 1.2 / maxDim;
+    const center = new Vector3();
+    box.getCenter(center);
+    clone.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+    clone.scale.setScalar(scale);
+    return clone;
+  }, [scene]);
+
+  return <primitive object={previewScene} />;
+}
 
 function typeLabel(t) {
   if (t === ELEMENT_TYPES.FLOOR) return "Floor";
@@ -65,13 +95,36 @@ function mergeLayoutWithDepartment(layout, department) {
   // If we don't have department data, nothing to sync against.
   if (!dept) return base;
 
-  // Generate the current auto-layout from the department so we can borrow positions
-  // for any newly-added zones/machines.
-  const auto = withThreeDDefaults(createDefaultLayoutForDepartment(dept));
-
   const baseElements = Array.isArray(base.elements) ? base.elements : [];
+  
+  // Check if user has a custom/saved layout with predefined floor
+  const hasFloor = baseElements.some((e) => e?.type === ELEMENT_TYPES.FLOOR);
+  const hasPredefinedFloor = baseElements.some(
+    (e) => e?.type === ELEMENT_TYPES.FLOOR && 
+    e?.modelUrl && 
+    (e.modelUrl.includes("/models/pre-defined-models/") || e.modelUrl.includes("?predef=true"))
+  );
+  
+  // IMPORTANT: If user has a predefined floor, don't add ANY auto-generated content
+  // Only render what the user explicitly added/saved
+  // This prevents auto-layout zones/machines from appearing with custom floor plans
+  if (hasPredefinedFloor) {
+    return base;
+  }
+  
+  // If there are ANY saved elements beyond just a default floor, respect the user's layout
+  // and don't auto-add zones/machines (user is customizing)
+  const hasCustomElements = baseElements.some(
+    (e) => e?.type === ELEMENT_TYPES.ZONE || 
+           e?.type === ELEMENT_TYPES.MACHINE || 
+           e?.type === ELEMENT_TYPES.WALKWAY ||
+           e?.type === ELEMENT_TYPES.TRANSPORTER
+  );
+  
+  // Generate the current auto-layout from the department so we can borrow positions
+  // for any newly-added zones/machines (only for default/auto-layout mode).
+  const auto = withThreeDDefaults(createDefaultLayoutForDepartment(dept));
   const autoElements = Array.isArray(auto.elements) ? auto.elements : [];
-
   const autoById = new Map(autoElements.map((e) => [String(e.id), e]));
   const autoMachineById = new Map(
     autoElements
@@ -79,7 +132,6 @@ function mergeLayoutWithDepartment(layout, department) {
       .map((e) => [String(e.machineId), e]),
   );
 
-  const hasFloor = baseElements.some((e) => e?.type === ELEMENT_TYPES.FLOOR);
   const existingZoneElementIds = new Set(
     baseElements
       .filter((e) => e?.type === ELEMENT_TYPES.ZONE)
@@ -93,6 +145,7 @@ function mergeLayoutWithDepartment(layout, department) {
 
   const toAdd = [];
 
+  // Only add auto-generated floor if user hasn't customized
   if (!hasFloor) {
     const floor =
       autoElements.find((e) => e?.type === ELEMENT_TYPES.FLOOR) ||
@@ -100,50 +153,66 @@ function mergeLayoutWithDepartment(layout, department) {
     if (floor) toAdd.push(floor);
   }
 
-  const zones = Array.isArray(dept?.zones) ? dept.zones : [];
-  for (let zi = 0; zi < zones.length; zi += 1) {
-    const z = zones[zi];
-    const zoneId = String(z?.id || "").trim();
-    if (!zoneId) continue;
+  // If user has started customizing (has any zones, machines, walkways), 
+  // DON'T auto-add zones to respect their custom layout
+  // Only auto-add zones if this is a completely fresh/default layout
+  const shouldAutoAddZones = !hasCustomElements && baseElements.length === 0;
 
-    // Our default layout uses ids like: `zone-${zone.id}`.
-    const zoneElementId = `zone-${zoneId}`;
-    if (!existingZoneElementIds.has(zoneElementId)) {
-      const fromAuto = autoById.get(zoneElementId);
-      toAdd.push(
-        fromAuto || {
-          id: zoneElementId,
-          type: ELEMENT_TYPES.ZONE,
-          label: z?.name || `Zone ${zi + 1}`,
-          x: 0.12,
-          y: 0.12,
-          w: 0.22,
-          h: 0.18,
-          rotationDeg: 0,
-          color: "dark-green",
-        },
-      );
+  if (shouldAutoAddZones) {
+    const zones = Array.isArray(dept?.zones) ? dept.zones : [];
+    for (let zi = 0; zi < zones.length; zi += 1) {
+      const z = zones[zi];
+      const zoneId = String(z?.id || "").trim();
+      if (!zoneId) continue;
+
+      // Our default layout uses ids like: `zone-${zone.id}`.
+      const zoneElementId = `zone-${zoneId}`;
+      if (!existingZoneElementIds.has(zoneElementId)) {
+        const fromAuto = autoById.get(zoneElementId);
+        toAdd.push(
+          fromAuto || {
+            id: zoneElementId,
+            type: ELEMENT_TYPES.ZONE,
+            label: z?.name || `Zone ${zi + 1}`,
+            x: 0.12,
+            y: 0.12,
+            w: 0.22,
+            h: 0.18,
+            rotationDeg: 0,
+            color: "dark-green",
+          },
+        );
+      }
     }
+  }
 
-    const machines = Array.isArray(z?.machines) ? z.machines : [];
-    for (const m of machines) {
-      const mid = String(m?.id || "").trim();
-      if (!mid) continue;
-      if (existingMachineIds.has(mid)) continue;
+  // For machines: only auto-add if this is a completely fresh layout
+  // This prevents auto-adding machines when user has a custom/predefined floor
+  const shouldAutoAddMachines = !hasCustomElements && baseElements.length === 0;
+  
+  if (shouldAutoAddMachines) {
+    const zones = Array.isArray(dept?.zones) ? dept.zones : [];
+    for (const z of zones) {
+      const machines = Array.isArray(z?.machines) ? z.machines : [];
+      for (const m of machines) {
+        const mid = String(m?.id || "").trim();
+        if (!mid) continue;
+        if (existingMachineIds.has(mid)) continue;
 
-      const fromAuto = autoMachineById.get(mid);
-      toAdd.push(
-        fromAuto || {
-          id: `machine-${mid}`,
-          type: ELEMENT_TYPES.MACHINE,
-          machineId: mid,
-          x: 0.16,
-          y: 0.16,
-          w: 0.06,
-          h: 0.06,
-          rotationDeg: 0,
-        },
-      );
+        const fromAuto = autoMachineById.get(mid);
+        toAdd.push(
+          fromAuto || {
+            id: `machine-${mid}`,
+            type: ELEMENT_TYPES.MACHINE,
+            machineId: mid,
+            x: 0.16,
+            y: 0.16,
+            w: 0.06,
+            h: 0.06,
+            rotationDeg: 0,
+          },
+        );
+      }
     }
   }
 
@@ -163,6 +232,7 @@ export default function Department3DLayoutPage() {
 
   const fullscreenRef = useRef(null);
   const lastPointerRef = useRef({ x: 0.5, y: 0.5 });
+  const lastCursorRef = useRef({ x: 0, y: 0 });
   const toastTimerRef = useRef(0);
 
   const [loading, setLoading] = useState(false);
@@ -185,6 +255,14 @@ export default function Department3DLayoutPage() {
   });
   const [machineFormError, setMachineFormError] = useState("");
   const [pendingMachinePlacement, setPendingMachinePlacement] = useState(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState(null); // { id, position: { x, y } }
+  const [nameInputDialog, setNameInputDialog] = useState(null); // { type: 'floor'|'zone'|'walkway', pending: true }
+  const [nameInput, setNameInput] = useState("");
+  const [selectedFloorModelUrl, setSelectedFloorModelUrl] = useState("");
+  const [selectedFloorModelLabel, setSelectedFloorModelLabel] = useState("");
+  const defaultFloorModelUrl = FLOOR_MODEL_OPTIONS[0]?.url || "";
+  const defaultFloorModelLabel = FLOOR_MODEL_OPTIONS[0]?.label || "";
+  const [showFloorPicker, setShowFloorPicker] = useState(false);
 
   const [activeTool, setActiveTool] = useState("select");
   const [selectedId, setSelectedId] = useState("");
@@ -196,6 +274,11 @@ export default function Department3DLayoutPage() {
     const x = clamp(pos.x, 0, 1);
     const y = clamp(pos.y, 0, 1);
     lastPointerRef.current = { x, y };
+  }, []);
+
+  const handleCursorMove = useCallback((e) => {
+    if (!e) return;
+    lastCursorRef.current = { x: e.clientX, y: e.clientY };
   }, []);
 
   const navToast = location.state?.toast;
@@ -215,6 +298,14 @@ export default function Department3DLayoutPage() {
   const [layoutView, setLayoutView] = useState("current");
 
   const plantName = location.state?.plantName || "";
+
+  const openFloorDialog = () => {
+    setNameInput("");
+    setNameInputDialog({ type: "floor" });
+    setSelectedFloorModelUrl(defaultFloorModelUrl);
+    setSelectedFloorModelLabel(defaultFloorModelLabel);
+    setShowFloorPicker(false);
+  };
 
   const layoutCtx = useMemo(() => {
     return {
@@ -411,6 +502,62 @@ export default function Department3DLayoutPage() {
     navigate("/dashboard");
   };
 
+  // Delete element handler
+  const handleDeleteElement = (elementId) => {
+    if (!elementId || !draft) return;
+    
+    setDraft((prev) =>
+      prev
+        ? {
+            ...prev,
+            elements: (prev.elements || []).filter(
+              (e) => String(e.id) !== String(elementId)
+            ),
+          }
+        : prev
+    );
+    setSelectedId("");
+    setDeleteConfirmation(null);
+    pushToast({
+      kind: "success",
+      message: "Element deleted",
+      ts: Date.now(),
+    });
+  };
+
+  // Keyboard event handler for delete
+  useEffect(() => {
+    if (!isFullscreen || !selectedId) return;
+
+    const handleKeyDown = (e) => {
+      // Check if 'x' or 'X' or 'Delete' key is pressed
+      if ((e.key === 'x' || e.key === 'X' || e.key === 'Delete') && selectedId) {
+        e.preventDefault();
+        
+        // Get cursor position for popup
+        const container = fullscreenRef.current;
+        if (!container) return;
+        
+        const rect = container.getBoundingClientRect();
+        const lastCursor = lastCursorRef.current || {};
+        const x = Number.isFinite(lastCursor.x)
+          ? lastCursor.x
+          : rect.left + rect.width / 2;
+        const y = Number.isFinite(lastCursor.y)
+          ? lastCursor.y
+          : rect.top + rect.height / 2;
+        
+        setDeleteConfirmation({
+          id: selectedId,
+          position: { x, y }
+        });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen, selectedId]);
+
   const toggleFullscreen = async () => {
     try {
       const el = fullscreenRef.current;
@@ -545,7 +692,7 @@ export default function Department3DLayoutPage() {
   if (!draft) return null;
 
   const neutralBtnClass = isFullscreen
-    ? "rounded-lg border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+    ? "rounded-lg bg-yellow-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-yellow-700"
     : "rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-900";
 
   const floorScale = Number(draft?.threeD?.floorModelScale) || 1;
@@ -576,6 +723,7 @@ export default function Department3DLayoutPage() {
     <div className="space-y-3 h-full flex flex-col">
       <div
         ref={fullscreenRef}
+        onPointerMove={handleCursorMove}
         className={
           isFullscreen
             ? "relative h-screen w-screen bg-white p-4 flex flex-col"
@@ -597,6 +745,42 @@ export default function Department3DLayoutPage() {
             </div>
           </div>
         ) : null}
+
+        {/* Delete Confirmation Popup */}
+        {deleteConfirmation && isFullscreen ? (
+          <div
+            className="fixed z-[9999]"
+            style={{
+              left: `${Math.min(Math.max(deleteConfirmation.position.x, 20), window.innerWidth - 20)}px`,
+              top: `${Math.min(Math.max(deleteConfirmation.position.y, 20), window.innerHeight - 20)}px`,
+              transform: "translate(-25%, -75%)",
+            }}
+          >
+            <div className="rounded-lg border-2 border-red-500 bg-white p-4 shadow-2xl">
+              <div className="text-sm font-semibold text-slate-900 mb-3">
+                Delete this object?
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700"
+                  onClick={() => handleDeleteElement(deleteConfirmation.id)}
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  onClick={() => setDeleteConfirmation(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Name Input Dialog moved to left sidebar */}
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -625,12 +809,12 @@ export default function Department3DLayoutPage() {
             {isFullscreen ? (
               // Fullscreen mode: Reset, Save to DB, Current, Previous, Exit
               <>
-                <button type="button" className={neutralBtnClass} onClick={onReset}>
+                <button type="button" className={neutralBtnClass} onClick={onReset} >
                   Reset
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-800"
                   onClick={onSave}
                 >
                   Save to DB
@@ -670,7 +854,7 @@ export default function Department3DLayoutPage() {
                 </div>
                 <button
                   type="button"
-                  className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700"
+                  className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-800"
                   onClick={toggleFullscreen}
                   title="Exit fullscreen"
                 >
@@ -726,7 +910,7 @@ export default function Department3DLayoutPage() {
                   onClick={toggleFullscreen}
                   title="Enter fullscreen"
                 >
-                  Full screen
+                  Customize Layout
                 </button>
               </>
             )}
@@ -809,7 +993,9 @@ export default function Department3DLayoutPage() {
                       : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
                   }
                   title="Add floor"
-                  onClick={() => setActiveTool("add:floor")}
+                  onClick={() => {
+                    openFloorDialog();
+                  }}
                 >
                   <svg
                     width="18"
@@ -841,7 +1027,10 @@ export default function Department3DLayoutPage() {
                       : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
                   }
                   title="Add zone"
-                  onClick={() => setActiveTool("add:zone")}
+                  onClick={() => {
+                    setNameInput("");
+                    setNameInputDialog({ type: 'zone' });
+                  }}
                 >
                   <svg
                     width="18"
@@ -873,7 +1062,10 @@ export default function Department3DLayoutPage() {
                       : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
                   }
                   title="Add walkway"
-                  onClick={() => setActiveTool("add:walkway")}
+                  onClick={() => {
+                    setNameInput("");
+                    setActiveTool("add:walkway");
+                  }}
                 >
                   <svg
                     width="18"
@@ -936,6 +1128,160 @@ export default function Department3DLayoutPage() {
                   Tools
                 </div>
 
+                {nameInputDialog ? (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="text-xs font-semibold text-slate-800">
+                      {nameInputDialog.type === "floor"
+                        ? "Add Floor"
+                        : nameInputDialog.type === "zone"
+                          ? "Add Zone"
+                          : "Add Walkway"}
+                    </div>
+                    <label className="mt-2 block text-xs text-slate-600">
+                      Name
+                      <input
+                        type="text"
+                        className="mt-1 w-full rounded-md border px-2 py-1 text-xs"
+                        placeholder={`Enter ${nameInputDialog.type} name...`}
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && nameInput.trim()) {
+                            setActiveTool(`add:${nameInputDialog.type}`);
+                            setNameInputDialog(null);
+                          } else if (e.key === "Escape") {
+                            setNameInputDialog(null);
+                            setNameInput("");
+                          }
+                        }}
+                        autoFocus
+                      />
+                    </label>
+
+                    {nameInputDialog.type === "floor" ? (
+                      <div className="mt-3">
+                        <div className="text-[11px] font-semibold text-slate-700">
+                          Floor model
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-2 w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          onClick={() => setShowFloorPicker((prev) => !prev)}
+                        >
+                          Select from DB
+                        </button>
+                        {showFloorPicker ? (
+                          <div className="mt-2 max-h-[280px] space-y-2 overflow-y-auto">
+                            {FLOOR_MODEL_OPTIONS.map((opt) => (
+                              <button
+                                key={opt.url}
+                                type="button"
+                                className={
+                                  (selectedFloorModelUrl || defaultFloorModelUrl) === opt.url
+                                    ? "w-full rounded-md border border-sky-300 bg-sky-50 p-2 text-left"
+                                    : "w-full rounded-md border border-slate-200 bg-white p-2 text-left hover:bg-slate-50"
+                                }
+                                onClick={() => {
+                                  setSelectedFloorModelUrl(opt.url);
+                                  setSelectedFloorModelLabel(opt.label || opt.url);
+                                  setNameInput(opt.label || opt.url);
+                                  setShowFloorPicker(false);
+                                }}
+                              >
+                                <div className="text-xs font-semibold text-slate-800">
+                                  {opt.label}
+                                </div>
+                                <div className="mt-1 h-24 w-full overflow-hidden rounded-md border bg-white">
+                                  <Canvas camera={{ position: [0, 0.9, 1.6], fov: 40 }}>
+                                    <ambientLight intensity={0.8} />
+                                    <directionalLight position={[2, 3, 2]} intensity={1.1} />
+                                    <Suspense fallback={null}>
+                                      <FloorModelPreview url={opt.url} />
+                                    </Suspense>
+                                    <OrbitControls
+                                      enablePan={false}
+                                      enableZoom={false}
+                                      enableRotate={true}
+                                      autoRotate
+                                      autoRotateSpeed={1.2}
+                                    />
+                                  </Canvas>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mt-2 rounded-md border bg-slate-50 p-2">
+                            <div className="text-[11px] text-slate-600">
+                              Selected: {selectedFloorModelLabel || defaultFloorModelLabel}
+                            </div>
+                            {(selectedFloorModelUrl || defaultFloorModelUrl) ? (
+                              <div className="mt-2 h-32 w-full overflow-hidden rounded-md border bg-white">
+                                <Canvas camera={{ position: [0, 0.9, 1.6], fov: 40 }}>
+                                  <ambientLight intensity={0.8} />
+                                  <directionalLight position={[2, 3, 2]} intensity={1.1} />
+                                  <Suspense fallback={null}>
+                                    <FloorModelPreview
+                                      url={selectedFloorModelUrl || defaultFloorModelUrl}
+                                    />
+                                  </Suspense>
+                                  <OrbitControls
+                                    enablePan={false}
+                                    enableZoom={false}
+                                    enableRotate={true}
+                                    autoRotate
+                                    autoRotateSpeed={1.2}
+                                  />
+                                </Canvas>
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        onClick={() => {
+                          setNameInputDialog(null);
+                          setNameInput("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="flex-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                        disabled={!nameInput.trim()}
+                        onClick={() => {
+                          if (nameInput.trim()) {
+                            setActiveTool(`add:${nameInputDialog.type}`);
+                            setNameInputDialog(null);
+                          }
+                        }}
+                      >
+                        Continue
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {isFullscreen &&
+                (activeTool === "add:floor" ||
+                  activeTool === "add:zone" ||
+                  activeTool === "add:walkway") ? (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-600">
+                    Placement: click and drag on the canvas to draw the
+                    {activeTool === "add:floor"
+                      ? " floor"
+                      : activeTool === "add:zone"
+                        ? " zone"
+                        : " walkway"}
+                    . Release to place.
+                  </div>
+                ) : null}
+
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -967,7 +1313,9 @@ export default function Department3DLayoutPage() {
                         ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
                         : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                     }
-                    onClick={() => setActiveTool("add:floor")}
+                    onClick={() => {
+                      openFloorDialog();
+                    }}
                   >
                     Add floor
                   </button>
@@ -979,7 +1327,10 @@ export default function Department3DLayoutPage() {
                         ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
                         : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                     }
-                    onClick={() => setActiveTool("add:zone")}
+                    onClick={() => {
+                      setNameInput("");
+                      setNameInputDialog({ type: "zone" });
+                    }}
                   >
                     Add zone
                   </button>
@@ -991,7 +1342,10 @@ export default function Department3DLayoutPage() {
                         ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
                         : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                     }
-                    onClick={() => setActiveTool("add:walkway")}
+                    onClick={() => {
+                      setNameInput("");
+                      setActiveTool("add:walkway");
+                    }}
                   >
                     Add walkway
                   </button>
@@ -1096,36 +1450,6 @@ export default function Department3DLayoutPage() {
                   </div>
                 ) : null}
 
-                <div className="mt-4 rounded-lg border p-2">
-                  <div className="text-xs font-semibold text-slate-700">
-                    Floor
-                  </div>
-                  <div className="mt-2 text-[11px] text-slate-500">
-                    Floor is a 2D white overlay rectangle. Use “Add floor”, then
-                    click + drag + release.
-                  </div>
-
-                  <label className="mt-3 flex items-center gap-2 text-xs text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={!!draft?.threeD?.floorModelAutoRotate}
-                      onChange={(e) =>
-                        setDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                threeD: {
-                                  ...(prev.threeD || {}),
-                                  floorModelAutoRotate: e.target.checked,
-                                },
-                              }
-                            : prev,
-                        )
-                      }
-                    />
-                    Auto-rotate
-                  </label>
-                </div>
 
                 <div className="mt-3 rounded-lg border p-2">
                   <div className="flex items-center justify-between gap-2">
@@ -1146,29 +1470,36 @@ export default function Department3DLayoutPage() {
 
                   <div className="mt-2 max-h-[180px] space-y-1 overflow-auto">
                     {placeableElements.length ? (
-                      placeableElements.map((el) => (
-                        <button
-                          key={String(el.id)}
-                          type="button"
-                          className={
-                            String(selectedId) === String(el.id)
-                              ? "w-full rounded-md bg-sky-50 px-2 py-1 text-left text-xs text-sky-800"
-                              : "w-full rounded-md px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-50"
-                          }
-                          onClick={() => {
-                            setSelectedId(String(el.id));
-                            setActiveTool("select");
-                          }}
-                        >
-                          <div className="font-medium">
-                            {el.label ||
-                              `${typeLabel(el.type)} ${String(el.id).slice(0, 4)}`}
-                          </div>
-                          <div className="text-[11px] text-slate-500">
-                            {typeLabel(el.type)}
-                          </div>
-                        </button>
-                      ))
+                      placeableElements.map((el) => {
+                        // Get actual machine name from JSON data if it's a machine
+                        let displayName = el.label || `${typeLabel(el.type)} ${String(el.id).slice(0, 4)}`;
+                        if (el.type === ELEMENT_TYPES.MACHINE && el.machineId && machineMetaById?.[el.machineId]) {
+                          displayName = machineMetaById[el.machineId].name || displayName;
+                        }
+                        
+                        return (
+                          <button
+                            key={String(el.id)}
+                            type="button"
+                            className={
+                              String(selectedId) === String(el.id)
+                                ? "w-full rounded-md bg-sky-50 px-2 py-1 text-left text-xs text-sky-800"
+                                : "w-full rounded-md px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-50"
+                            }
+                            onClick={() => {
+                              setSelectedId(String(el.id));
+                              setActiveTool("select");
+                            }}
+                          >
+                            <div className="font-medium">
+                              {displayName}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {typeLabel(el.type)}
+                            </div>
+                          </button>
+                        );
+                      })
                     ) : (
                       <div className="text-[11px] text-slate-500">
                         No items yet. Use Add buttons above.
@@ -1277,7 +1608,86 @@ export default function Department3DLayoutPage() {
                       </label>
                     </div>
 
-                    {selectedElement.type === ELEMENT_TYPES.ZONE ? (
+                    {selectedElement.type === ELEMENT_TYPES.FLOOR ? (
+                      <>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <label className="block text-xs text-slate-600">
+                            Length (1-100 units)
+                            <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
+                              className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
+                              inputMode="decimal"
+                              value={String(
+                                Math.round(
+                                  Number(selectedElement.w ?? 0.9) * 100,
+                                ),
+                              )}
+                              onChange={(e) => {
+                                const displayValue = Math.max(
+                                  1,
+                                  Math.min(100, Number(e.target.value) || 1),
+                                );
+                                const normalizedValue = displayValue / 100;
+                                setDraft((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        elements: (prev.elements || []).map(
+                                          (x) =>
+                                            String(x.id) ===
+                                            String(selectedElement.id)
+                                              ? { ...x, w: normalizedValue }
+                                              : x,
+                                        ),
+                                      }
+                                    : prev,
+                                );
+                              }}
+                            />
+                          </label>
+                          <label className="block text-xs text-slate-600">
+                            Breadth (1-100 units)
+                            <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
+                              className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
+                              inputMode="decimal"
+                              value={String(
+                                Math.round(
+                                  Number(selectedElement.h ?? 0.9) * 100,
+                                ),
+                              )}
+                              onChange={(e) => {
+                                const displayValue = Math.max(
+                                  1,
+                                  Math.min(100, Number(e.target.value) || 1),
+                                );
+                                const normalizedValue = displayValue / 100;
+                                setDraft((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        elements: (prev.elements || []).map(
+                                          (x) =>
+                                            String(x.id) ===
+                                            String(selectedElement.id)
+                                              ? { ...x, h: normalizedValue }
+                                              : x,
+                                        ),
+                                      }
+                                    : prev,
+                                );
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </>
+                    ) : selectedElement.type === ELEMENT_TYPES.ZONE ? (
                       <>
                         <label className="mt-2 block text-xs text-slate-600">
                           Fill color
@@ -1310,15 +1720,20 @@ export default function Department3DLayoutPage() {
 
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           <label className="block text-xs text-slate-600">
-                            Width
+                            Length (1-100 units)
                             <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
                               className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
                               inputMode="decimal"
                               value={String(
-                                Number(selectedElement.w ?? 0.2).toFixed(3),
+                                Math.round(Number(selectedElement.w ?? 0.2) * 100)
                               )}
                               onChange={(e) => {
-                                const value = clamp(e.target.value, 0.02, 1);
+                                const displayValue = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                                const normalizedValue = displayValue / 100;
                                 setDraft((prev) =>
                                   prev
                                     ? {
@@ -1327,7 +1742,7 @@ export default function Department3DLayoutPage() {
                                           (x) =>
                                             String(x.id) ===
                                             String(selectedElement.id)
-                                              ? { ...x, w: value }
+                                              ? { ...x, w: normalizedValue }
                                               : x,
                                         ),
                                       }
@@ -1337,15 +1752,20 @@ export default function Department3DLayoutPage() {
                             />
                           </label>
                           <label className="block text-xs text-slate-600">
-                            Height
+                            Breadth (1-100 units)
                             <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
                               className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
                               inputMode="decimal"
                               value={String(
-                                Number(selectedElement.h ?? 0.12).toFixed(3),
+                                Math.round(Number(selectedElement.h ?? 0.12) * 100)
                               )}
                               onChange={(e) => {
-                                const value = clamp(e.target.value, 0.02, 1);
+                                const displayValue = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                                const normalizedValue = displayValue / 100;
                                 setDraft((prev) =>
                                   prev
                                     ? {
@@ -1354,7 +1774,7 @@ export default function Department3DLayoutPage() {
                                           (x) =>
                                             String(x.id) ===
                                             String(selectedElement.id)
-                                              ? { ...x, h: value }
+                                              ? { ...x, h: normalizedValue }
                                               : x,
                                         ),
                                       }
@@ -1372,15 +1792,20 @@ export default function Department3DLayoutPage() {
                         </div>
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           <label className="block text-xs text-slate-600">
-                            Width
+                            Length (1-100 units)
                             <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
                               className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
                               inputMode="decimal"
                               value={String(
-                                Number(selectedElement.w ?? 0.25).toFixed(3),
+                                Math.round(Number(selectedElement.w ?? 0.25) * 100)
                               )}
                               onChange={(e) => {
-                                const value = clamp(e.target.value, 0.02, 1);
+                                const displayValue = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                                const normalizedValue = displayValue / 100;
                                 setDraft((prev) =>
                                   prev
                                     ? {
@@ -1389,7 +1814,7 @@ export default function Department3DLayoutPage() {
                                           (x) =>
                                             String(x.id) ===
                                             String(selectedElement.id)
-                                              ? { ...x, w: value }
+                                              ? { ...x, w: normalizedValue }
                                               : x,
                                         ),
                                       }
@@ -1399,15 +1824,20 @@ export default function Department3DLayoutPage() {
                             />
                           </label>
                           <label className="block text-xs text-slate-600">
-                            Height
+                            Breadth (1-100 units)
                             <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              step="1"
                               className="mt-1 w-full rounded-lg border px-2 py-1 text-xs"
                               inputMode="decimal"
                               value={String(
-                                Number(selectedElement.h ?? 0.06).toFixed(3),
+                                Math.round(Number(selectedElement.h ?? 0.06) * 100)
                               )}
                               onChange={(e) => {
-                                const value = clamp(e.target.value, 0.02, 1);
+                                const displayValue = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                                const normalizedValue = displayValue / 100;
                                 setDraft((prev) =>
                                   prev
                                     ? {
@@ -1416,7 +1846,7 @@ export default function Department3DLayoutPage() {
                                           (x) =>
                                             String(x.id) ===
                                             String(selectedElement.id)
-                                              ? { ...x, h: value }
+                                              ? { ...x, h: normalizedValue }
                                               : x,
                                         ),
                                       }
@@ -1662,19 +2092,29 @@ export default function Department3DLayoutPage() {
                         t === ELEMENT_TYPES.MACHINE && pendingMachinePlacement
                           ? pendingMachinePlacement
                           : null;
+                      
+                      // Use custom name from dialog for floor/zone/walkway, or machine name, or default
                       const label =
-                        machineSeed?.machineName ||
-                        `${typeLabel(t)} ${newId.slice(0, 4)}`;
+                        (t === ELEMENT_TYPES.FLOOR || t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY) && nameInput.trim()
+                          ? nameInput.trim()
+                          : machineSeed?.machineName
+                            ? machineSeed.machineName
+                            : `${typeLabel(t)} ${newId.slice(0, 4)}`;
 
                       const defaultsForType = () => {
                         if (t === ELEMENT_TYPES.FLOOR) {
-                          return { w: 0.9, h: 0.9 };
+                          const floorModelUrl = selectedFloorModelUrl || defaultFloorModelUrl || "/models/floor-model.glb";
+                          return {
+                            w: 0.95,
+                            h: 0.95,
+                            modelUrl: floorModelUrl,
+                          };
                         }
                         if (t === ELEMENT_TYPES.ZONE) {
-                          return { w: 0.35, h: 0.22, color: "dark-green" };
+                          return { w: 0.35, h: 0.22, color: "dark-green", modelUrl: "/models/zone-green.glb", scale: 1 };
                         }
                         if (t === ELEMENT_TYPES.WALKWAY) {
-                          return { w: 0.3, h: 0.06 };
+                          return { w: 0.3, h: 0.06, modelUrl: "/models/zone-green.glb", scale: 1 };
                         }
                         if (t === ELEMENT_TYPES.MACHINE) {
                           return {
@@ -1814,6 +2254,12 @@ export default function Department3DLayoutPage() {
                       );
                       setSelectedId(newId);
                       setActiveTool("select");
+                      
+                      // Clear name input after adding floor/zone/walkway
+                      if (t === ELEMENT_TYPES.FLOOR || t === ELEMENT_TYPES.ZONE || t === ELEMENT_TYPES.WALKWAY) {
+                        setNameInput("");
+                      }
+                      
                       if (machineSeed) {
                         setPendingMachinePlacement(null);
                         pushToast({

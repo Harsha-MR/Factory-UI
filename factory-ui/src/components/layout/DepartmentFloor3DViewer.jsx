@@ -25,7 +25,7 @@ import { getWorkerManager } from "../../utils/workerManager";
 
 import { ELEMENT_TYPES } from "./layoutTypes";
 
-const DEFAULT_PLANE_SIZE = 10;
+const DEFAULT_PLANE_SIZE = 20;
 
 const DEFAULT_MODEL_URLS = {
   [ELEMENT_TYPES.MACHINE]: "/models/machine.glb",
@@ -543,20 +543,20 @@ const MachineElement = memo(function MachineElement({
 
       {showLabel &&
       el?.type === ELEMENT_TYPES.MACHINE &&
-      labelText ? (
+      (labelText || machineName) ? (
         <Billboard follow lockX lockZ>
           <Text
-            position={[0, 0.38, 0]}
+            position={[0, 0.65, 0]}
             fontSize={0.14}
             color={fullScreen ? "#ffffff" : markerColor}
             outlineWidth={0.012}
             outlineColor="#000000"
             anchorX="center"
-            anchorY="middle"
+            anchorY="bottom"
             material-depthTest={false}
             material-transparent
           >
-            {labelText}
+            {fullScreen ? labelText : labelText}
           </Text>
         </Billboard>
       ) : null}
@@ -596,57 +596,91 @@ const MachineElement = memo(function MachineElement({
   );
 });
 
-// Floor model component: scales only X and Z (width and depth), preserves Y (height)
-const FloorModel3D = memo(function FloorModel3D({ width, depth }) {
-  const { scene } = useGLTF("/models/floor-model.glb");
+// Floor model component: handles both auto-scaled and predefined floor models
+// - Predefined models (from /models/pre-defined-models/) are rendered as-is without scaling
+//   This preserves the exact design of floor plans like floor(1x2).glb, floor(2x3).glb
+// - Auto-layout models (from /models/) are scaled to fit the specified width/depth
+// - Predefined models are identified by path or ?predef=true query parameter
+const FloorModel3D = memo(function FloorModel3D({ width, depth, url }) {
+  const w = Math.max(0.02, Number(width) || 1);
+  const d = Math.max(0.02, Number(depth) || 1);
+  const modelUrl = url || "/models/floor-model.glb";
+  
+  // Check if this is a pre-defined model (should not be scaled)
+  // Predefined models are loaded directly from /models/pre-defined-models/ folder
+  const isPreDefinedModel = modelUrl.includes("/models/pre-defined-models/") || 
+                            modelUrl.includes("?predef=true");
+  
+  const { scene } = useGLTF(modelUrl);
 
-  const { scaleX, scaleZ, yOffset } = useMemo(() => {
-    try {
-      const tmp = scene.clone(true);
-      tmp.position.set(0, 0, 0);
-      tmp.rotation.set(0, 0, 0);
-      tmp.scale.set(1, 1, 1);
-      tmp.updateMatrixWorld(true);
-      
-      const box = new Box3().setFromObject(tmp);
-      const size = new Vector3();
-      box.getSize(size);
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone(true);
 
-      const modelX = Number(size.x) || 1;
-      const modelZ = Number(size.z) || 1;
-      const minY = Number(box.min.y);
-
-      // Scale X and Z to fit target dimensions, keep Y at 1 (preserve height)
-      const targetW = Number(width) || 1;
-      const targetD = Number(depth) || 1;
-      
-      const computedScaleX = modelX > 0.000001 ? targetW / modelX : 1;
-      const computedScaleZ = modelZ > 0.000001 ? targetD / modelZ : 1;
-      const computedYOffset = Number.isFinite(minY) ? -minY : 0;
-
-      return {
-        scaleX: clamp(computedScaleX, 0.001, 100),
-        scaleZ: clamp(computedScaleZ, 0.001, 100),
-        yOffset: computedYOffset,
-      };
-    } catch {
-      return { scaleX: 1, scaleZ: 1, yOffset: 0 };
+    if (isPreDefinedModel) {
+      // Pre-defined models: render as-is without any scaling or centering
+      // Just position at floor level
+      const box = new Box3().setFromObject(clone);
+      clone.position.set(0, -box.min.y, 0);
+      return clone;
     }
-  }, [scene, width, depth]);
 
-  const cloned = useMemo(() => scene.clone(true), [scene]);
+    // Auto-layout models: scale to fit the desired width and depth
+    const box = new Box3().setFromObject(clone);
+    const modelSize = new Vector3();
+    box.getSize(modelSize);
 
-  return (
-    <primitive
-      object={cloned}
-      position={[0, yOffset, 0]}
-      scale={[scaleX, 1, scaleZ]}
-    />
-  );
+    // Scale to fit the desired width and depth
+    const scaleX = modelSize.x > 0 ? w / modelSize.x : 1;
+    const scaleZ = modelSize.z > 0 ? d / modelSize.z : 1;
+    const scaleY = 1; // Keep original Y height
+
+    clone.scale.set(scaleX, scaleY, scaleZ);
+
+    // Center the model at origin (floor level)
+    const center = new Vector3();
+    box.getCenter(center);
+    clone.position.set(-center.x * scaleX, -box.min.y * scaleY, -center.z * scaleZ);
+
+    return clone;
+  }, [scene, w, d, modelUrl, isPreDefinedModel]);
+
+  return <primitive object={clonedScene} />;
 });
 
 // Zone Model using zone-green.glb
 const ZoneModel3D = memo(function ZoneModel3D({ width, depth, color }) {
+  const w = Math.max(0.02, Number(width) || 1);
+  const d = Math.max(0.02, Number(depth) || 1);
+  const { scene } = useGLTF("/models/zone-green.glb");
+
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone(true);
+    
+    // Calculate bounding box of the loaded model
+    const box = new Box3().setFromObject(clone);
+    const modelSize = new Vector3();
+    box.getSize(modelSize);
+
+    // Scale to fit the desired width and depth
+    const scaleX = modelSize.x > 0 ? w / modelSize.x : 1;
+    const scaleZ = modelSize.z > 0 ? d / modelSize.z : 1;
+    const scaleY = 1; // Keep original Y height
+
+    clone.scale.set(scaleX, scaleY, scaleZ);
+
+    // Center the model at origin (floor level)
+    const center = new Vector3();
+    box.getCenter(center);
+    clone.position.set(-center.x * scaleX, -box.min.y * scaleY, -center.z * scaleZ);
+
+    return clone;
+  }, [scene, w, d]);
+
+  return <primitive object={clonedScene} />;
+});
+
+// Walkway Model using zone-green.glb temporarily (will be replaced with proper walkway model later)
+const WalkwayModel3D = memo(function WalkwayModel3D({ width, depth }) {
   const w = Math.max(0.02, Number(width) || 1);
   const d = Math.max(0.02, Number(depth) || 1);
   const { scene } = useGLTF("/models/zone-green.glb");
@@ -753,6 +787,7 @@ export default function DepartmentFloor3DViewer({
   const containerRef = useRef(null);
   const [draggingId, setDraggingId] = useState("");
   const [hoverNorm, setHoverNorm] = useState(null);
+  const [hoverNormRaw, setHoverNormRaw] = useState(null);
   const [hoveredMachineId, setHoveredMachineId] = useState("");
   const [isTransforming, setIsTransforming] = useState(false);
   const [isAddDrawing, setIsAddDrawing] = useState(false);
@@ -766,9 +801,9 @@ export default function DepartmentFloor3DViewer({
   const effectiveFloorY = 0;
   // Keep lifts in world units. Use a larger machine lift to ensure the semi-transparent
   // zone planes never visually occlude the GLBs due to depth sorting.
-  // overlayLift for zones - reduced to sit closer to floor
-  const overlayLift = 0.001;
-  const placeableLift = 0.03;
+  // overlayLift for walkways - placed at 0.1m above floor
+  const overlayLift = 0.1;
+  const placeableLift = 0.115;
 
   // DEBUG: force machines below the floor surface to validate whether we're dealing
   // with a Y-reference/sign issue vs. occlusion.
@@ -1039,6 +1074,7 @@ export default function DepartmentFloor3DViewer({
         hoverRafRef.current = requestAnimationFrame(() => {
           hoverRafRef.current = 0;
           setHoverNorm(next);
+          setHoverNormRaw(raw);
         });
       }
     }
@@ -1086,6 +1122,7 @@ export default function DepartmentFloor3DViewer({
         obj.position.z = pos.z;
         // Matrix will be updated automatically on next render
       }
+
     }
   }, [effectivePlaneSize, snapNormPoint, onPointerPositionChange, isAddMode, draggingId]);
 
@@ -1337,22 +1374,28 @@ export default function DepartmentFloor3DViewer({
             </>
           ) : null}
 
-          {/* 3D floor model (replacing 2D overlay). If no explicit FLOOR element exists, render a default floor covering the whole plane. */}
+          {/* 3D floor model rendering:
+              - Saved floors (including predefined models from /models/pre-defined-models/) are rendered with their stored modelUrl
+              - Predefined floors are identified and rendered as-is without auto-scaling
+              - Only uses default floor if no floor element exists in the layout
+              - Auto-layout is only applied when loading a layout with NO saved elements
+          */}
           {(() => {
             const list = floorElements.length
               ? floorElements
               : [
                   {
                     id: "__default_floor__",
-                    x: 0.05,
-                    y: 0.05,
-                    w: 0.9,
-                    h: 0.9,
+                    x: 0.025,
+                    y: 0.025,
+                    w: 0.95,
+                    h: 0.95,
                     rotationDeg: 0,
+                    modelUrl: "/models/floor-model.glb",
                   },
                 ];
 
-            return list.slice(0, 1).map((el) => {
+            return list.map((el) => {
               const id = String(el.id);
               const isSelected = selectedId && String(selectedId) === id;
               const wNorm = clamp01(Number(el.w) || 0.9);
@@ -1363,6 +1406,8 @@ export default function DepartmentFloor3DViewer({
               const w = Math.max(0.02, wNorm) * effectivePlaneSize;
               const d = Math.max(0.02, hNorm) * effectivePlaneSize;
               const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180);
+              // modelUrl is preserved from MongoDB - supports predefined floors (floor(1x2).glb, etc.)
+              const floorModelUrl = el.modelUrl || "/models/floor-model.glb";
 
               // Disable all editing interactions in non-fullScreen
               const allowEdit = fullScreen;
@@ -1381,8 +1426,47 @@ export default function DepartmentFloor3DViewer({
                           }
                           if (id === "__default_floor__") return;
                           e.stopPropagation();
+                          e.nativeEvent?.preventDefault?.();
                           if (typeof onSelectElement === "function")
                             onSelectElement(id);
+
+                          if (activeTool === "select" && !isTransforming) {
+                            setOrbitEnabledNow(false);
+                            capturePointer(e);
+                          }
+
+                          if (isTransforming) return;
+
+                          if (
+                            typeof onMoveElement === "function" &&
+                            activeTool === "select"
+                          ) {
+                            draggingObjectRef.current = e.currentTarget;
+                            draggingNormRef.current = null;
+                            if (typeof getFloorHitFromEvent === "function") {
+                              const hit = getFloorHitFromEvent(e);
+                              if (hit) {
+                                const pointerNorm = planeToNorm(
+                                  hit.x,
+                                  hit.z,
+                                  effectivePlaneSize,
+                                );
+                                // Store precise offset from cursor to center
+                                draggingOffsetRef.current = {
+                                  x: cx - pointerNorm.x,
+                                  y: cy - pointerNorm.y,
+                                };
+                              } else {
+                                draggingOffsetRef.current = null;
+                              }
+                            } else {
+                              draggingOffsetRef.current = null;
+                            }
+                            setDraggingId(id);
+                            setCursor("grabbing");
+                            setOrbitEnabledNow(false);
+                            capturePointer(e);
+                          }
                         }
                       : undefined
                   }
@@ -1393,10 +1477,24 @@ export default function DepartmentFloor3DViewer({
                         }
                       : undefined
                   }
+                  onPointerUp={
+                    allowEdit
+                      ? () => {
+                          stopDragging();
+                          setCursor("default");
+                          setOrbitEnabledNow(
+                            !isOverlayAddToolActive &&
+                              !isTransforming &&
+                              !isAddDrawing &&
+                              !draggingId,
+                          );
+                        }
+                      : undefined
+                  }
                 >
                   {/* Load 3D floor model and scale only X and Z axes (preserve Y height) */}
                   <Suspense fallback={null}>
-                    <FloorModel3D width={w} depth={d} />
+                    <FloorModel3D width={w} depth={d} url={floorModelUrl} />
                   </Suspense>
                   
                   {id !== "__default_floor__" ? (
@@ -1452,9 +1550,7 @@ export default function DepartmentFloor3DViewer({
             const d = Math.max(0.02, hNorm) * effectivePlaneSize;
             const fill = zoneFillColor(el.color);
             const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180);
-            const zoneName = String(el.label || "").trim() || "Zone";
-            const zoneLabelY = 0.85;
-            const zoneHeight = 0.03; // Zones placed slightly above floor
+            const zoneHeight = 0.1; // Zones placed at 0.1m above floor
 
             // Disable all editing interactions in non-fullScreen
             const allowEdit = fullScreen;
@@ -1470,36 +1566,28 @@ export default function DepartmentFloor3DViewer({
                           handleAddPointerDown(e);
                           return;
                         }
+                        // CRITICAL: Stop all event propagation FIRST to prevent OrbitControls from receiving events
                         e.stopPropagation();
+                        e.nativeEvent?.stopPropagation?.();
+                        e.nativeEvent?.stopImmediatePropagation?.();
+                        e.nativeEvent?.preventDefault?.();
                         
                         if (isTransforming) return;
                         
                         if (typeof onSelectElement === "function")
                           onSelectElement(id);
 
-                        // Don't initiate drag immediately - wait for actual pointer movement
-                      }
-                    : undefined
-                }
-                onPointerMove={
-                  allowEdit
-                    ? (e) => {
-                        e.stopPropagation();
-                        handleFloorPointerMove(e);
-                        
-                        // Only start dragging if pointer is down and we haven't started yet
+                        if (activeTool === "select") {
+                          // Disable OrbitControls BEFORE capturing pointer
+                          setOrbitEnabledNow(false);
+                          capturePointer(e);
+                        }
+
                         if (
-                          !draggingId &&
-                          !isTransforming &&
-                          !isAddMode &&
-                          selectedId &&
-                          String(selectedId) === id &&
-                          e.buttons === 1 && // Left mouse button is pressed
                           typeof onMoveElement === "function" &&
                           activeTool === "select"
                         ) {
-                          // eventObject is one of the meshes; move its parent group.
-                          draggingObjectRef.current = e.eventObject?.parent || null;
+                          draggingObjectRef.current = e.currentTarget;
                           draggingNormRef.current = null;
                           if (typeof getFloorHitFromEvent === "function") {
                             const hit = getFloorHitFromEvent(e);
@@ -1521,10 +1609,38 @@ export default function DepartmentFloor3DViewer({
                           }
                           setDraggingId(id);
                           setCursor("grabbing");
-                          // Immediately disable orbit controls to prevent camera movement
+                          // Ensure controls are disabled during drag
                           setOrbitEnabledNow(false);
-                          capturePointer(e);
                         }
+
+                        // Don't initiate drag immediately - wait for actual pointer movement
+                      }
+                    : undefined
+                }
+                onPointerMove={
+                  allowEdit
+                    ? (e) => {
+                        // Stop propagation during drag to keep camera static
+                        e.stopPropagation();
+                        e.nativeEvent?.stopPropagation?.();
+                        e.nativeEvent?.stopImmediatePropagation?.();
+                        handleFloorPointerMove(e);
+                        
+                        // Dragging is initiated on pointer down to prevent camera movement
+                      }
+                    : undefined
+                }
+                onPointerUp={
+                  allowEdit
+                    ? () => {
+                        stopDragging();
+                        setCursor("default");
+                        setOrbitEnabledNow(
+                          !isOverlayAddToolActive &&
+                            !isTransforming &&
+                            !isAddDrawing &&
+                            !draggingId,
+                        );
                       }
                     : undefined
                 }
@@ -1572,27 +1688,86 @@ export default function DepartmentFloor3DViewer({
                     <Edges color="#ffffff" />
                   )}
                 </mesh>
+              </group>
+            );
+          })}
 
-                {/* Zone name centered and always above machine labels */}
-                <Billboard follow lockX lockZ>
+          {/* Render zone labels separately in world space (not rotated with zones) */}
+          {(() => {
+            // Helper function to check if a point is inside a zone
+            const isPointInZone = (pointX, pointY, zone) => {
+              const zoneX = Number(zone.x) || 0;
+              const zoneY = Number(zone.y) || 0;
+              const zoneW = Number(zone.w) || 0.15;
+              const zoneH = Number(zone.h) || 0.12;
+              return pointX >= zoneX && pointX <= zoneX + zoneW &&
+                     pointY >= zoneY && pointY <= zoneY + zoneH;
+            };
+
+            // Calculate machine centers for each zone
+            const zoneMachineCenters = zoneElements.reduce((acc, zone) => {
+              const machinesInZone = placeableElements.filter(machine => {
+                const machineWNorm = clamp01(Number(machine.w) || 0.12);
+                const machineHNorm = clamp01(Number(machine.h) || 0.12);
+                const machineCx = clamp01((Number(machine.x) || 0.5) + machineWNorm / 2);
+                const machineCy = clamp01((Number(machine.y) || 0.5) + machineHNorm / 2);
+                return isPointInZone(machineCx, machineCy, zone);
+              });
+
+              if (machinesInZone.length > 0) {
+                const sumX = machinesInZone.reduce((sum, m) => {
+                  const mWNorm = clamp01(Number(m.w) || 0.12);
+                  const mCx = clamp01((Number(m.x) || 0.5) + mWNorm / 2);
+                  return sum + mCx;
+                }, 0);
+                const sumY = machinesInZone.reduce((sum, m) => {
+                  const mHNorm = clamp01(Number(m.h) || 0.12);
+                  const mCy = clamp01((Number(m.y) || 0.5) + mHNorm / 2);
+                  return sum + mCy;
+                }, 0);
+                
+                acc[zone.id] = {
+                  cx: sumX / machinesInZone.length,
+                  cy: sumY / machinesInZone.length
+                };
+              } else {
+                // No machines in zone, use zone center
+                const wNorm = clamp01(Number(zone.w) || 0.15);
+                const hNorm = clamp01(Number(zone.h) || 0.12);
+                acc[zone.id] = {
+                  cx: clamp01((Number(zone.x) || 0) + wNorm / 2),
+                  cy: clamp01((Number(zone.y) || 0) + hNorm / 2)
+                };
+              }
+              return acc;
+            }, {});
+
+            return zoneElements.map((zone) => {
+              const zoneName = String(zone.label || "").trim() || "Zone";
+              const labelCenter = zoneMachineCenters[zone.id];
+              if (!labelCenter) return null;
+
+              const labelPos = normToPlane(labelCenter.cx, labelCenter.cy, effectivePlaneSize);
+
+              return (
+                <Billboard key={`zone-label-${zone.id}`} follow lockX lockZ position={[labelPos.x, 1.5, labelPos.z]}>
                   <Text
-                    position={[0, zoneLabelY, 0]}
-                    fontSize={0.22}
+                    fontSize={0.28}
                     color="#ffffff"
-                    outlineWidth={0.02}
+                    outlineWidth={0.025}
                     outlineColor="#000000"
                     anchorX="center"
                     anchorY="middle"
-                    renderOrder={100}
+                    renderOrder={150}
                     material-depthTest={false}
                     material-transparent
                   >
                     {zoneName}
                   </Text>
                 </Billboard>
-              </group>
-            );
-          })}
+              );
+            });
+          })()}
 
           {walkwayElements.map((el) => {
             const id = String(el.id);
@@ -1620,11 +1795,21 @@ export default function DepartmentFloor3DViewer({
                           handleAddPointerDown(e);
                           return;
                         }
+                        // CRITICAL: Stop all event propagation FIRST to prevent OrbitControls from receiving events
                         e.stopPropagation();
+                        e.nativeEvent?.stopPropagation?.();
+                        e.nativeEvent?.stopImmediatePropagation?.();
+                        e.nativeEvent?.preventDefault?.();
                         if (typeof onSelectElement === "function")
                           onSelectElement(id);
 
                         if (isTransforming) return;
+
+                        if (activeTool === "select") {
+                          // Disable OrbitControls BEFORE capturing pointer
+                          setOrbitEnabledNow(false);
+                          capturePointer(e);
+                        }
 
                         if (
                           typeof onMoveElement === "function" &&
@@ -1654,6 +1839,7 @@ export default function DepartmentFloor3DViewer({
                           }
                           setDraggingId(id);
                           setCursor("grabbing");
+                          // Ensure controls are disabled during drag
                           setOrbitEnabledNow(false);
                           capturePointer(e);
                         }
@@ -1663,25 +1849,37 @@ export default function DepartmentFloor3DViewer({
                 onPointerMove={
                   allowEdit
                     ? (e) => {
+                        // Stop propagation during drag to keep camera static
+                        e.stopPropagation();
+                        e.nativeEvent?.stopPropagation?.();
+                        e.nativeEvent?.stopImmediatePropagation?.();
                         handleFloorPointerMove(e);
                       }
                     : undefined
                 }
+                onPointerUp={
+                  allowEdit
+                    ? () => {
+                        stopDragging();
+                        setCursor("default");
+                        setOrbitEnabledNow(
+                          !isOverlayAddToolActive &&
+                            !isTransforming &&
+                            !isAddDrawing &&
+                            !draggingId,
+                        );
+                      }
+                    : undefined
+                }
               >
-                <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
-                  <planeGeometry args={[w, d]} />
-                  <meshBasicMaterial
-                    color="#000000"
-                    transparent
-                    opacity={0.85}
-                    depthWrite={false}
-                    polygonOffset
-                    polygonOffsetFactor={-1}
-                    polygonOffsetUnits={-1}
-                  />
-                </mesh>
+                {/* Load 3D walkway model (temporarily using zone-green.glb) */}
+                <Suspense fallback={null}>
+                  <WalkwayModel3D width={w} depth={d} />
+                </Suspense>
+
                 <mesh
                   rotation={[-Math.PI / 2, 0, 0]}
+                  position={[0, 0.01, 0]}
                   renderOrder={10}
                   onPointerOver={
                     allowEdit
@@ -2147,11 +2345,12 @@ export default function DepartmentFloor3DViewer({
               })()
             : null}
 
-          {showMachineMarkers && isAddMode && hoverNorm && addElementType
+          {showMachineMarkers && isAddMode && (hoverNormRaw || hoverNorm) && addElementType
             ? (() => {
+                const previewNorm = hoverNormRaw || hoverNorm;
                 const pos = normToPlane(
-                  hoverNorm.x,
-                  hoverNorm.y,
+                  previewNorm.x,
+                  previewNorm.y,
                   effectivePlaneSize,
                 );
                 return (
@@ -2189,12 +2388,26 @@ export default function DepartmentFloor3DViewer({
             autoRotateSpeed={1.0}
             enabled={controlsEnabled}
             onStart={() => {
+              // CRITICAL: Prevent OrbitControls from starting if we're dragging an object
+              if (draggingId || isAddDrawing || isOverlayAddToolActive) {
+                // Force disable controls if somehow they started during a drag operation
+                const controls = orbitRef.current;
+                if (controls) {
+                  controls.enabled = false;
+                  if (typeof controls.update === "function") {
+                    controls.update();
+                  }
+                }
+                return;
+              }
+              
               // Only stop dragging if orbit controls are actually starting
               // This prevents interference during drag operations
               if (controlsEnabled) {
                 stopDragging();
                 clearAddDrag();
                 setHoverNorm(null);
+                setHoverNormRaw(null);
               }
             }}
             makeDefault
@@ -2221,6 +2434,7 @@ export default function DepartmentFloor3DViewer({
 
 // Preload all models at module load time for optimal performance
 useGLTF.preload("/models/floor-model.glb");
+useGLTF.preload("/models/pre-defined-models/floor/floor-plan1.glb");
 useGLTF.preload("/models/zone-green.glb");
 useGLTF.preload("/models/machine.glb");
 useGLTF.preload("/models/machine-running.glb");

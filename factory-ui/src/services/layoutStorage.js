@@ -65,6 +65,8 @@ export function sanitizeDepartmentLayout(raw) {
   if (!raw || typeof raw !== 'object') return null
 
   const version = Number(raw.version || 1)
+  // IMPORTANT: All elements including floor with modelUrl are preserved
+  // This ensures predefined floors (floor(1x2).glb, etc.) are saved to and loaded from MongoDB
   const elements = Array.isArray(raw.elements) ? raw.elements.filter(Boolean) : []
 
   const background = raw.background && typeof raw.background === 'object'
@@ -96,7 +98,7 @@ export function sanitizeDepartmentLayout(raw) {
     background: background?.src ? background : null,
     assets,
     threeD,
-    elements,
+    elements, // Preserved with all properties including modelUrl for floor elements
     updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
   }
 }
