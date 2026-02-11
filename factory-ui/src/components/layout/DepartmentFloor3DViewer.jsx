@@ -142,14 +142,17 @@ function computeMachineOeePct(machine) {
 
 function machineModelUrlForStatus(status, fullScreen = false) {
   // Use generic machine.glb in fullscreen for consistent appearance
-  if (fullScreen) return "/models/machine_ultra_low.glb";
+  if (fullScreen) return "/models/machine.glb";
 
   // Use status-based models in preview mode for visual status indication
   const s = String(status || "").toUpperCase();
   if (s === "DOWN") return "/models/machine-down.glb";
   if (s === "IDLE") return "/models/machine-idle.glb";
+  if (s === "MAINTENANCE") return "/models/machine-maintenence.glb";
+  if (s === "OFFLINE") return "/models/machine-off.glb";
+  if (s === "RUNNING") return "/models/machine-running.glb";
   // Default to RUNNING for unknown/other states.
-  return "/models/machine-running.glb";
+  return "/models/machine.glb";
 }
 
 function setCursor(cursor) {
@@ -771,6 +774,9 @@ export default function DepartmentFloor3DViewer({
       "/models/machine-down.glb",
       "/models/transporter.glb",
       "/models/walkway.glb",
+      "/models/machine-maintenence.glb",
+      "/models/machine-off.glb",
+      
     ];
 
     // Preload all models in parallel
@@ -2446,7 +2452,7 @@ export default function DepartmentFloor3DViewer({
                   const isDefaultMachineUrl =
                     rawModelUrl === "" ||
                     rawModelUrl === DEFAULT_MODEL_URLS[ELEMENT_TYPES.MACHINE] ||
-                    rawModelUrl === "/models/machine_ultra_low.glb";
+                    rawModelUrl === "/models/machine.glb";
 
                   const url =
                     el?.type === ELEMENT_TYPES.MACHINE
@@ -2661,3 +2667,5 @@ useGLTF.preload("/models/machine-down.glb");
 useGLTF.preload("/models/machine-blender.glb");
 useGLTF.preload("/models/transporter.glb");
 useGLTF.preload("/models/walkway.glb");
+useGLTF.preload("/models/machine-maintenence.glb");
+useGLTF.preload("/models/machine-off.glb");

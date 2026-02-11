@@ -3,6 +3,109 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
+// Status to model URL mapping for non-fullscreen mode
+const STATUS_MODEL_MAP = {
+  RUNNING: "/models/machine-running.glb",
+  DOWN: "/models/machine-down.glb",
+  IDLE: "/models/machine-idle.glb",
+  WARNING: "/models/machine-idle.glb",
+  MAINTENANCE: "/models/machine-maintenence.glb",
+  OFFLINE: "/models/machine-off.glb",
+};
+
+// Extract geometry and material from a scene
+const extractGeometryMaterial = (scene) => {
+  let geo = null;
+  let mat = null;
+  
+  scene.traverse((child) => {
+    if (child.isMesh && !geo) {
+      geo = child.geometry;
+      mat = child.material;
+    }
+  });
+  
+  return {
+    geometry: geo?.clone() || new THREE.BoxGeometry(0.5, 0.5, 0.5),
+    material: mat?.clone() || new THREE.MeshStandardMaterial()
+  };
+};
+
+/**
+ * Single status group instanced mesh
+ */
+function StatusInstancedMesh({ machines, planeSize, floorY, modelUrl, onMachineClick }) {
+  const instancedRef = useRef();
+  const tempObject = useMemo(() => new THREE.Object3D(), []);
+  
+  const { scene } = useGLTF(modelUrl);
+  const { geometry, material } = useMemo(() => extractGeometryMaterial(scene), [scene]);
+  
+  const count = machines.length;
+  
+  // Position conversion helper
+  const normToPlane = (xNorm, yNorm) => {
+    const x = (Math.min(1, Math.max(0, xNorm)) - 0.5) * planeSize;
+    const z = (0.5 - Math.min(1, Math.max(0, yNorm))) * planeSize;
+    return { x, z };
+  };
+  
+  // Update instance matrices
+  useEffect(() => {
+    if (!instancedRef.current || count === 0) return;
+    
+    machines.forEach((machine, index) => {
+      const wNorm = Math.min(1, Math.max(0, Number(machine.w) || 0.12));
+      const hNorm = Math.min(1, Math.max(0, Number(machine.h) || 0.12));
+      const cx = Math.min(1, Math.max(0, (Number(machine.x) || 0.5) + wNorm / 2));
+      const cy = Math.min(1, Math.max(0, (Number(machine.y) || 0.5) + hNorm / 2));
+      const pos = normToPlane(cx, cy);
+      
+      const fitScale = Math.max(0.02, wNorm) * planeSize * 0.88;
+      const uniformScale = Math.max(0.01, Math.min(50, Number(machine.scale) || 1));
+      const finalScale = fitScale * uniformScale;
+      
+      const rotation = (Number(machine.rotationDeg) || 0) * (Math.PI / 180);
+      
+      tempObject.position.set(pos.x, floorY + 0.5, pos.z);
+      tempObject.rotation.set(0, rotation, 0);
+      tempObject.scale.set(finalScale, finalScale, finalScale);
+      tempObject.updateMatrix();
+      
+      instancedRef.current.setMatrixAt(index, tempObject.matrix);
+    });
+    
+    instancedRef.current.instanceMatrix.needsUpdate = true;
+  }, [machines, planeSize, floorY, tempObject, count]);
+  
+  const handleClick = (e) => {
+    if (!onMachineClick) return;
+    e.stopPropagation();
+    
+    const instanceId = e.instanceId;
+    if (instanceId !== undefined && machines[instanceId]) {
+      onMachineClick(machines[instanceId], e);
+    }
+  };
+  
+  if (count === 0) return null;
+  
+  return (
+    <instancedMesh
+      ref={instancedRef}
+      args={[geometry, material, count]}
+      onClick={handleClick}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = 'default';
+      }}
+    />
+  );
+}
+
 /**
  * GPU Instanced Machines - renders 100+ machines in a single draw call
  * This is the key optimization for Blender-level performance
@@ -10,35 +113,38 @@ import * as THREE from 'three';
 export function InstancedMachines({ machines, planeSize, floorY, fullScreen, onMachineClick }) {
   const instancedRef = useRef();
   const tempObject = useMemo(() => new THREE.Object3D(), []);
-  const tempMatrix = useMemo(() => new THREE.Matrix4(), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
   
-  // Load the model once
-  const modelUrl = fullScreen ? "/models/machine_ultra_low.glb" : "/models/machine-running.glb";
-  const { scene } = useGLTF(modelUrl);
+  // For fullscreen mode, use single model with color tinting
+  const fullScreenModelUrl = "/models/machine.glb";
+  const { scene: fullScreenScene } = useGLTF(fullScreenModelUrl);
   
-  // Extract geometry and material from the model
   const { geometry, material } = useMemo(() => {
-    let geo = null;
-    let mat = null;
+    if (!fullScreen) return { geometry: null, material: null };
+    return extractGeometryMaterial(fullScreenScene);
+  }, [fullScreenScene, fullScreen]);
+  
+  // Group machines by status for non-fullscreen mode
+  const machinesByStatus = useMemo(() => {
+    if (fullScreen) return {};
     
-    scene.traverse((child) => {
-      if (child.isMesh && !geo) {
-        geo = child.geometry;
-        mat = child.material;
+    const groups = {};
+    machines.forEach((machine) => {
+      const status = String(machine.status || "RUNNING").toUpperCase();
+      const normalizedStatus = Object.keys(STATUS_MODEL_MAP).includes(status) ? status : "RUNNING";
+      
+      if (!groups[normalizedStatus]) {
+        groups[normalizedStatus] = [];
       }
+      groups[normalizedStatus].push(machine);
     });
     
-    // Clone to avoid modifying cached version
-    return {
-      geometry: geo?.clone() || new THREE.BoxGeometry(0.5, 0.5, 0.5),
-      material: mat?.clone() || new THREE.MeshStandardMaterial()
-    };
-  }, [scene]);
+    return groups;
+  }, [machines, fullScreen]);
   
   const count = machines.length;
   
-  // Create color array for per-instance colors
+  // Create color array for per-instance colors (fullscreen mode)
   const colorArray = useMemo(() => {
     return new Float32Array(count * 3);
   }, [count]);
@@ -61,9 +167,9 @@ export function InstancedMachines({ machines, planeSize, floorY, fullScreen, onM
     return { x, z };
   };
   
-  // Update instance matrices and colors
+  // Update instance matrices and colors (fullscreen mode)
   useEffect(() => {
-    if (!instancedRef.current) return;
+    if (!fullScreen || !instancedRef.current) return;
     
     machines.forEach((machine, index) => {
       const wNorm = Math.min(1, Math.max(0, Number(machine.w) || 0.12));
@@ -78,7 +184,6 @@ export function InstancedMachines({ machines, planeSize, floorY, fullScreen, onM
       
       const rotation = (Number(machine.rotationDeg) || 0) * (Math.PI / 180);
       
-      // Set transformation
       tempObject.position.set(pos.x, floorY + 0.5, pos.z);
       tempObject.rotation.set(0, rotation, 0);
       tempObject.scale.set(finalScale, finalScale, finalScale);
@@ -86,7 +191,6 @@ export function InstancedMachines({ machines, planeSize, floorY, fullScreen, onM
       
       instancedRef.current.setMatrixAt(index, tempObject.matrix);
       
-      // Set color based on status
       const statusColor = getStatusColor(machine.status);
       tempColor.set(statusColor);
       colorArray[index * 3] = tempColor.r;
@@ -96,13 +200,12 @@ export function InstancedMachines({ machines, planeSize, floorY, fullScreen, onM
     
     instancedRef.current.instanceMatrix.needsUpdate = true;
     
-    // Update color attribute
     if (instancedRef.current.geometry.attributes.instanceColor) {
       instancedRef.current.geometry.attributes.instanceColor.needsUpdate = true;
     }
-  }, [machines, planeSize, floorY, colorArray, tempObject, tempColor, normToPlane]);
+  }, [machines, planeSize, floorY, colorArray, tempObject, tempColor, fullScreen]);
   
-  // Handle clicks on instances
+  // Handle clicks on instances (fullscreen mode)
   const handleClick = (e) => {
     if (!onMachineClick) return;
     e.stopPropagation();
@@ -113,6 +216,25 @@ export function InstancedMachines({ machines, planeSize, floorY, fullScreen, onM
     }
   };
   
+  // Non-fullscreen mode: render separate instanced meshes for each status
+  if (!fullScreen) {
+    return (
+      <group>
+        {Object.entries(machinesByStatus).map(([status, statusMachines]) => (
+          <StatusInstancedMesh
+            key={status}
+            machines={statusMachines}
+            planeSize={planeSize}
+            floorY={floorY}
+            modelUrl={STATUS_MODEL_MAP[status]}
+            onMachineClick={onMachineClick}
+          />
+        ))}
+      </group>
+    );
+  }
+  
+  // Fullscreen mode: single instanced mesh with color tinting
   return (
     <instancedMesh
       ref={instancedRef}
@@ -134,6 +256,10 @@ export function InstancedMachines({ machines, planeSize, floorY, fullScreen, onM
   );
 }
 
-// Preload models
-useGLTF.preload("/models/machine_ultra_low.glb");
+// Preload all models
+useGLTF.preload("/models/machine.glb");
 useGLTF.preload("/models/machine-running.glb");
+useGLTF.preload("/models/machine-down.glb");
+useGLTF.preload("/models/machine-idle.glb");
+useGLTF.preload("/models/machine-maintenence.glb");
+useGLTF.preload("/models/machine-off.glb");
