@@ -7,6 +7,8 @@ import Department3DLayoutPage from './pages/Department3DLayoutPage.jsx'
 import MachineModalRoutePage from './pages/MachineModalRoutePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
+import DepartmentFloorLayoutEditor from './components/layout/DepartmentFloorLayoutEditor.jsx'
+
 
 function isLoggedIn() {
   if (typeof localStorage === 'undefined') return false;
@@ -43,6 +45,8 @@ export default function App() {
             element={<MachineModalRoutePage />}
           />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/2d" element={<DepartmentFloorLayoutEditor />} />
+         
         </Route>
       </Routes>
 

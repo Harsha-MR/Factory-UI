@@ -934,7 +934,7 @@ export default function Department3DLayoutPage() {
                       ? "grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white"
                       : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
                   }
-                  title="Select / Move"
+                  title="Select"
                   onClick={() => setActiveTool("select")}
                 >
                   <svg
@@ -948,6 +948,33 @@ export default function Department3DLayoutPage() {
                       d="M5 3l6.5 15 1.9-5.1L18 11 5 3z"
                       stroke="currentColor"
                       strokeWidth="2"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    activeTool === "move"
+                      ? "grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white"
+                      : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
+                  }
+                  title="Move"
+                  onClick={() => setActiveTool("move")}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
                       strokeLinejoin="round"
                     />
                   </svg>
@@ -1292,7 +1319,18 @@ export default function Department3DLayoutPage() {
                     }
                     onClick={() => setActiveTool("select")}
                   >
-                    Select / Move
+                    Select
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      activeTool === "move"
+                        ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+                        : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                    }
+                    onClick={() => setActiveTool("move")}
+                  >
+                    Move
                   </button>
                   <button
                     type="button"
@@ -2079,7 +2117,6 @@ export default function Department3DLayoutPage() {
                 isFullscreen
                   ? (id) => {
                       setSelectedId(String(id || ""));
-                      setActiveTool("select");
                     }
                   : undefined
               }

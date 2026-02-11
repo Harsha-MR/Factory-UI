@@ -574,10 +574,10 @@ const MachineElement = memo(
             position={[0, 0.08, 0]}
             onPointerOver={(ev) => {
               ev.stopPropagation();
-              setCursor("grab");
+              if (!isDragging) setCursor("grab");
             }}
             onPointerOut={() => {
-              setCursor("default");
+              if (!isDragging) setCursor("default");
             }}
           >
             <boxGeometry args={[0.28, 0.18, 0.28]} />
@@ -989,6 +989,7 @@ export default function DepartmentFloor3DViewer({
 
   const isAddMode =
     typeof activeTool === "string" && activeTool.startsWith("add:");
+  const isMoveMode = activeTool === "move";
   const addType = isAddMode ? activeTool.slice("add:".length) : "";
   const addElementType =
     addType === "floor"
@@ -1063,9 +1064,9 @@ export default function DepartmentFloor3DViewer({
   const selectedObjectRef = useRef(null);
   // Enable controls for both fullScreen and non-fullScreen, but restrict features in non-fullScreen
   // Disable controls (pan/zoom) while adding or dragging zones/walkways
-  // CRITICAL: Disable orbit controls during dragging to keep screen static
+  // CRITICAL: Disable orbit controls during dragging or when in move mode to keep screen static
   const controlsEnabled =
-    !isOverlayAddToolActive && !isTransforming && !isAddDrawing && !draggingId;
+    !isOverlayAddToolActive && !isTransforming && !isAddDrawing && !draggingId && !isMoveMode;
 
   useEffect(() => {
     const cam = cameraRef.current;
@@ -1277,13 +1278,37 @@ export default function DepartmentFloor3DViewer({
     draggingNormRef.current = null;
     draggingOffsetRef.current = null;
     setDraggingId("");
-    setCursor("default");
+    setCursor(isMoveMode ? "grab" : "default");
     // Re-enable camera only if current mode allows it.
-    // (When adding Zone/Walkway, OrbitControls should remain disabled.)
+    // (When adding Zone/Walkway or in Move mode, OrbitControls should remain disabled.)
     setOrbitEnabledNow(
-      !isOverlayAddToolActive && !isTransforming && !isAddDrawing,
+      !isOverlayAddToolActive && !isTransforming && !isAddDrawing && !isMoveMode,
     );
   };
+
+  // Track dragging state in a ref for global event handlers
+  const isDraggingRef = useRef(false);
+  useEffect(() => {
+    isDraggingRef.current = !!draggingId;
+  }, [draggingId]);
+
+  // Global pointer up handler to ensure drag stops when mouse is released anywhere
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      if (isDraggingRef.current) {
+        stopDragging();
+      }
+      stopPanDrag();
+    };
+
+    document.addEventListener("pointerup", handleGlobalPointerUp);
+    document.addEventListener("pointercancel", handleGlobalPointerUp);
+
+    return () => {
+      document.removeEventListener("pointerup", handleGlobalPointerUp);
+      document.removeEventListener("pointercancel", handleGlobalPointerUp);
+    };
+  }, []); // Empty deps - listeners are added once and use refs
 
   // Show loading toast only for non-fullscreen
   useEffect(() => {
@@ -1489,16 +1514,12 @@ export default function DepartmentFloor3DViewer({
                           if (typeof onSelectElement === "function")
                             onSelectElement(id);
 
-                          if (activeTool === "select" && !isTransforming) {
-                            setOrbitEnabledNow(false);
-                            capturePointer(e);
-                          }
-
                           if (isTransforming) return;
 
+                          // Only enable dragging when move tool is active
                           if (
                             typeof onMoveElement === "function" &&
-                            activeTool === "select"
+                            isMoveMode
                           ) {
                             draggingObjectRef.current = e.currentTarget;
                             draggingNormRef.current = null;
@@ -1565,18 +1586,20 @@ export default function DepartmentFloor3DViewer({
                         allowEdit
                           ? (e) => {
                               e.stopPropagation();
-                              setCursor(
-                                activeTool === "select" && !isAddMode
-                                  ? "grab"
-                                  : "pointer",
-                              );
+                              if (!draggingId) {
+                                setCursor(
+                                  isMoveMode && !isAddMode
+                                    ? "grab"
+                                    : "pointer",
+                                );
+                              }
                             }
                           : undefined
                       }
                       onPointerOut={
                         allowEdit
                           ? () => {
-                              setCursor("default");
+                              if (!draggingId) setCursor("default");
                             }
                           : undefined
                       }
@@ -1636,15 +1659,10 @@ export default function DepartmentFloor3DViewer({
                         if (typeof onSelectElement === "function")
                           onSelectElement(id);
 
-                        if (activeTool === "select") {
-                          // Disable OrbitControls BEFORE capturing pointer
-                          setOrbitEnabledNow(false);
-                          capturePointer(e);
-                        }
-
+                        // Only enable dragging when move tool is active
                         if (
                           typeof onMoveElement === "function" &&
-                          activeTool === "select"
+                          isMoveMode
                         ) {
                           draggingObjectRef.current = e.currentTarget;
                           draggingNormRef.current = null;
@@ -1670,6 +1688,7 @@ export default function DepartmentFloor3DViewer({
                           setCursor("grabbing");
                           // Ensure controls are disabled during drag
                           setOrbitEnabledNow(false);
+                          capturePointer(e);
                         }
 
                         // Don't initiate drag immediately - wait for actual pointer movement
@@ -1706,10 +1725,10 @@ export default function DepartmentFloor3DViewer({
                 onPointerOver={
                   allowEdit
                     ? (e) => {
-                        if (isAddMode) return;
+                        if (isAddMode || draggingId) return;
                         e.stopPropagation();
                         setCursor(
-                          activeTool === "select" && !isAddMode
+                          isMoveMode && !isAddMode
                             ? "grab"
                             : "pointer",
                         );
@@ -1719,7 +1738,7 @@ export default function DepartmentFloor3DViewer({
                 onPointerOut={
                   allowEdit
                     ? () => {
-                        setCursor("default");
+                        if (!draggingId) setCursor("default");
                       }
                     : undefined
                 }
@@ -1970,15 +1989,10 @@ export default function DepartmentFloor3DViewer({
 
                         if (isTransforming) return;
 
-                        if (activeTool === "select") {
-                          // Disable OrbitControls BEFORE capturing pointer
-                          setOrbitEnabledNow(false);
-                          capturePointer(e);
-                        }
-
+                        // Only enable dragging when move tool is active
                         if (
                           typeof onMoveElement === "function" &&
-                          activeTool === "select"
+                          isMoveMode
                         ) {
                           draggingObjectRef.current =
                             e.eventObject?.parent || null;
@@ -2049,9 +2063,10 @@ export default function DepartmentFloor3DViewer({
                   onPointerOver={
                     allowEdit
                       ? (e) => {
+                          if (draggingId) return;
                           e.stopPropagation();
                           setCursor(
-                            activeTool === "select" && !isAddMode
+                            isMoveMode && !isAddMode
                               ? "grab"
                               : "pointer",
                           );
@@ -2061,7 +2076,7 @@ export default function DepartmentFloor3DViewer({
                   onPointerOut={
                     allowEdit
                       ? () => {
-                          setCursor("default");
+                          if (!draggingId) setCursor("default");
                         }
                       : undefined
                   }
@@ -2287,6 +2302,7 @@ export default function DepartmentFloor3DViewer({
                     if (!allowEdit) return;
                     handleFloorPointerMove(e);
 
+                    // Only enable dragging when move tool is active
                     if (
                       !draggingId &&
                       !isTransforming &&
@@ -2295,7 +2311,7 @@ export default function DepartmentFloor3DViewer({
                       String(selectedId) === String(el.id) &&
                       e.buttons === 1 &&
                       typeof onMoveElement === "function" &&
-                      activeTool === "select"
+                      isMoveMode
                     ) {
                       draggingObjectRef.current = e.eventObject;
                       draggingNormRef.current = null;
@@ -2335,9 +2351,9 @@ export default function DepartmentFloor3DViewer({
                     draggingId,
                     isTransforming,
                     isAddMode,
+                    isMoveMode,
                     selectedId,
                     onMoveElement,
-                    activeTool,
                     effectivePlaneSize,
                     getFloorHitFromEvent,
                     setOrbitEnabledNow,
@@ -2347,23 +2363,24 @@ export default function DepartmentFloor3DViewer({
                 const createPointerOverHandler = useCallback(
                   (allowEdit) => (e) => {
                     if (!allowEdit) return;
-                    if (isAddMode) return;
+                    if (isAddMode || draggingId) return;
                     e.stopPropagation();
+                    // Show grab cursor only in move mode, otherwise pointer
                     setCursor(
-                      activeTool === "select" && !isAddMode
+                      isMoveMode && !isAddMode
                         ? "grab"
                         : "pointer",
                     );
                   },
-                  [isAddMode, activeTool],
+                  [isAddMode, isMoveMode, draggingId],
                 );
 
                 const createPointerOutHandler = useCallback(
                   (allowEdit) => () => {
                     if (!allowEdit) return;
-                    setCursor("default");
+                    if (!draggingId) setCursor("default");
                   },
-                  [],
+                  [draggingId],
                 );
 
                 const createPointerEnterHandler = useCallback(
@@ -2411,9 +2428,9 @@ export default function DepartmentFloor3DViewer({
                       prev === machineId ? "" : prev,
                     );
                     setHoveredTooltipPosition(null);
-                    setCursor("default");
+                    if (!draggingId) setCursor("default");
                   },
-                  [],
+                  [draggingId],
                 );
 
                 const createClickHandler = useCallback(
