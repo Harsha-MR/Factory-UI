@@ -57,7 +57,8 @@ function computeDepartmentSummary(department) {
 
   let latestUpdatedAtMs = 0
   for (const m of machines) {
-    switch (m.status) {
+    const status = String(m?.status || '').toUpperCase()
+    switch (status) {
       case 'RUNNING':
         counts.running++
         break

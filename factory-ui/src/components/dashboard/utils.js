@@ -76,6 +76,41 @@ function toNum(v) {
  * Computes OEE% from common machine metrics (Availability * Performance * Quality).
  * Returns a number in [0, 100] or null when insufficient data.
  */
+/**
+ * Maps status to priority (lower number = higher priority = appears first)
+ * Priority order: DOWN > MAINTENANCE > IDLE > OFFLINE > RUNNING
+ */
+function getStatusPriority(status) {
+  const s = String(status || '').toUpperCase()
+  switch (s) {
+    case 'DOWN':
+      return 1
+    case 'MAINTENANCE':
+      return 2
+    case 'IDLE':
+      return 3
+    case 'OFFLINE':
+      return 4
+    case 'RUNNING':
+      return 5
+    default:
+      return 6 // Unknown status goes last
+  }
+}
+
+/**
+ * Sorts machines by status priority (critical issues first)
+ * Returns a new sorted array without mutating the original
+ */
+export function sortMachinesByStatus(machines) {
+  if (!Array.isArray(machines)) return []
+  return [...machines].sort((a, b) => {
+    const priorityA = getStatusPriority(a?.status)
+    const priorityB = getStatusPriority(b?.status)
+    return priorityA - priorityB
+  })
+}
+
 export function computeMachineOeePct(machine) {
   const plannedProductionTime = toNum(machine?.plannedProductionTime)
   const runTime = toNum(machine?.runTime)

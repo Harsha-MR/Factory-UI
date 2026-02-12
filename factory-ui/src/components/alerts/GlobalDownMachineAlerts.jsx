@@ -80,7 +80,7 @@ export default function GlobalDownMachineAlerts() {
         const snapshot = await getMachinesSnapshot()
         if (cancelled) return
 
-        const nextDown = snapshot.filter((x) => String(x?.machine?.status || '') === 'DOWN')
+        const nextDown = snapshot.filter((x) => String(x?.machine?.status || '').toUpperCase() === 'DOWN')
 
         // Keep list stable-ish (so ticker doesn't jump around):
         // 1) preserve previous ordering where possible

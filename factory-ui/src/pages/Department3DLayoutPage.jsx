@@ -246,7 +246,7 @@ export default function Department3DLayoutPage() {
     IDLE: true,
     DOWN: true,
     MAINTENANCE: true,
-    OFF: true,
+    OFFLINE: true,
     ALL: true,
   });
   const [machineForm, setMachineForm] = useState({
@@ -2052,7 +2052,7 @@ export default function Department3DLayoutPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {["RUNNING", "IDLE", "DOWN", "MAINTENANCE", "OFF", "ALL"].map(
+                  {["RUNNING", "IDLE", "DOWN", "MAINTENANCE", "OFFLINE", "ALL"].map(
                     (s) => (
                       <button
                         key={s}
@@ -2069,7 +2069,7 @@ export default function Department3DLayoutPage() {
                               IDLE: true,
                               DOWN: true,
                               MAINTENANCE: true,
-                              OFF: true,
+                              OFFLINE: true,
                               ALL: true,
                             });
                           } else {
@@ -2078,7 +2078,7 @@ export default function Department3DLayoutPage() {
                               IDLE: false,
                               DOWN: false,
                               MAINTENANCE: false,
-                              OFF: false,
+                              OFFLINE: false,
                               [s]: true,
                             });
                           }

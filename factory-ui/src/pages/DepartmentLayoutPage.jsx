@@ -50,11 +50,12 @@ export default function DepartmentLayoutPage() {
   }, [deptResult])
 
   const allMachinesCounts = useMemo(() => {
-    const counts = { RUNNING: 0, IDLE: 0, DOWN: 0 }
+    const counts = { RUNNING: 0, IDLE: 0, DOWN: 0, MAINTENANCE: 0, OFFLINE: 0 }
     for (const m of allMachines) {
-      if (m?.status === 'RUNNING') counts.RUNNING++
-      else if (m?.status === 'IDLE') counts.IDLE++
-      else if (m?.status === 'DOWN') counts.DOWN++
+      const status = String(m?.status || '').toUpperCase()
+      if (counts.hasOwnProperty(status)) {
+        counts[status]++
+      }
     }
     return counts
   }, [allMachines])

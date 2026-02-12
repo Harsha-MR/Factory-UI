@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
+import { sortMachinesByStatus } from './utils'
 
 function statusUi(status) {
-  if (status === 'DOWN') {
+  const s = String(status || '').toUpperCase()
+  if (s === 'DOWN') {
     return {
       dot: 'bg-red-500',
       label: 'Down',
@@ -9,12 +11,28 @@ function statusUi(status) {
       bubbleRing: 'ring-red-100',
     }
   }
-  if (status === 'IDLE') {
+  if (s === 'IDLE') {
     return {
       dot: 'bg-amber-400',
       label: 'Idle',
       bubbleBg: 'bg-amber-50',
       bubbleRing: 'ring-amber-100',
+    }
+  }
+  if (s === 'MAINTENANCE') {
+    return {
+      dot: 'bg-purple-500',
+      label: 'Maintenance',
+      bubbleBg: 'bg-purple-50',
+      bubbleRing: 'ring-purple-100',
+    }
+  }
+  if (s === 'OFFLINE') {
+    return {
+      dot: 'bg-gray-400',
+      label: 'Offline',
+      bubbleBg: 'bg-gray-50',
+      bubbleRing: 'ring-gray-100',
     }
   }
   return {
@@ -128,7 +146,7 @@ export default function DepartmentZonesCard({
 }) {
   const list = useMemo(() => (Array.isArray(machines) ? machines : []), [machines])
   const total = list.length
-  const active = useMemo(() => list.filter((m) => m?.status === 'RUNNING').length, [list])
+  const active = useMemo(() => list.filter((m) => String(m?.status || '').toUpperCase() === 'RUNNING').length, [list])
 
   const { cls: badgeCls, text: badgeText } = deptBadge(summary?.severity || 'OK')
 
@@ -138,7 +156,7 @@ export default function DepartmentZonesCard({
       return z.map((zone, idx) => ({
         id: zone?.id || `z-${idx}`,
         name: zone?.name || zoneLabel(idx),
-        machines: Array.isArray(zone?.machines) ? zone.machines : [],
+        machines: sortMachinesByStatus(Array.isArray(zone?.machines) ? zone.machines : []),
       }))
     }
 
@@ -147,7 +165,7 @@ export default function DepartmentZonesCard({
     return chunks.map((group, idx) => ({
       id: `z-${idx}`,
       name: zoneLabel(idx),
-      machines: group,
+      machines: sortMachinesByStatus(group),
     }))
   }, [list, zones])
 

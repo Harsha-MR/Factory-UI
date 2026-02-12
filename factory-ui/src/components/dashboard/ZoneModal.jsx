@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MachineCard from './MachineCard'
+import { sortMachinesByStatus } from './utils'
 
 export default function ZoneModal({
   zone,
@@ -10,7 +11,7 @@ export default function ZoneModal({
   fetchedAt,
 }) {
   const activeZoneButtonRef = useRef(null)
-  const [statusFilter, setStatusFilter] = useState('ALL') // ALL | RUNNING | IDLE | DOWN
+  const [statusFilter, setStatusFilter] = useState('ALL') // ALL | RUNNING | IDLE | DOWN | MAINTENANCE | OFFLINE
 
   const safeZones = useMemo(() => (Array.isArray(zones) ? zones : []), [zones])
   const machines = useMemo(
@@ -28,18 +29,23 @@ export default function ZoneModal({
   }, [onClose])
 
   const statusCounts = useMemo(() => {
-    const counts = { RUNNING: 0, IDLE: 0, DOWN: 0 }
+    const counts = { RUNNING: 0, IDLE: 0, DOWN: 0, MAINTENANCE: 0, OFFLINE: 0 }
     for (const m of machines) {
-      if (m?.status === 'RUNNING') counts.RUNNING++
-      else if (m?.status === 'IDLE') counts.IDLE++
-      else if (m?.status === 'DOWN') counts.DOWN++
+      const status = String(m?.status || '').toUpperCase()
+      if (counts.hasOwnProperty(status)) {
+        counts[status]++
+      }
     }
     return counts
   }, [machines])
 
   const filteredMachines = useMemo(() => {
-    if (statusFilter === 'ALL') return machines
-    return machines.filter((m) => m?.status === statusFilter)
+    let filtered = machines
+    if (statusFilter !== 'ALL') {
+      filtered = machines.filter((m) => String(m?.status || '').toUpperCase() === statusFilter)
+    }
+    // Sort machines by status priority (critical issues first)
+    return sortMachinesByStatus(filtered)
   }, [machines, statusFilter])
 
   function filterBtnClass(isActive) {
@@ -88,6 +94,13 @@ export default function ZoneModal({
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                className={filterBtnClass(statusFilter === 'ALL')}
+                onClick={() => setStatusFilter('ALL')}
+              >
+                ALL ({machines.length})
+              </button>
+              <button
+                type="button"
                 className={filterBtnClass(statusFilter === 'RUNNING')}
                 onClick={() => setStatusFilter('RUNNING')}
               >
@@ -106,6 +119,20 @@ export default function ZoneModal({
                 onClick={() => setStatusFilter('DOWN')}
               >
                 DOWN ({statusCounts.DOWN})
+              </button>
+              <button
+                type="button"
+                className={filterBtnClass(statusFilter === 'MAINTENANCE')}
+                onClick={() => setStatusFilter('MAINTENANCE')}
+              >
+                MAINTENANCE ({statusCounts.MAINTENANCE})
+              </button>
+              <button
+                type="button"
+                className={filterBtnClass(statusFilter === 'OFFLINE')}
+                onClick={() => setStatusFilter('OFFLINE')}
+              >
+                OFFLINE ({statusCounts.OFFLINE})
               </button>
 
               <button

@@ -37,8 +37,11 @@ function computeMachineKpis(machine) {
 }
 
 function statusPill(status) {
-  if (status === 'DOWN') return 'bg-red-600 text-white'
-  if (status === 'IDLE') return 'bg-yellow-500 text-white'
+  const s = String(status || '').toUpperCase()
+  if (s === 'DOWN') return 'bg-red-600 text-white'
+  if (s === 'IDLE') return 'bg-yellow-500 text-white'
+  if (s === 'MAINTENANCE') return 'bg-purple-600 text-white'
+  if (s === 'OFFLINE') return 'bg-gray-500 text-white'
   return 'bg-emerald-600 text-white'
 }
 
