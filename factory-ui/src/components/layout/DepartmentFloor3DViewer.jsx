@@ -156,9 +156,15 @@ function machineModelUrlForStatus(status, fullScreen = false) {
   return "/models/machine.glb";
 }
 
+// Optimized cursor management - avoid unnecessary DOM updates
+let currentCursor = "default";
 function setCursor(cursor) {
   if (typeof document === "undefined") return;
-  document.body.style.cursor = cursor || "default";
+  const newCursor = cursor || "default";
+  if (currentCursor !== newCursor) {
+    currentCursor = newCursor;
+    document.body.style.cursor = newCursor;
+  }
 }
 
 function noRaycast() {
@@ -946,10 +952,12 @@ export default function DepartmentFloor3DViewer({
   const addDragRef = useRef(null);
   const addPreviewRafRef = useRef(0);
   const hoverRafRef = useRef(0);
+  const draggingRafRef = useRef(0); // RAF for optimized dragging
 
   useEffect(() => {
     return () => {
       if (hoverRafRef.current) cancelAnimationFrame(hoverRafRef.current);
+      if (draggingRafRef.current) cancelAnimationFrame(draggingRafRef.current);
     };
   }, []);
 
@@ -1153,17 +1161,23 @@ export default function DepartmentFloor3DViewer({
 
         draggingNormRef.current = targetNorm;
 
-        // Update object position directly without forcing matrix recalculation
+        // Optimized: Update object position directly for smooth dragging
+        // Use requestAnimationFrame to batch position updates
         const obj = draggingObjectRef.current;
-        if (obj) {
-          const pos = normToPlane(
-            clamp01(targetNorm.x),
-            clamp01(targetNorm.y),
-            effectivePlaneSize,
-          );
-          obj.position.x = pos.x;
-          obj.position.z = pos.z;
-          // Matrix will be updated automatically on next render
+        if (obj && !draggingRafRef.current) {
+          draggingRafRef.current = requestAnimationFrame(() => {
+            draggingRafRef.current = 0;
+            const currentNorm = draggingNormRef.current;
+            if (currentNorm) {
+              const pos = normToPlane(
+                clamp01(currentNorm.x),
+                clamp01(currentNorm.y),
+                effectivePlaneSize,
+              );
+              obj.position.x = pos.x;
+              obj.position.z = pos.z;
+            }
+          });
         }
       }
     },
@@ -2611,8 +2625,8 @@ export default function DepartmentFloor3DViewer({
 
           <OrbitControls
             ref={orbitRef}
-            enablePan={fullScreen}
-            enableZoom={true}
+            enablePan={fullScreen && !isMoveMode}
+            enableZoom={!isMoveMode}
             // Disable rotation in fullscreen - only gizmo can rotate
             enableRotate={!fullScreen}
             // Keep preview zoom range tighter so it looks like the desired default.
@@ -2675,11 +2689,13 @@ export default function DepartmentFloor3DViewer({
           ? "Hover machine for details • Click machine to open"
           : isOverlayAddToolActive
             ? "Click + drag + release to draw • Camera drag disabled"
-            : isAddMode
-              ? "Click to place"
-              : selectedId
-                ? "Drag to move • Use gizmo to scale"
-                : "Click to select • Drag to move"}
+            : isMoveMode
+              ? "🔒 MOVE MODE: Camera locked • Click object to move • Gizmo active"
+              : isAddMode
+                ? "Click to place"
+                : selectedId
+                  ? "Drag to move • Use gizmo to scale"
+                  : "Click to select • Drag to move"}
       </div>
     </div>
   );

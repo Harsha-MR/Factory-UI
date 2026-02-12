@@ -25,6 +25,7 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
   const rotationStartRef = useRef({ azimuth: 0, polar: 0 });
   const animationRef = useRef(null);
   const axisButtonsRef = useRef([]);
+  const orbitControlsOriginalStateRef = useRef(null); // Store original state
   const ROTATION_STEP = THREE.MathUtils.degToRad(15); // 15 degrees per step
 
   // Calculate camera angles for gizmo orientation
@@ -553,7 +554,9 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
       const angles = getCameraAngles();
       rotationStartRef.current = angles;
       
+      // Store original state before disabling
       if (orbitControlsRef?.current) {
+        orbitControlsOriginalStateRef.current = orbitControlsRef.current.enabled;
         orbitControlsRef.current.enabled = false;
       }
     };
@@ -566,8 +569,10 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
         
         setIsDragging(false);
         
-        if (orbitControlsRef?.current) {
-          orbitControlsRef.current.enabled = true;
+        // Restore original state (don't force enable if it was disabled)
+        if (orbitControlsRef?.current && orbitControlsOriginalStateRef.current !== null) {
+          orbitControlsRef.current.enabled = orbitControlsOriginalStateRef.current;
+          orbitControlsOriginalStateRef.current = null;
         }
       }
     };
