@@ -474,6 +474,48 @@ const FallbackMarker = memo(function FallbackMarker({ selected }) {
   );
 });
 
+// Anchor point indicators for precise positioning in move mode
+const AnchorPoints = memo(function AnchorPoints({ width, depth, yOffset = 0.15 }) {
+  const anchorRadius = 0.08;
+  const anchorColor = "#fbbf24"; // Amber color for visibility
+  
+  // Calculate positions: 4 corners + center
+  const halfW = width / 2;
+  const halfD = depth / 2;
+  
+  const positions = [
+    [0, yOffset, 0],           // Center
+    [-halfW, yOffset, -halfD], // Top-left
+    [halfW, yOffset, -halfD],  // Top-right
+    [-halfW, yOffset, halfD],  // Bottom-left
+    [halfW, yOffset, halfD],   // Bottom-right
+  ];
+  
+  return (
+    <group>
+      {positions.map((pos, i) => (
+        <mesh key={i} position={pos}>
+          <sphereGeometry args={[anchorRadius, 8, 8]} />
+          <meshBasicMaterial 
+            color={anchorColor} 
+            transparent 
+            opacity={i === 0 ? 0.9 : 0.7}
+            depthTest={false}
+          />
+        </mesh>
+      ))}
+      {/* Corner connections - visual guide */}
+      <lineSegments position={[0, yOffset, 0]}>
+        <edgesGeometry 
+          attach="geometry" 
+          args={[new THREE.BoxGeometry(width, 0.01, depth)]} 
+        />
+        <lineBasicMaterial color={anchorColor} opacity={0.5} transparent />
+      </lineSegments>
+    </group>
+  );
+});
+
 // Memoized Machine Element Component - prevents expensive re-renders
 const MachineElement = memo(
   function MachineElement({
@@ -506,12 +548,16 @@ const MachineElement = memo(
     onPointerMoveOverMachine,
     onClick,
     selectedObjectRef,
+    hoveredElementId,
+    isMoveMode,
   }) {
     const wNorm = clamp01(Number(el.w) || 0.12);
     const hNorm = clamp01(Number(el.h) || 0.12);
     const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2);
     const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2);
     const pos = normToPlane(cx, cy, effectivePlaneSize);
+    
+    const isHovered = isMoveMode && hoveredElementId === String(el.id);
 
     const content = (
       <group
@@ -591,6 +637,11 @@ const MachineElement = memo(
             <meshBasicMaterial color="#fdba74" wireframe />
           </mesh>
         ) : null}
+        
+        {/* Show anchor points when hovered in move mode */}
+        {isHovered ? (
+          <AnchorPoints width={0.35} depth={0.35} yOffset={0.25} />
+        ) : null}
       </group>
     );
 
@@ -603,6 +654,8 @@ const MachineElement = memo(
       prev.isSelected === next.isSelected &&
       prev.isDragging === next.isDragging &&
       prev.hoveredMachineId === next.hoveredMachineId &&
+      prev.hoveredElementId === next.hoveredElementId &&
+      prev.isMoveMode === next.isMoveMode &&
       prev.showLabel === next.showLabel &&
       prev.uniformScale === next.uniformScale &&
       prev.machineStatus === next.machineStatus &&
@@ -824,6 +877,7 @@ export default function DepartmentFloor3DViewer({
   const [hoverNorm, setHoverNorm] = useState(null);
   const [hoverNormRaw, setHoverNormRaw] = useState(null);
   const [hoveredMachineId, setHoveredMachineId] = useState("");
+  const [hoveredElementId, setHoveredElementId] = useState(""); // For anchor points in move mode
   const [isTransforming, setIsTransforming] = useState(false);
   const [isAddDrawing, setIsAddDrawing] = useState(false);
   const [addPreview, setAddPreview] = useState(null);
@@ -1604,6 +1658,9 @@ export default function DepartmentFloor3DViewer({
                           ? (e) => {
                               e.stopPropagation();
                               if (!draggingId) {
+                                if (isMoveMode) {
+                                  setHoveredElementId(id);
+                                }
                                 setCursor(
                                   isMoveMode && !isAddMode
                                     ? "grab"
@@ -1616,7 +1673,10 @@ export default function DepartmentFloor3DViewer({
                       onPointerOut={
                         allowEdit
                           ? () => {
-                              if (!draggingId) setCursor("default");
+                              if (!draggingId) {
+                                setCursor("default");
+                                setHoveredElementId("");
+                              }
                             }
                           : undefined
                       }
@@ -1630,6 +1690,11 @@ export default function DepartmentFloor3DViewer({
                       />
                       <Edges color={isSelected ? "#fdba74" : "#94a3b8"} />
                     </mesh>
+                  ) : null}
+                  
+                  {/* Show anchor points when hovered in move mode */}
+                  {isMoveMode && hoveredElementId === id && id !== "__default_floor__" ? (
+                    <AnchorPoints width={w} depth={d} yOffset={0.1} />
                   ) : null}
                 </group>
               );
@@ -1744,6 +1809,9 @@ export default function DepartmentFloor3DViewer({
                     ? (e) => {
                         if (isAddMode || draggingId) return;
                         e.stopPropagation();
+                        if (isMoveMode) {
+                          setHoveredElementId(id);
+                        }
                         setCursor(
                           isMoveMode && !isAddMode
                             ? "grab"
@@ -1755,7 +1823,10 @@ export default function DepartmentFloor3DViewer({
                 onPointerOut={
                   allowEdit
                     ? () => {
-                        if (!draggingId) setCursor("default");
+                        if (!draggingId) {
+                          setCursor("default");
+                          setHoveredElementId("");
+                        }
                       }
                     : undefined
                 }
@@ -1783,6 +1854,11 @@ export default function DepartmentFloor3DViewer({
                     <Edges color="#ffffff" />
                   )}
                 </mesh>
+                
+                {/* Show anchor points when hovered in move mode */}
+                {isMoveMode && hoveredElementId === id ? (
+                  <AnchorPoints width={w} depth={d} yOffset={0.1} />
+                ) : null}
               </group>
             );
           })}
@@ -2082,6 +2158,9 @@ export default function DepartmentFloor3DViewer({
                       ? (e) => {
                           if (draggingId) return;
                           e.stopPropagation();
+                          if (isMoveMode) {
+                            setHoveredElementId(id);
+                          }
                           setCursor(
                             isMoveMode && !isAddMode
                               ? "grab"
@@ -2093,7 +2172,10 @@ export default function DepartmentFloor3DViewer({
                   onPointerOut={
                     allowEdit
                       ? () => {
-                          if (!draggingId) setCursor("default");
+                          if (!draggingId) {
+                            setCursor("default");
+                            setHoveredElementId("");
+                          }
                         }
                       : undefined
                   }
@@ -2107,6 +2189,11 @@ export default function DepartmentFloor3DViewer({
                   />
                   <Edges color={isSelected ? "#fdba74" : "#ffffff"} />
                 </mesh>
+                
+                {/* Show anchor points when hovered in move mode */}
+                {isMoveMode && hoveredElementId === id ? (
+                  <AnchorPoints width={w} depth={d} yOffset={0.1} />
+                ) : null}
               </group>
             );
           })}
@@ -2538,6 +2625,8 @@ export default function DepartmentFloor3DViewer({
                       labelText={labelText}
                       oeePct={oeePct}
                       hoveredMachineId={hoveredMachineId}
+                      hoveredElementId={hoveredElementId}
+                      isMoveMode={isMoveMode}
                       fullScreen={fullScreen}
                       showLabel={showLabel}
                       allowEdit={allowEdit}
@@ -2626,7 +2715,7 @@ export default function DepartmentFloor3DViewer({
           <OrbitControls
             ref={orbitRef}
             enablePan={fullScreen && !isMoveMode}
-            enableZoom={!isMoveMode}
+            enableZoom={true}
             // Disable rotation in fullscreen - only gizmo can rotate
             enableRotate={!fullScreen}
             // Keep preview zoom range tighter so it looks like the desired default.
@@ -2690,7 +2779,7 @@ export default function DepartmentFloor3DViewer({
           : isOverlayAddToolActive
             ? "Click + drag + release to draw • Camera drag disabled"
             : isMoveMode
-              ? "🔒 MOVE MODE: Camera locked • Click object to move • Gizmo active"
+              ? "🎯 MOVE MODE: Pan locked • Zoom active • Click & drag to move • Gizmo works"
               : isAddMode
                 ? "Click to place"
                 : selectedId
