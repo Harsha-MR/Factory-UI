@@ -475,7 +475,7 @@ export default function DepartmentFloor2DViewer({
           );
           const total = Math.max(1, zoneMachines.length);
           const cols = 10;
-          const rows = Math.max(1, Math.ceil(total / cols));
+          const rows = Math.max(3, Math.ceil(total / cols));
           const gapX = Math.max(0.002, bodyW * 0.01);
           const gapY = Math.max(0.002, bodyH * 0.02);
           const cellW = Math.max(0.01, (bodyW - gapX * (cols - 1)) / cols);
