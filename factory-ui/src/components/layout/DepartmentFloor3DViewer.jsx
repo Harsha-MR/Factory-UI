@@ -723,6 +723,7 @@ function LoadingToast({ show, message }) {
 
 export default function DepartmentFloor3DViewer({
   scale = 1,
+  planeScale = 1,
   autoRotate = false,
   elements = [],
   activeTool = "select",
@@ -794,9 +795,12 @@ export default function DepartmentFloor3DViewer({
   const [addPreview, setAddPreview] = useState(null);
   // `planeSize` comes from auto-layout (zones/machines). `scale` is a global multiplier.
   // For the overlay-based floor, `planeSize` controls camera + world scale only.
+  // `planeScale` expands the world when zone/machine counts grow (prevents shrink).
+  const effectivePlaneScale = clamp(Number(planeScale) || 1, 0.25, 50);
   const effectivePlaneSize =
     Math.max(0.01, Number(planeSize) || DEFAULT_PLANE_SIZE) *
-    clamp(Number(scale) || 1, 0.01, 50);
+    clamp(Number(scale) || 1, 0.01, 50) *
+    effectivePlaneScale;
 
   const effectiveFloorY = 0;
   // Keep lifts in world units. Use a larger machine lift to ensure the semi-transparent
@@ -1411,6 +1415,7 @@ export default function DepartmentFloor3DViewer({
 
               // Disable all editing interactions in non-fullScreen
               const allowEdit = fullScreen;
+              const allowMove = false;
 
               return (
                 <group
@@ -1430,43 +1435,44 @@ export default function DepartmentFloor3DViewer({
                           if (typeof onSelectElement === "function")
                             onSelectElement(id);
 
-                          if (activeTool === "select" && !isTransforming) {
-                            setOrbitEnabledNow(false);
-                            capturePointer(e);
-                          }
+                        if (activeTool === "select" && !isTransforming) {
+                          setOrbitEnabledNow(false);
+                          capturePointer(e);
+                        }
 
-                          if (isTransforming) return;
+                        if (isTransforming) return;
 
-                          if (
-                            typeof onMoveElement === "function" &&
-                            activeTool === "select"
-                          ) {
-                            draggingObjectRef.current = e.currentTarget;
-                            draggingNormRef.current = null;
-                            if (typeof getFloorHitFromEvent === "function") {
-                              const hit = getFloorHitFromEvent(e);
-                              if (hit) {
-                                const pointerNorm = planeToNorm(
-                                  hit.x,
-                                  hit.z,
-                                  effectivePlaneSize,
-                                );
-                                // Store precise offset from cursor to center
-                                draggingOffsetRef.current = {
-                                  x: cx - pointerNorm.x,
-                                  y: cy - pointerNorm.y,
-                                };
-                              } else {
-                                draggingOffsetRef.current = null;
-                              }
+                        if (
+                          allowMove &&
+                          typeof onMoveElement === "function" &&
+                          activeTool === "select"
+                        ) {
+                          draggingObjectRef.current = e.currentTarget;
+                          draggingNormRef.current = null;
+                          if (typeof getFloorHitFromEvent === "function") {
+                            const hit = getFloorHitFromEvent(e);
+                            if (hit) {
+                              const pointerNorm = planeToNorm(
+                                hit.x,
+                                hit.z,
+                                effectivePlaneSize,
+                              );
+                              // Store precise offset from cursor to center
+                              draggingOffsetRef.current = {
+                                x: cx - pointerNorm.x,
+                                y: cy - pointerNorm.y,
+                              };
                             } else {
                               draggingOffsetRef.current = null;
                             }
-                            setDraggingId(id);
-                            setCursor("grabbing");
-                            setOrbitEnabledNow(false);
-                            capturePointer(e);
+                          } else {
+                            draggingOffsetRef.current = null;
                           }
+                          setDraggingId(id);
+                          setCursor("grabbing");
+                          setOrbitEnabledNow(false);
+                          capturePointer(e);
+                        }
                         }
                       : undefined
                   }
@@ -1554,6 +1560,7 @@ export default function DepartmentFloor3DViewer({
 
             // Disable all editing interactions in non-fullScreen
             const allowEdit = fullScreen;
+            const allowMove = false;
             return (
               <group
                 key={id}
@@ -1584,6 +1591,7 @@ export default function DepartmentFloor3DViewer({
                         }
 
                         if (
+                          allowMove &&
                           typeof onMoveElement === "function" &&
                           activeTool === "select"
                         ) {
@@ -1812,6 +1820,7 @@ export default function DepartmentFloor3DViewer({
                         }
 
                         if (
+                          allowMove &&
                           typeof onMoveElement === "function" &&
                           activeTool === "select"
                         ) {
@@ -2098,18 +2107,30 @@ export default function DepartmentFloor3DViewer({
                       handleAddPointerDown(e);
                       return;
                     }
+                    // Prevent OrbitControls from receiving the same pointer down.
                     e.stopPropagation();
+                    e.nativeEvent?.stopPropagation?.();
+                    e.nativeEvent?.stopImmediatePropagation?.();
+                    e.nativeEvent?.preventDefault?.();
                     if (isTransforming) return;
                     if (typeof onSelectElement === "function")
                       onSelectElement(String(el.id));
+                    if (activeTool === "select") {
+                      setOrbitEnabledNow(false);
+                      capturePointer(e);
+                    }
                   } else if (canOpenDetails) {
                     e.stopPropagation();
                     onOpenMachineDetails(machineId);
                   }
-                }, [isAddMode, isTransforming, onSelectElement, onOpenMachineDetails]);
+                }, [isAddMode, isTransforming, onSelectElement, onOpenMachineDetails, activeTool, setOrbitEnabledNow]);
 
                 const createPointerMoveHandler = useCallback((el, isSelected, allowEdit) => (e) => {
                   if (!allowEdit) return;
+                  // Stop propagation during drag to keep camera static.
+                  e.stopPropagation();
+                  e.nativeEvent?.stopPropagation?.();
+                  e.nativeEvent?.stopImmediatePropagation?.();
                   handleFloorPointerMove(e);
                   
                   if (
@@ -2443,5 +2464,3 @@ useGLTF.preload("/models/machine-down.glb");
 useGLTF.preload("/models/machine-blender.glb");
 useGLTF.preload("/models/transporter.glb");
 useGLTF.preload("/models/walkway.glb");
-
-

@@ -65,6 +65,7 @@ export function normalizeLayout(raw) {
         floorModelUrl: raw.threeD.floorModelUrl ? String(raw.threeD.floorModelUrl) : undefined,
         floorModelScale: coerceNum(raw.threeD.floorModelScale, 1),
         floorModelAutoRotate: !!raw.threeD.floorModelAutoRotate,
+        planeScale: coerceNum(raw.threeD.planeScale, 1),
       }
     : null
 

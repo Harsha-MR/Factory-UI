@@ -4,6 +4,7 @@ export function createDefaultLayoutForDepartment(department) {
   const zones = Array.isArray(department?.zones) ? department.zones : []
 
   const elements = []
+  const basePlaneScale = 1
 
   const zoneCount = zones.length
   if (zoneCount === 0) {
@@ -22,6 +23,7 @@ export function createDefaultLayoutForDepartment(department) {
       version: 1,
       background: null,
       assets: {},
+      threeD: { planeScale: basePlaneScale },
       elements,
       updatedAt: null,
     }
@@ -90,6 +92,7 @@ export function createDefaultLayoutForDepartment(department) {
   // Scale down uniformly if we don't fit.
   const maxCanvas = 0.92
   const scale = Math.min(1, maxCanvas / Math.max(baseTotalW, 0.0001), maxCanvas / Math.max(baseTotalH, 0.0001))
+  const planeScale = scale > 0 ? 1 / scale : 1
 
   const floorPad = baseFloorPad * scale
   const gutterX = baseGutterX * scale
@@ -192,6 +195,7 @@ export function createDefaultLayoutForDepartment(department) {
     version: 1,
     background: null,
     assets: {},
+    threeD: { planeScale },
     elements,
     updatedAt: null,
   }
