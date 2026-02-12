@@ -247,7 +247,7 @@ export default function Dashboard() {
         </h1>
       </div>
 
-      <div className="rounded border  p-4">
+      <div className="rounded border bg-white  p-4">
         <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-4 md:items-end ">
           <Select
             label="Factory"

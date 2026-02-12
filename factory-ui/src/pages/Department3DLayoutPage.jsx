@@ -29,6 +29,7 @@ const MODEL_LIBRARY = {
 
 const FLOOR_MODEL_OPTIONS = [
   // { label: "Floor plan 1", url: "/models/pre-defined-models/floor/floor-plan1.glb" },
+  {label: "Planefloor", url: "/models/floor-model.glb"},
   { label: "Floor plan(2x3)", url: "/models/pre-defined-models/floor/floor(2x3).glb" },
   { label: "Floor plan(2x2)", url: "/models/pre-defined-models/floor/floor(2x2).glb" },
   { label: "Floor plan(1x2)", url: "/models/pre-defined-models/floor/floor(1x2).glb" },

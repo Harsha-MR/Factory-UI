@@ -10,6 +10,7 @@ import RegisterPage from './pages/RegisterPage.jsx'
 import HomePage from './pages/HomePage.jsx'
 import DepartmentFloorLayoutEditor from './components/layout/DepartmentFloorLayoutEditor.jsx'
 import { isAuthenticated } from './utils/auth.js'
+import DepartmentLayoutPage from './pages/DepartmentLayoutPage.jsx'
 
 export default function App() {
   const location = useLocation();
@@ -29,6 +30,7 @@ export default function App() {
       <Routes location={backgroundLocation || location}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/abc" element={<DepartmentLayoutPage />} />
         <Route element={<AppShell />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<Dashboard />} />

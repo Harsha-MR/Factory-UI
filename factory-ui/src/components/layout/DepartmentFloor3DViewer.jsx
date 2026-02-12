@@ -22,11 +22,13 @@ import {
 } from "@react-three/drei";
 import {
   Box3,
+  BoxGeometry,
   Color,
   Frustum,
   Matrix4,
   MOUSE,
   Plane,
+  Sphere,
   Vector2,
   Vector3,
 } from "three";
@@ -268,7 +270,7 @@ function useFrustumCulling(objects, camera, enabled = true) {
         // Use bounding sphere for fast culling
         const pos = obj.position || { x: 0, y: 0, z: 0 };
         const radius = obj.radius || 0.5; // Approximate machine size
-        const sphere = new THREE.Sphere(
+        const sphere = new Sphere(
           new Vector3(pos.x, pos.y || 0, pos.z),
           radius,
         );
@@ -508,7 +510,7 @@ const AnchorPoints = memo(function AnchorPoints({ width, depth, yOffset = 0.15 }
       <lineSegments position={[0, yOffset, 0]}>
         <edgesGeometry 
           attach="geometry" 
-          args={[new THREE.BoxGeometry(width, 0.01, depth)]} 
+          args={[new BoxGeometry(width, 0.01, depth)]} 
         />
         <lineBasicMaterial color={anchorColor} opacity={0.5} transparent />
       </lineSegments>
@@ -541,6 +543,7 @@ const MachineElement = memo(
     canOpenDetails,
     onPointerDown,
     onPointerMove,
+    onPointerUp,
     onPointerOver,
     onPointerOut,
     onPointerEnter,
@@ -548,7 +551,6 @@ const MachineElement = memo(
     onPointerMoveOverMachine,
     onClick,
     selectedObjectRef,
-    hoveredElementId,
     isMoveMode,
   }) {
     const wNorm = clamp01(Number(el.w) || 0.12);
@@ -557,7 +559,8 @@ const MachineElement = memo(
     const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2);
     const pos = normToPlane(cx, cy, effectivePlaneSize);
     
-    const isHovered = isMoveMode && hoveredElementId === String(el.id);
+    // Show anchor points only when selected in move mode (not on hover)
+    const showAnchorPoints = isSelected && isMoveMode && allowEdit;
 
     const content = (
       <group
@@ -571,6 +574,7 @@ const MachineElement = memo(
           onPointerMove?.(e);
           onPointerMoveOverMachine?.(e);
         }}
+        onPointerUp={onPointerUp}
         onPointerOver={onPointerOver}
         onPointerOut={onPointerOut}
         onPointerEnter={onPointerEnter}
@@ -630,7 +634,8 @@ const MachineElement = memo(
               if (!isDragging) setCursor("grab");
             }}
             onPointerOut={() => {
-              if (!isDragging) setCursor("default");
+              // Maintain pointer cursor in move mode for smooth transitions
+              if (!isDragging) setCursor(isMoveMode ? "pointer" : "default");
             }}
           >
             <boxGeometry args={[0.28, 0.18, 0.28]} />
@@ -638,8 +643,8 @@ const MachineElement = memo(
           </mesh>
         ) : null}
         
-        {/* Show anchor points when hovered in move mode */}
-        {isHovered ? (
+        {/* Show anchor points when selected in move mode */}
+        {showAnchorPoints ? (
           <AnchorPoints width={0.35} depth={0.35} yOffset={0.25} />
         ) : null}
       </group>
@@ -654,8 +659,8 @@ const MachineElement = memo(
       prev.isSelected === next.isSelected &&
       prev.isDragging === next.isDragging &&
       prev.hoveredMachineId === next.hoveredMachineId &&
-      prev.hoveredElementId === next.hoveredElementId &&
       prev.isMoveMode === next.isMoveMode &&
+      prev.allowEdit === next.allowEdit &&
       prev.showLabel === next.showLabel &&
       prev.uniformScale === next.uniformScale &&
       prev.machineStatus === next.machineStatus &&
@@ -877,7 +882,6 @@ export default function DepartmentFloor3DViewer({
   const [hoverNorm, setHoverNorm] = useState(null);
   const [hoverNormRaw, setHoverNormRaw] = useState(null);
   const [hoveredMachineId, setHoveredMachineId] = useState("");
-  const [hoveredElementId, setHoveredElementId] = useState(""); // For anchor points in move mode
   const [isTransforming, setIsTransforming] = useState(false);
   const [isAddDrawing, setIsAddDrawing] = useState(false);
   const [addPreview, setAddPreview] = useState(null);
@@ -1348,7 +1352,8 @@ export default function DepartmentFloor3DViewer({
     draggingNormRef.current = null;
     draggingOffsetRef.current = null;
     setDraggingId("");
-    setCursor(isMoveMode ? "grab" : "default");
+    // After dragging, set cursor to pointer in move mode for smooth element selection
+    setCursor(isMoveMode ? "pointer" : "default");
     // Re-enable camera only if current mode allows it.
     // (When adding Zone/Walkway or in Move mode, OrbitControls should remain disabled.)
     setOrbitEnabledNow(
@@ -1550,7 +1555,7 @@ export default function DepartmentFloor3DViewer({
                   },
                 ];
 
-            return list.map((el) => {
+            return list.map((el, index) => {
               const id = String(el.id);
               const isSelected = selectedId && String(selectedId) === id;
               const wNorm = clamp01(Number(el.w) || 0.9);
@@ -1569,7 +1574,7 @@ export default function DepartmentFloor3DViewer({
 
               return (
                 <group
-                  key={id}
+                  key={`floor-${id}-${index}`}
                   position={[pos.x, effectiveFloorY, pos.z]}
                   rotation={[0, rot, 0]}
                   onPointerDown={
@@ -1581,14 +1586,14 @@ export default function DepartmentFloor3DViewer({
                           }
                           if (id === "__default_floor__") return;
                           e.stopPropagation();
-                          e.nativeEvent?.preventDefault?.();
                           if (typeof onSelectElement === "function")
                             onSelectElement(id);
 
                           if (isTransforming) return;
 
-                          // Only enable dragging when move tool is active
+                          // Only enable dragging when move tool is active AND element is already selected
                           if (
+                            isSelected &&
                             typeof onMoveElement === "function" &&
                             isMoveMode
                           ) {
@@ -1658,11 +1663,8 @@ export default function DepartmentFloor3DViewer({
                           ? (e) => {
                               e.stopPropagation();
                               if (!draggingId) {
-                                if (isMoveMode) {
-                                  setHoveredElementId(id);
-                                }
                                 setCursor(
-                                  isMoveMode && !isAddMode
+                                  isMoveMode && !isAddMode && isSelected
                                     ? "grab"
                                     : "pointer",
                                 );
@@ -1674,8 +1676,8 @@ export default function DepartmentFloor3DViewer({
                         allowEdit
                           ? () => {
                               if (!draggingId) {
-                                setCursor("default");
-                                setHoveredElementId("");
+                                // In move mode, keep pointer cursor for smooth transitions
+                                setCursor(isMoveMode && !isAddMode ? "pointer" : "default");
                               }
                             }
                           : undefined
@@ -1692,8 +1694,8 @@ export default function DepartmentFloor3DViewer({
                     </mesh>
                   ) : null}
                   
-                  {/* Show anchor points when hovered in move mode */}
-                  {isMoveMode && hoveredElementId === id && id !== "__default_floor__" ? (
+                  {/* Show anchor points when selected in move mode */}
+                  {isMoveMode && isSelected && id !== "__default_floor__" ? (
                     <AnchorPoints width={w} depth={d} yOffset={0.1} />
                   ) : null}
                 </group>
@@ -1702,7 +1704,7 @@ export default function DepartmentFloor3DViewer({
           })()}
 
           {/* 2D overlays: zones + walkways */}
-          {zoneElements.map((el) => {
+          {zoneElements.map((el, index) => {
             const id = String(el.id);
             const isSelected = selectedId && String(selectedId) === id;
             const wNorm = clamp01(Number(el.w) || 0.15);
@@ -1720,7 +1722,7 @@ export default function DepartmentFloor3DViewer({
             const allowEdit = fullScreen;
             return (
               <group
-                key={id}
+                key={`zone-${id}-${index}`}
                 position={[pos.x, effectiveFloorY + zoneHeight, pos.z]}
                 rotation={[0, rot, 0]}
                 onPointerDown={
@@ -1734,15 +1736,15 @@ export default function DepartmentFloor3DViewer({
                         e.stopPropagation();
                         e.nativeEvent?.stopPropagation?.();
                         e.nativeEvent?.stopImmediatePropagation?.();
-                        e.nativeEvent?.preventDefault?.();
 
                         if (isTransforming) return;
 
                         if (typeof onSelectElement === "function")
                           onSelectElement(id);
 
-                        // Only enable dragging when move tool is active
+                        // Only enable dragging when move tool is active AND element is already selected
                         if (
+                          isSelected &&
                           typeof onMoveElement === "function" &&
                           isMoveMode
                         ) {
@@ -1809,11 +1811,8 @@ export default function DepartmentFloor3DViewer({
                     ? (e) => {
                         if (isAddMode || draggingId) return;
                         e.stopPropagation();
-                        if (isMoveMode) {
-                          setHoveredElementId(id);
-                        }
                         setCursor(
-                          isMoveMode && !isAddMode
+                          isMoveMode && !isAddMode && isSelected
                             ? "grab"
                             : "pointer",
                         );
@@ -1824,8 +1823,8 @@ export default function DepartmentFloor3DViewer({
                   allowEdit
                     ? () => {
                         if (!draggingId) {
-                          setCursor("default");
-                          setHoveredElementId("");
+                          // In move mode, keep pointer cursor for smooth transitions
+                          setCursor(isMoveMode && !isAddMode ? "pointer" : "default");
                         }
                       }
                     : undefined
@@ -1855,8 +1854,8 @@ export default function DepartmentFloor3DViewer({
                   )}
                 </mesh>
                 
-                {/* Show anchor points when hovered in move mode */}
-                {isMoveMode && hoveredElementId === id ? (
+                {/* Show anchor points when selected in move mode */}
+                {isMoveMode && isSelected ? (
                   <AnchorPoints width={w} depth={d} yOffset={0.1} />
                 ) : null}
               </group>
@@ -2046,7 +2045,7 @@ export default function DepartmentFloor3DViewer({
             return null;
           })()}
 
-          {walkwayElements.map((el) => {
+          {walkwayElements.map((el, index) => {
             const id = String(el.id);
             const isSelected = selectedId && String(selectedId) === id;
             const wNorm = clamp01(Number(el.w) || 0.2);
@@ -2062,7 +2061,7 @@ export default function DepartmentFloor3DViewer({
             const allowEdit = fullScreen;
             return (
               <group
-                key={id}
+                key={`walkway-${id}-${index}`}
                 position={[pos.x, effectiveFloorY + overlayLift, pos.z]}
                 rotation={[0, rot, 0]}
                 onPointerDown={
@@ -2076,14 +2075,14 @@ export default function DepartmentFloor3DViewer({
                         e.stopPropagation();
                         e.nativeEvent?.stopPropagation?.();
                         e.nativeEvent?.stopImmediatePropagation?.();
-                        e.nativeEvent?.preventDefault?.();
                         if (typeof onSelectElement === "function")
                           onSelectElement(id);
 
                         if (isTransforming) return;
 
-                        // Only enable dragging when move tool is active
+                        // Only enable dragging when move tool is active AND element is already selected
                         if (
+                          isSelected &&
                           typeof onMoveElement === "function" &&
                           isMoveMode
                         ) {
@@ -2158,11 +2157,8 @@ export default function DepartmentFloor3DViewer({
                       ? (e) => {
                           if (draggingId) return;
                           e.stopPropagation();
-                          if (isMoveMode) {
-                            setHoveredElementId(id);
-                          }
                           setCursor(
-                            isMoveMode && !isAddMode
+                            isMoveMode && !isAddMode && isSelected
                               ? "grab"
                               : "pointer",
                           );
@@ -2173,8 +2169,8 @@ export default function DepartmentFloor3DViewer({
                     allowEdit
                       ? () => {
                           if (!draggingId) {
-                            setCursor("default");
-                            setHoveredElementId("");
+                            // In move mode, keep pointer cursor for smooth transitions
+                            setCursor(isMoveMode && !isAddMode ? "pointer" : "default");
                           }
                         }
                       : undefined
@@ -2190,8 +2186,8 @@ export default function DepartmentFloor3DViewer({
                   <Edges color={isSelected ? "#fdba74" : "#ffffff"} />
                 </mesh>
                 
-                {/* Show anchor points when hovered in move mode */}
-                {isMoveMode && hoveredElementId === id ? (
+                {/* Show anchor points when selected in move mode */}
+                {isMoveMode && isSelected ? (
                   <AnchorPoints width={w} depth={d} yOffset={0.1} />
                 ) : null}
               </group>
@@ -2386,8 +2382,46 @@ export default function DepartmentFloor3DViewer({
                         }
                         e.stopPropagation();
                         if (isTransforming) return;
+                        
+                        // Always select the element first
                         if (typeof onSelectElement === "function")
                           onSelectElement(String(el.id));
+
+                        // Only enable dragging when move tool is active AND element is already selected
+                        if (
+                          isSelected &&
+                          typeof onMoveElement === "function" &&
+                          isMoveMode
+                        ) {
+                          draggingObjectRef.current = e.eventObject;
+                          draggingNormRef.current = null;
+                          if (typeof getFloorHitFromEvent === "function") {
+                            const hit = getFloorHitFromEvent(e);
+                            if (hit) {
+                              const pointerNorm = planeToNorm(
+                                hit.x,
+                                hit.z,
+                                effectivePlaneSize,
+                              );
+                              const wNorm = clamp01(Number(el.w) || 0.12);
+                              const hNorm = clamp01(Number(el.h) || 0.12);
+                              const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2);
+                              const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2);
+                              draggingOffsetRef.current = {
+                                x: cx - pointerNorm.x,
+                                y: cy - pointerNorm.y,
+                              };
+                            } else {
+                              draggingOffsetRef.current = null;
+                            }
+                          } else {
+                            draggingOffsetRef.current = null;
+                          }
+                          setDraggingId(String(el.id));
+                          setCursor("grabbing");
+                          setOrbitEnabledNow(false);
+                          capturePointer(e);
+                        }
                       } else if (canOpenDetails) {
                         e.stopPropagation();
                         onOpenMachineDetails(machineId);
@@ -2398,99 +2432,82 @@ export default function DepartmentFloor3DViewer({
                     isTransforming,
                     onSelectElement,
                     onOpenMachineDetails,
+                    isMoveMode,
+                    onMoveElement,
+                    effectivePlaneSize,
                   ],
                 );
 
                 const createPointerMoveHandler = useCallback(
                   (el, isSelected, allowEdit) => (e) => {
                     if (!allowEdit) return;
-                    handleFloorPointerMove(e);
-
-                    // Only enable dragging when move tool is active
-                    if (
-                      !draggingId &&
-                      !isTransforming &&
-                      !isAddMode &&
-                      selectedId &&
-                      String(selectedId) === String(el.id) &&
-                      e.buttons === 1 &&
-                      typeof onMoveElement === "function" &&
-                      isMoveMode
-                    ) {
-                      draggingObjectRef.current = e.eventObject;
-                      draggingNormRef.current = null;
-                      if (typeof getFloorHitFromEvent === "function") {
-                        const hit = getFloorHitFromEvent(e);
-                        if (hit) {
-                          const pointerNorm = planeToNorm(
-                            hit.x,
-                            hit.z,
-                            effectivePlaneSize,
-                          );
-                          const wNorm = clamp01(Number(el.w) || 0.12);
-                          const hNorm = clamp01(Number(el.h) || 0.12);
-                          const elX = clamp01(Number(el.x) || 0);
-                          const elY = clamp01(Number(el.y) || 0);
-                          const center = {
-                            x: elX + wNorm / 2,
-                            y: elY + hNorm / 2,
-                          };
-                          draggingOffsetRef.current = {
-                            x: center.x - pointerNorm.x,
-                            y: center.y - pointerNorm.y,
-                          };
-                        } else {
-                          draggingOffsetRef.current = null;
-                        }
-                      } else {
-                        draggingOffsetRef.current = null;
-                      }
-                      setDraggingId(String(el.id));
-                      setCursor("grabbing");
-                      setOrbitEnabledNow(false);
-                      capturePointer(e);
+                    // Stop propagation during drag to keep camera static
+                    if (draggingId && String(draggingId) === String(el.id)) {
+                      e.stopPropagation();
+                      e.nativeEvent?.stopPropagation?.();
+                      e.nativeEvent?.stopImmediatePropagation?.();
                     }
+                    handleFloorPointerMove(e);
                   },
-                  [
-                    draggingId,
-                    isTransforming,
-                    isAddMode,
-                    isMoveMode,
-                    selectedId,
-                    onMoveElement,
-                    effectivePlaneSize,
-                    getFloorHitFromEvent,
-                    setOrbitEnabledNow,
-                  ],
+                  [draggingId],
+                );
+
+                const createPointerUpHandler = useCallback(
+                  (allowEdit) => () => {
+                    if (!allowEdit) return;
+                    stopDragging();
+                    setCursor("default");
+                    setOrbitEnabledNow(
+                      !isOverlayAddToolActive &&
+                        !isTransforming &&
+                        !isAddDrawing &&
+                        !draggingId,
+                    );
+                  },
+                  [isOverlayAddToolActive, isTransforming, isAddDrawing, draggingId],
                 );
 
                 const createPointerOverHandler = useCallback(
-                  (allowEdit) => (e) => {
+                  (allowEdit, elId) => (e) => {
                     if (!allowEdit) return;
-                    if (isAddMode || draggingId) return;
+                    if (isAddMode) return;
                     e.stopPropagation();
-                    // Show grab cursor only in move mode, otherwise pointer
-                    setCursor(
-                      isMoveMode && !isAddMode
-                        ? "grab"
-                        : "pointer",
-                    );
+                    
+                    // Show cursor based on selection state in move mode
+                    if (isMoveMode && !isAddMode) {
+                      const isThisSelected = selectedId && String(selectedId) === elId;
+                      setCursor(isThisSelected ? "grab" : "pointer");
+                    } else {
+                      setCursor("pointer");
+                    }
                   },
-                  [isAddMode, isMoveMode, draggingId],
+                  [isAddMode, isMoveMode, selectedId],
                 );
 
                 const createPointerOutHandler = useCallback(
                   (allowEdit) => () => {
                     if (!allowEdit) return;
-                    if (!draggingId) setCursor("default");
+                    // In move mode, set cursor to pointer (not default) for smooth transitions between elements
+                    if (!draggingId) {
+                      setCursor(isMoveMode && !isAddMode ? "pointer" : "default");
+                    }
                   },
-                  [draggingId],
+                  [draggingId, isMoveMode, isAddMode],
                 );
 
                 const createPointerEnterHandler = useCallback(
-                  (machineId, canOpenDetails) => (e) => {
-                    if (!canOpenDetails) return;
+                  (machineId, canOpenDetails, allowEdit, elId) => (e) => {
                     e.stopPropagation();
+                    
+                    // Set cursor based on context
+                    if (allowEdit && isMoveMode && !isAddMode) {
+                      const isThisSelected = selectedId && String(selectedId) === elId;
+                      setCursor(isThisSelected ? "grab" : "pointer");
+                    } else if (canOpenDetails) {
+                      setCursor("pointer");
+                    }
+                    
+                    if (!canOpenDetails) return;
                     setHoveredMachineId((prev) =>
                       prev === machineId ? prev : machineId,
                     );
@@ -2503,9 +2520,8 @@ export default function DepartmentFloor3DViewer({
                       const y = e.nativeEvent.clientY - rect.top;
                       setHoveredTooltipPosition({ x, y });
                     }
-                    setCursor("pointer");
                   },
-                  [],
+                  [isMoveMode, isAddMode, selectedId],
                 );
 
                 const createPointerMoveOverMachineHandler = useCallback(
@@ -2526,15 +2542,18 @@ export default function DepartmentFloor3DViewer({
                 );
 
                 const createPointerLeaveHandler = useCallback(
-                  (machineId, canOpenDetails) => () => {
+                  (machineId, canOpenDetails, allowEdit) => () => {
                     if (!canOpenDetails) return;
                     setHoveredMachineId((prev) =>
                       prev === machineId ? "" : prev,
                     );
                     setHoveredTooltipPosition(null);
-                    if (!draggingId) setCursor("default");
+                    // In move mode, set cursor to pointer for smooth transitions
+                    if (!draggingId) {
+                      setCursor(allowEdit && isMoveMode && !isAddMode ? "pointer" : "default");
+                    }
                   },
-                  [draggingId],
+                  [draggingId, isMoveMode, isAddMode],
                 );
 
                 const createClickHandler = useCallback(
@@ -2546,7 +2565,7 @@ export default function DepartmentFloor3DViewer({
                   [onOpenMachineDetails],
                 );
 
-                return machinesWithPositions.map(({ el, pos }) => {
+                return machinesWithPositions.map(({ el, pos }, index) => {
                   const wNorm = clamp01(Number(el.w) || 0.12);
                   const hNorm = clamp01(Number(el.h) || 0.12);
                   const fitW = Math.max(0.02, wNorm) * effectivePlaneSize;
@@ -2608,7 +2627,7 @@ export default function DepartmentFloor3DViewer({
 
                   const machineElement = (
                     <MachineElement
-                      key={String(el.id)}
+                      key={`machine-${String(el.id)}-${index}`}
                       el={el}
                       effectivePlaneSize={effectivePlaneSize}
                       machineY={machineY}
@@ -2625,7 +2644,6 @@ export default function DepartmentFloor3DViewer({
                       labelText={labelText}
                       oeePct={oeePct}
                       hoveredMachineId={hoveredMachineId}
-                      hoveredElementId={hoveredElementId}
                       isMoveMode={isMoveMode}
                       fullScreen={fullScreen}
                       showLabel={showLabel}
@@ -2643,15 +2661,19 @@ export default function DepartmentFloor3DViewer({
                         isSelected,
                         allowEdit,
                       )}
-                      onPointerOver={createPointerOverHandler(allowEdit)}
+                      onPointerUp={createPointerUpHandler(allowEdit)}
+                      onPointerOver={createPointerOverHandler(allowEdit, String(el.id))}
                       onPointerOut={createPointerOutHandler(allowEdit)}
                       onPointerEnter={createPointerEnterHandler(
                         machineId,
                         canOpenDetails,
+                        allowEdit,
+                        String(el.id),
                       )}
                       onPointerLeave={createPointerLeaveHandler(
                         machineId,
                         canOpenDetails,
+                        allowEdit,
                       )}
                       onPointerMoveOverMachine={createPointerMoveOverMachineHandler(
                         machineId,
@@ -2664,7 +2686,7 @@ export default function DepartmentFloor3DViewer({
 
                   return isSelected && allowEdit ? (
                     <TransformControls
-                      key={String(el.id)}
+                      key={`transform-${String(el.id)}-${index}`}
                       mode="scale"
                       enabled={typeof onUpdateElement === "function"}
                       onMouseDown={() => setIsTransforming(true)}
