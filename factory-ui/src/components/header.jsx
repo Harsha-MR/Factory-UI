@@ -13,7 +13,7 @@ export default function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
+    <header className="sticky top-0 z-50 bg-slate-950">
       {/* FULL WIDTH HEADER — NO PADDING, NO BORDER, NO SHADOW */}
       <div className="flex items-center h-12 w-full ">
         {/* EXTREME LEFT — FACTORY */}

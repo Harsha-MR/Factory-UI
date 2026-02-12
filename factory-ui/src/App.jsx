@@ -7,6 +7,7 @@ import Department3DLayoutPage from './pages/Department3DLayoutPage.jsx'
 import MachineModalRoutePage from './pages/MachineModalRoutePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
+import HomePage from './pages/HomePage.jsx'
 import DepartmentFloorLayoutEditor from './components/layout/DepartmentFloorLayoutEditor.jsx'
 import { isAuthenticated } from './utils/auth.js'
 
@@ -29,7 +30,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route element={<AppShell />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/factories/:factoryId" element={<FactoryPage />} />
           <Route path="/plants/:plantId" element={<PlantPage />} />
@@ -39,10 +40,9 @@ export default function App() {
             path="/departments/:departmentId/machines/:machineId"
             element={<MachineModalRoutePage />}
           />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
           <Route path="/2d" element={<DepartmentFloorLayoutEditor />} />
-         
         </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       {backgroundLocation ? (
