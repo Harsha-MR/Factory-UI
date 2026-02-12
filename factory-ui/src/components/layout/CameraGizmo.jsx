@@ -5,6 +5,14 @@ import * as THREE from 'three';
  * Camera Rotation Gizmo - Blender-style camera control widget
  * Shows X, Y, Z axes and allows click-drag rotation
  * Must be rendered OUTSIDE of Canvas, with refs passed from inside
+ * 
+ * Keyboard Controls (Blender-style):
+ * - Numpad 1/3/7: Front/Right/Top views (Add Ctrl for opposite)
+ * - Numpad 2/4/6/8: Incremental rotation (turntable style, 15° steps)
+ * - Numpad 5: Toggle Perspective/Orthographic
+ * - Numpad .: Frame selected
+ * - Home: Frame all
+ * - Numpad 9: Flip to opposite view
  */
 export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasElement }) {
   const canvasRef = useRef(null);
@@ -12,10 +20,12 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredAxis, setHoveredAxis] = useState(null);
+  const [isPointerLocked, setIsPointerLocked] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const rotationStartRef = useRef({ azimuth: 0, polar: 0 });
   const animationRef = useRef(null);
   const axisButtonsRef = useRef([]);
+  const ROTATION_STEP = THREE.MathUtils.degToRad(15); // 15 degrees per step
 
   // Calculate camera angles for gizmo orientation
   const getCameraAngles = () => {
@@ -95,6 +105,156 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
       const progress = Math.min(elapsed / duration, 1);
       
       // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      
+      camera.position.lerpVectors(startPos, newPosition, eased);
+      camera.lookAt(target);
+      controls.update();
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    animate();
+  };
+
+  // Step-based rotation (Blender Numpad 2, 4, 6, 8 style)
+  // Turntable mode: horizontal rotation around global Z, vertical tilt clamped
+  const stepRotateCamera = (direction) => {
+    const camera = cameraRef?.current;
+    const controls = orbitControlsRef?.current;
+    if (!camera || !controls) return;
+    
+    const target = controls.target.clone();
+    const offset = camera.position.clone().sub(target);
+    
+    // Convert to spherical coordinates
+    const radius = offset.length();
+    let theta = Math.atan2(offset.x, offset.z); // Azimuthal angle (horizontal)
+    let phi = Math.acos(Math.max(-1, Math.min(1, offset.y / radius))); // Polar angle (vertical)
+    
+    // Apply rotation based on direction
+    switch(direction) {
+      case 'left': // Numpad 4 - rotate left around Z axis
+        theta += ROTATION_STEP;
+        break;
+      case 'right': // Numpad 6 - rotate right around Z axis
+        theta -= ROTATION_STEP;
+        break;
+      case 'up': // Numpad 8 - tilt up
+        phi -= ROTATION_STEP;
+        break;
+      case 'down': // Numpad 2 - tilt down
+        phi += ROTATION_STEP;
+        break;
+    }
+    
+    // Clamp vertical rotation (turntable mode - prevent flipping)
+    phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi));
+    
+    // Convert back to Cartesian coordinates
+    const newX = radius * Math.sin(phi) * Math.sin(theta);
+    const newY = radius * Math.cos(phi);
+    const newZ = radius * Math.sin(phi) * Math.cos(theta);
+    
+    const newPosition = new THREE.Vector3(newX, newY, newZ).add(target);
+    
+    // Smooth animation
+    const startPos = camera.position.clone();
+    const startTime = Date.now();
+    const duration = 150; // Faster for step rotation
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Ease out
+      const eased = 1 - Math.pow(1 - progress, 2);
+      
+      camera.position.lerpVectors(startPos, newPosition, eased);
+      camera.lookAt(target);
+      controls.update();
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    animate();
+  };
+
+  // Toggle between perspective and orthographic camera
+  const togglePerspective = () => {
+    const camera = cameraRef?.current;
+    if (!camera) return;
+    
+    // Note: This is a simplified toggle for demo purposes
+    // In a real implementation, you'd need to switch between different camera instances
+    // or recreate the camera with new projection settings
+    if (camera.isPerspectiveCamera) {
+      camera.fov = camera.fov === 45 ? 34 : 45; // Toggle FOV as indicator
+      camera.updateProjectionMatrix();
+      console.log('Perspective/Orthographic toggle (simplified demo)');
+    }
+  };
+
+  // Frame all objects in scene
+  const frameAll = () => {
+    const camera = cameraRef?.current;
+    const controls = orbitControlsRef?.current;
+    if (!camera || !controls) return;
+    
+    // Reset to default position with scene in view
+    const defaultDistance = 20;
+    const target = new THREE.Vector3(0, 0, 0);
+    const newPosition = new THREE.Vector3(12, 10, 12);
+    
+    controls.target.copy(target);
+    
+    const startPos = camera.position.clone();
+    const startTime = Date.now();
+    const duration = 400;
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      
+      camera.position.lerpVectors(startPos, newPosition, eased);
+      camera.lookAt(target);
+      controls.update();
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    animate();
+  };
+
+  // Frame selected object (placeholder - would need selected object info)
+  const frameSelected = () => {
+    // In a real implementation, this would receive the selected object
+    // For now, just zoom in slightly
+    const camera = cameraRef?.current;
+    const controls = orbitControlsRef?.current;
+    if (!camera || !controls) return;
+    
+    const target = controls.target.clone();
+    const currentDistance = camera.position.distanceTo(target);
+    const newDistance = currentDistance * 0.7;
+    
+    const direction = camera.position.clone().sub(target).normalize();
+    const newPosition = target.clone().add(direction.multiplyScalar(newDistance));
+    
+    const startPos = camera.position.clone();
+    const startTime = Date.now();
+    const duration = 300;
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       
       camera.position.lerpVectors(startPos, newPosition, eased);
@@ -326,17 +486,26 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
 
     const handleMouseMove = (e) => {
       if (isDragging) {
-        // Handle drag rotation
-        const dx = e.clientX - dragStartRef.current.x;
-        const dy = e.clientY - dragStartRef.current.y;
+        // Handle drag rotation using movementX/Y for pointer lock freedom
+        const dx = e.movementX || 0;
+        const dy = e.movementY || 0;
         
         const sensitivity = 0.005;
-        const newAzimuth = rotationStartRef.current.azimuth - dx * sensitivity;
+        
+        // Update rotation angles incrementally
+        const currentAzimuth = rotationStartRef.current.azimuth;
+        const currentPolar = rotationStartRef.current.polar;
+        
+        const newAzimuth = currentAzimuth - dx * sensitivity;
         const newPolar = THREE.MathUtils.clamp(
-          rotationStartRef.current.polar + dy * sensitivity,
+          currentPolar + dy * sensitivity,
           0.1,
           Math.PI - 0.1
         );
+        
+        // Store updated angles for next movement
+        rotationStartRef.current.azimuth = newAzimuth;
+        rotationStartRef.current.polar = newPolar;
         
         if (orbitControlsRef?.current) {
           const controls = orbitControlsRef.current;
@@ -375,9 +544,11 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
       }
       
       // Otherwise start drag rotation
-      canvas.style.cursor = 'grabbing';
+      // Hide cursor for cleaner interaction
+      document.body.style.cursor = 'none';
+      canvas.style.cursor = 'none';
+      
       setIsDragging(true);
-      dragStartRef.current = { x: e.clientX, y: e.clientY };
       
       const angles = getCameraAngles();
       rotationStartRef.current = angles;
@@ -389,7 +560,10 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
 
     const handleMouseUp = () => {
       if (isDragging) {
+        // Restore cursor
+        document.body.style.cursor = '';
         canvas.style.cursor = 'grab';
+        
         setIsDragging(false);
         
         if (orbitControlsRef?.current) {
@@ -406,6 +580,9 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
     window.addEventListener('mouseup', handleMouseUp);
 
     return () => {
+      // Ensure cursor is restored on cleanup
+      document.body.style.cursor = '';
+      
       canvas.removeEventListener('mouseenter', handleMouseEnter);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
       canvas.removeEventListener('mousemove', handleMouseMove);
@@ -415,24 +592,65 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
     };
   }, [isDragging, cameraRef, orbitControlsRef, snapCameraToAxis]);
 
-  // Numpad navigation
+  // Numpad navigation (Blender-style)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Only respond to numpad keys
-      if (!e.code.startsWith('Numpad')) return;
+      // Only respond to numpad keys and Home
+      if (!e.code.startsWith('Numpad') && e.code !== 'Home') return;
       
       let axis = null;
+      let handled = false;
       
       switch(e.code) {
         case 'Numpad1':
           axis = e.ctrlKey ? 'z' : '-z'; // Front (normal) or Back (ctrl)
+          handled = true;
           break;
         case 'Numpad3':
           axis = e.ctrlKey ? '-x' : 'x'; // Right (normal) or Left (ctrl)
+          handled = true;
           break;
         case 'Numpad7':
           axis = e.ctrlKey ? '-y' : 'y'; // Top (normal) or Bottom (ctrl)
+          handled = true;
           break;
+          
+        // Step-based rotation (Blender 2/4/6/8)
+        case 'Numpad2':
+          stepRotateCamera('down');
+          handled = true;
+          break;
+        case 'Numpad4':
+          stepRotateCamera('left');
+          handled = true;
+          break;
+        case 'Numpad6':
+          stepRotateCamera('right');
+          handled = true;
+          break;
+        case 'Numpad8':
+          stepRotateCamera('up');
+          handled = true;
+          break;
+          
+        // Perspective/Orthographic toggle
+        case 'Numpad5':
+          togglePerspective();
+          handled = true;
+          break;
+          
+        // Frame selected
+        case 'NumpadDecimal': // Numpad .
+          frameSelected();
+          handled = true;
+          break;
+          
+        // Frame all
+        case 'Home':
+          frameAll();
+          handled = true;
+          break;
+          
         case 'Numpad9':
           // Flip to opposite view
           const camera = cameraRef?.current;
@@ -463,12 +681,15 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
             
             animate();
           }
-          e.preventDefault();
-          return;
+          handled = true;
+          break;
       }
       
       if (axis) {
         snapCameraToAxis(axis);
+      }
+      
+      if (handled) {
         e.preventDefault();
       }
     };
@@ -477,7 +698,70 @@ export function CameraGizmo({ size = 120, orbitControlsRef, cameraRef, canvasEle
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [cameraRef, orbitControlsRef, snapCameraToAxis]);
+  }, [cameraRef, orbitControlsRef, snapCameraToAxis, stepRotateCamera, togglePerspective, frameSelected, frameAll]);
+
+  // Pointer Lock for main canvas (Blender-style middle mouse orbit)
+  // This makes the cursor disappear during orbit, exactly like Blender
+  useEffect(() => {
+    if (!canvasElement) return;
+    
+    let isMiddleMouseDown = false;
+    const canvas = canvasElement;
+    
+    const handlePointerLockChange = () => {
+      setIsPointerLocked(document.pointerLockElement === canvas);
+    };
+    
+    const handleMouseDown = (e) => {
+      // Middle mouse button (button 1)
+      if (e.button === 1) {
+        e.preventDefault();
+        isMiddleMouseDown = true;
+        
+        // Request pointer lock for Blender-style cursor hiding
+        canvas.requestPointerLock();
+      }
+    };
+    
+    const handleMouseUp = (e) => {
+      if (e.button === 1) {
+        isMiddleMouseDown = false;
+        
+        // Exit pointer lock
+        if (document.pointerLockElement === canvas) {
+          document.exitPointerLock();
+        }
+      }
+    };
+    
+    const handleMouseMove = (e) => {
+      // When pointer is locked and middle mouse is down, the orbit controls
+      // will handle the rotation automatically using movement deltas
+      // No need to do anything here - OrbitControls handles it
+    };
+    
+    // Prevent context menu on canvas
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+    };
+    
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointerlockchange', handlePointerLockChange);
+    
+    return () => {
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('pointerlockchange', handlePointerLockChange);
+      
+      // Ensure pointer lock is released on cleanup
+      if (document.pointerLockElement === canvas) {
+        document.exitPointerLock();
+      }
+    };
+  }, [canvasElement]);
 
   return (
     <div

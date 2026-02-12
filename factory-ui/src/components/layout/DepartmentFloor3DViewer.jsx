@@ -843,6 +843,7 @@ export default function DepartmentFloor3DViewer({
 
   const orbitRef = useRef(null);
   const cameraRef = useRef(null);
+  const canvasRef = useRef(null); // For pointer lock on main canvas
 
   const defaultMouseButtonsRef = useRef(null);
   const panDragPointerIdRef = useRef(null);
@@ -1322,8 +1323,9 @@ export default function DepartmentFloor3DViewer({
 
   // Hide loading toast when Canvas is ready
   const handleCanvasCreated = useCallback(
-    ({ camera }) => {
+    ({ camera, gl }) => {
       cameraRef.current = camera;
+      canvasRef.current = gl.domElement; // Store canvas element for pointer lock
       const [cx, cy, cz] = cameraPosition;
       camera.position.set(cx, cy, cz);
       camera.lookAt(0, effectiveFloorY, 0);
@@ -2664,6 +2666,7 @@ export default function DepartmentFloor3DViewer({
           size={120}
           orbitControlsRef={orbitRef}
           cameraRef={cameraRef}
+          canvasElement={canvasRef.current}
         />
       )}
 
