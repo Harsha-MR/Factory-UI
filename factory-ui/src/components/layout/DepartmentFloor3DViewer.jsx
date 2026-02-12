@@ -34,6 +34,7 @@ import { vector3Pool, vector2Pool } from "../../utils/objectPool";
 import { getWorkerManager } from "../../utils/workerManager";
 
 import { ELEMENT_TYPES } from "./layoutTypes";
+import { CameraGizmo } from "./CameraGizmo.jsx";
 
 const DEFAULT_PLANE_SIZE = 20;
 
@@ -2610,8 +2611,8 @@ export default function DepartmentFloor3DViewer({
             ref={orbitRef}
             enablePan={fullScreen}
             enableZoom={true}
-            // Allow rotation in both modes for smooth camera control
-            enableRotate={true}
+            // Disable rotation in fullscreen - only gizmo can rotate
+            enableRotate={!fullScreen}
             // Keep preview zoom range tighter so it looks like the desired default.
             minDistance={
               fullScreen ? effectivePlaneSize * 0.25 : effectivePlaneSize * 0.18
@@ -2620,7 +2621,7 @@ export default function DepartmentFloor3DViewer({
               fullScreen ? effectivePlaneSize * 3.0 : effectivePlaneSize * 1.25
             }
             mouseButtons={{
-              LEFT: MOUSE.ROTATE,
+              LEFT: fullScreen ? MOUSE.PAN : MOUSE.ROTATE,
               MIDDLE: MOUSE.DOLLY,
               RIGHT: fullScreen ? MOUSE.PAN : MOUSE.ROTATE,
             }}
@@ -2656,6 +2657,15 @@ export default function DepartmentFloor3DViewer({
           />
         </Canvas>
       </ErrorBoundary>
+
+      {/* Camera Rotation Gizmo - Only show in fullscreen mode */}
+      {fullScreen && (
+        <CameraGizmo
+          size={120}
+          orbitControlsRef={orbitRef}
+          cameraRef={cameraRef}
+        />
+      )}
 
       <div className="pointer-events-none absolute bottom-2 right-2 rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 backdrop-blur">
         {!fullScreen
