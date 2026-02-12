@@ -8,22 +8,17 @@ import MachineModalRoutePage from './pages/MachineModalRoutePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import DepartmentFloorLayoutEditor from './components/layout/DepartmentFloorLayoutEditor.jsx'
-
-
-function isLoggedIn() {
-  if (typeof localStorage === 'undefined') return false;
-  const userId = localStorage.getItem('user');
-  return !!userId;
-}
+import { isAuthenticated } from './utils/auth.js'
 
 export default function App() {
   const location = useLocation();
   const backgroundLocation = location.state?.backgroundLocation;
 
-  // If not logged in, always redirect to login except for /login and /register
-  const isAuth = isLoggedIn();
+  // Check if user is authenticated with valid, non-expired token
+  const isAuth = isAuthenticated();
   const isAuthRoute = ['/login', '/register'].includes(location.pathname);
 
+  // Redirect to login if not authenticated (including expired tokens)
   if (!isAuth && !isAuthRoute) {
     return <Navigate to="/login" replace />;
   }

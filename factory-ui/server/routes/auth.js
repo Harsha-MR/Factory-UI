@@ -27,7 +27,7 @@ export default function makeAuthRoutes(db) {
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '2h' });
+    const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '24h' });
     res.json({ token, userId });
   });
 

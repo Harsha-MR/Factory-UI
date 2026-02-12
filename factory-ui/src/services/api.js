@@ -1,3 +1,5 @@
+import { clearAuth } from '../utils/auth.js';
+
 const API_BASE_URL = 'http://localhost:3000/api';
 
 /**
@@ -26,10 +28,9 @@ export async function apiRequest(endpoint, options = {}) {
   const data = await response.json();
   
   if (!response.ok) {
-    // If unauthorized, redirect to login
+    // If unauthorized, clear auth and redirect to login
     if (response.status === 401) {
-      localStorage.removeItem('user');
-      localStorage.removeItem('factory-ui:token');
+      clearAuth();
       window.location.href = '/login';
     }
     throw new Error(data.error || 'API request failed');
@@ -73,8 +74,7 @@ export async function login(userId, password) {
  * Logout user
  */
 export function logout() {
-  localStorage.removeItem('user');
-  localStorage.removeItem('factory-ui:token');
+  clearAuth();
   window.location.href = '/login';
 }
 
