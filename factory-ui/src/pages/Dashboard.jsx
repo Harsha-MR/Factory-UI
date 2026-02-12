@@ -170,7 +170,6 @@ export default function Dashboard() {
     if (didChange) {
       setDepartments([]);
       setDepartmentsFetchedAt("");
-      setShowDepartments(false);
     }
 
     prevPlantIdRef.current = plantId;
@@ -185,11 +184,8 @@ export default function Dashboard() {
           setDepartments(data);
           setDepartmentsFetchedAt(new Date().toISOString());
 
-          // Auto-open departments only for initial auto-selection.
-          if (
-            !didAutoShowDepartmentsRef.current &&
-            didAutoSelectPlantRef.current
-          ) {
+          // Show departments when they are fetched successfully
+          if (data.length > 0) {
             didAutoShowDepartmentsRef.current = true;
             setShowDepartments(true);
           }
