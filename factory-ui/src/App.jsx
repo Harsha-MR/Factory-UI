@@ -16,13 +16,13 @@ export default function App() {
   const location = useLocation();
   const backgroundLocation = location.state?.backgroundLocation;
 
-  // Check if user is authenticated with valid, non-expired token
-  const isAuth = isAuthenticated();
+  // Demo mode: skip authentication check
   const isAuthRoute = ['/login', '/register'].includes(location.pathname);
 
-  // Redirect to login if not authenticated (including expired tokens)
-  if (!isAuth && !isAuthRoute) {
-    return <Navigate to="/login" replace />;
+  // Auto-set demo user on mount if not on auth routes
+  if (!isAuthRoute && !localStorage.getItem('factory-ui:token')) {
+    localStorage.setItem('factory-ui:token', 'demo-token');
+    localStorage.setItem('user', JSON.stringify({ id: 'demo', name: 'Demo User', email: 'demo@company.com', role: 'User' }));
   }
 
   return (

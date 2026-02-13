@@ -18,7 +18,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await login(userId, password);
+      await login(userId , password );
       navigate('/');
     } catch (err) {
       setError(err.message || 'Login failed');
@@ -54,6 +54,7 @@ export default function LoginPage() {
           type="submit"
           className="w-full rounded bg-blue-600 py-2 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
           disabled={loading}
+          
         >
           {loading ? 'Logging in...' : 'Login'}
         </button>
