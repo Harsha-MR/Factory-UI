@@ -169,6 +169,8 @@ function setCursor(cursor) {
   }
 }
 
+const MOVE_SELECT_CURSOR = "pointer";
+
 function noRaycast() {
   // Disable pointer hit-testing for helper meshes/text.
 }
@@ -602,6 +604,10 @@ const MachineElement = memo(
             transparent
             opacity={url ? 0.05 : 1}
           />
+          {/* Perimeter edges highlighting for selected state */}
+          {isSelected && allowEdit ? (
+            <Edges color="#fdba74" linewidth={2} />
+          ) : null}
         </mesh>
 
         {showLabel &&
@@ -625,23 +631,6 @@ const MachineElement = memo(
         ) : null}
 
         {/* Removed 3D Billboard tooltip - now using HTML overlay for better performance and fixed sizing */}
-
-        {isSelected && allowEdit ? (
-          <mesh
-            position={[0, 0.08, 0]}
-            onPointerOver={(ev) => {
-              ev.stopPropagation();
-              if (!isDragging) setCursor("grab");
-            }}
-            onPointerOut={() => {
-              // Maintain pointer cursor in move mode for smooth transitions
-              if (!isDragging) setCursor(isMoveMode ? "pointer" : "default");
-            }}
-          >
-            <boxGeometry args={[0.28, 0.18, 0.28]} />
-            <meshBasicMaterial color="#fdba74" wireframe />
-          </mesh>
-        ) : null}
         
         {/* Show anchor points when selected in move mode */}
         {showAnchorPoints ? (
@@ -1001,7 +990,7 @@ export default function DepartmentFloor3DViewer({
     if (pointerId != null && panDragPointerIdRef.current !== pointerId) return;
     panDragPointerIdRef.current = null;
     setOrbitMouseModeNow("rotate");
-    setCursor("default");
+    setCursor(idleCursor);
   };
 
   const draggingObjectRef = useRef(null);
@@ -1058,6 +1047,7 @@ export default function DepartmentFloor3DViewer({
   const isAddMode =
     typeof activeTool === "string" && activeTool.startsWith("add:");
   const isMoveMode = activeTool === "move";
+  const idleCursor = isMoveMode && !isAddMode ? MOVE_SELECT_CURSOR : "default";
   const addType = isAddMode ? activeTool.slice("add:".length) : "";
   const addElementType =
     addType === "floor"
@@ -1352,8 +1342,8 @@ export default function DepartmentFloor3DViewer({
     draggingNormRef.current = null;
     draggingOffsetRef.current = null;
     setDraggingId("");
-    // After dragging, set cursor to pointer in move mode for smooth element selection
-    setCursor(isMoveMode ? "pointer" : "default");
+    // After dragging, return to select cursor in move mode
+    setCursor(idleCursor);
     // Re-enable camera only if current mode allows it.
     // (When adding Zone/Walkway or in Move mode, OrbitControls should remain disabled.)
     setOrbitEnabledNow(
@@ -1384,6 +1374,12 @@ export default function DepartmentFloor3DViewer({
       document.removeEventListener("pointercancel", handleGlobalPointerUp);
     };
   }, []); // Empty deps - listeners are added once and use refs
+
+  useEffect(() => {
+    if (!fullScreen) return;
+    if (draggingId) return;
+    setCursor(idleCursor);
+  }, [fullScreen, draggingId, idleCursor]);
 
   // Show loading toast only for non-fullscreen
   useEffect(() => {
@@ -1637,7 +1633,7 @@ export default function DepartmentFloor3DViewer({
                     allowEdit
                       ? () => {
                           stopDragging();
-                          setCursor("default");
+                            setCursor(idleCursor);
                           setOrbitEnabledNow(
                             !isOverlayAddToolActive &&
                               !isTransforming &&
@@ -1666,7 +1662,7 @@ export default function DepartmentFloor3DViewer({
                                 setCursor(
                                   isMoveMode && !isAddMode && isSelected
                                     ? "grab"
-                                    : "pointer",
+                                    : idleCursor,
                                 );
                               }
                             }
@@ -1676,8 +1672,7 @@ export default function DepartmentFloor3DViewer({
                         allowEdit
                           ? () => {
                               if (!draggingId) {
-                                // In move mode, keep pointer cursor for smooth transitions
-                                setCursor(isMoveMode && !isAddMode ? "pointer" : "default");
+                                setCursor(idleCursor);
                               }
                             }
                           : undefined
@@ -1796,7 +1791,7 @@ export default function DepartmentFloor3DViewer({
                   allowEdit
                     ? () => {
                         stopDragging();
-                        setCursor("default");
+                        setCursor(idleCursor);
                         setOrbitEnabledNow(
                           !isOverlayAddToolActive &&
                             !isTransforming &&
@@ -1814,7 +1809,7 @@ export default function DepartmentFloor3DViewer({
                         setCursor(
                           isMoveMode && !isAddMode && isSelected
                             ? "grab"
-                            : "pointer",
+                            : idleCursor,
                         );
                       }
                     : undefined
@@ -1823,8 +1818,7 @@ export default function DepartmentFloor3DViewer({
                   allowEdit
                     ? () => {
                         if (!draggingId) {
-                          // In move mode, keep pointer cursor for smooth transitions
-                          setCursor(isMoveMode && !isAddMode ? "pointer" : "default");
+                          setCursor(idleCursor);
                         }
                       }
                     : undefined
@@ -2132,7 +2126,7 @@ export default function DepartmentFloor3DViewer({
                   allowEdit
                     ? () => {
                         stopDragging();
-                        setCursor("default");
+                        setCursor(idleCursor);
                         setOrbitEnabledNow(
                           !isOverlayAddToolActive &&
                             !isTransforming &&
@@ -2160,7 +2154,7 @@ export default function DepartmentFloor3DViewer({
                           setCursor(
                             isMoveMode && !isAddMode && isSelected
                               ? "grab"
-                              : "pointer",
+                              : idleCursor,
                           );
                         }
                       : undefined
@@ -2169,8 +2163,7 @@ export default function DepartmentFloor3DViewer({
                     allowEdit
                       ? () => {
                           if (!draggingId) {
-                            // In move mode, keep pointer cursor for smooth transitions
-                            setCursor(isMoveMode && !isAddMode ? "pointer" : "default");
+                            setCursor(idleCursor);
                           }
                         }
                       : undefined
@@ -2274,7 +2267,7 @@ export default function DepartmentFloor3DViewer({
               if (!isAddMode) {
                 if (typeof onSelectElement === "function") onSelectElement("");
                 setDraggingId("");
-                setCursor("default");
+                setCursor(idleCursor);
                 return;
               }
 
@@ -2283,7 +2276,7 @@ export default function DepartmentFloor3DViewer({
             onPointerUp={() => {
               stopPanDrag();
               stopDragging();
-              setCursor("default");
+              setCursor(idleCursor);
               setOrbitEnabledNow(
                 !isOverlayAddToolActive && !isTransforming && !isAddDrawing,
               );
@@ -2330,7 +2323,7 @@ export default function DepartmentFloor3DViewer({
               stopPanDrag();
               stopDragging();
               clearAddDrag();
-              setCursor("default");
+              setCursor(idleCursor);
               setOrbitEnabledNow(
                 !isOverlayAddToolActive && !isTransforming && !isAddDrawing,
               );
@@ -2456,7 +2449,7 @@ export default function DepartmentFloor3DViewer({
                   (allowEdit) => () => {
                     if (!allowEdit) return;
                     stopDragging();
-                    setCursor("default");
+                    setCursor(idleCursor);
                     setOrbitEnabledNow(
                       !isOverlayAddToolActive &&
                         !isTransforming &&
@@ -2464,7 +2457,13 @@ export default function DepartmentFloor3DViewer({
                         !draggingId,
                     );
                   },
-                  [isOverlayAddToolActive, isTransforming, isAddDrawing, draggingId],
+                  [
+                    idleCursor,
+                    isOverlayAddToolActive,
+                    isTransforming,
+                    isAddDrawing,
+                    draggingId,
+                  ],
                 );
 
                 const createPointerOverHandler = useCallback(
@@ -2476,23 +2475,22 @@ export default function DepartmentFloor3DViewer({
                     // Show cursor based on selection state in move mode
                     if (isMoveMode && !isAddMode) {
                       const isThisSelected = selectedId && String(selectedId) === elId;
-                      setCursor(isThisSelected ? "grab" : "pointer");
+                      setCursor(isThisSelected ? "grab" : idleCursor);
                     } else {
                       setCursor("pointer");
                     }
                   },
-                  [isAddMode, isMoveMode, selectedId],
+                  [isAddMode, isMoveMode, selectedId, idleCursor],
                 );
 
                 const createPointerOutHandler = useCallback(
                   (allowEdit) => () => {
                     if (!allowEdit) return;
-                    // In move mode, set cursor to pointer (not default) for smooth transitions between elements
                     if (!draggingId) {
-                      setCursor(isMoveMode && !isAddMode ? "pointer" : "default");
+                      setCursor(idleCursor);
                     }
                   },
-                  [draggingId, isMoveMode, isAddMode],
+                  [draggingId, idleCursor],
                 );
 
                 const createPointerEnterHandler = useCallback(
@@ -2502,7 +2500,7 @@ export default function DepartmentFloor3DViewer({
                     // Set cursor based on context
                     if (allowEdit && isMoveMode && !isAddMode) {
                       const isThisSelected = selectedId && String(selectedId) === elId;
-                      setCursor(isThisSelected ? "grab" : "pointer");
+                      setCursor(isThisSelected ? "grab" : idleCursor);
                     } else if (canOpenDetails) {
                       setCursor("pointer");
                     }
@@ -2521,7 +2519,7 @@ export default function DepartmentFloor3DViewer({
                       setHoveredTooltipPosition({ x, y });
                     }
                   },
-                  [isMoveMode, isAddMode, selectedId],
+                  [isMoveMode, isAddMode, selectedId, idleCursor],
                 );
 
                 const createPointerMoveOverMachineHandler = useCallback(
@@ -2548,12 +2546,11 @@ export default function DepartmentFloor3DViewer({
                       prev === machineId ? "" : prev,
                     );
                     setHoveredTooltipPosition(null);
-                    // In move mode, set cursor to pointer for smooth transitions
                     if (!draggingId) {
-                      setCursor(allowEdit && isMoveMode && !isAddMode ? "pointer" : "default");
+                      setCursor(allowEdit ? idleCursor : "default");
                     }
                   },
-                  [draggingId, isMoveMode, isAddMode],
+                  [draggingId, idleCursor],
                 );
 
                 const createClickHandler = useCallback(
@@ -2684,7 +2681,7 @@ export default function DepartmentFloor3DViewer({
                     />
                   );
 
-                  return isSelected && allowEdit ? (
+                  return isSelected && allowEdit && !isMoveMode ? (
                     <TransformControls
                       key={`transform-${String(el.id)}-${index}`}
                       mode="scale"
