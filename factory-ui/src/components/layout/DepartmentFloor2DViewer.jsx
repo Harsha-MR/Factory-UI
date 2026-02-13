@@ -3,6 +3,8 @@ import { ELEMENT_TYPES } from "./layoutTypes";
 import { computeMachineOeePct } from "../dashboard/utils";
 import { MachineGlyph, TransporterIcon } from "./icons";
 
+const MIN_ZONE_SIZE = 0.18;
+
 function clamp01(n) {
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(1, n));
@@ -19,11 +21,73 @@ function asType(activeTool) {
 
 function statusTint(status) {
   const s = String(status || "").toUpperCase();
-  if (s === "DOWN") return "bg-red-500/35";
-  if (s === "IDLE") return "bg-amber-500/35";
-  if (s === "MAINTENANCE") return "bg-purple-500/35";
-  if (s === "OFF" || s === "OFFLINE") return "bg-slate-400/35";
-  return "bg-emerald-500/35";
+  if (s === "DOWN") return "bg-red-500/40";
+  if (s === "IDLE") return "bg-yellow-400/45";
+  if (s === "MAINTENANCE") return "bg-purple-500/40";
+  if (s === "OFF" || s === "OFFLINE") return "bg-gray-500/42";
+  return "bg-green-500/40";
+}
+
+function statusTone(status) {
+  const s = String(status || "").toUpperCase();
+  if (s === "DOWN") {
+    return {
+      glow: "bg-red-500/34",
+      badge: "bg-red-500",
+      nameBg: "bg-red-900/85",
+      border: "border-red-500/70",
+    };
+  }
+  if (s === "IDLE") {
+    return {
+      glow: "bg-yellow-400/36",
+      badge: "bg-yellow-400",
+      nameBg: "bg-yellow-900/85",
+      border: "border-yellow-500/75",
+    };
+  }
+  if (s === "WARNING") {
+    return {
+      glow: "bg-orange-500/34",
+      badge: "bg-orange-500",
+      nameBg: "bg-orange-900/85",
+      border: "border-orange-500/75",
+    };
+  }
+  if (s === "MAINTENANCE") {
+    return {
+      glow: "bg-purple-500/34",
+      badge: "bg-purple-500",
+      nameBg: "bg-purple-900/85",
+      border: "border-purple-500/75",
+    };
+  }
+  if (s === "OFF" || s === "OFFLINE") {
+    return {
+      glow: "bg-gray-500/36",
+      badge: "bg-gray-500",
+      nameBg: "bg-gray-800/85",
+      border: "border-gray-500/80",
+    };
+  }
+  return {
+    glow: "bg-green-500/36",
+    badge: "bg-green-500",
+    nameBg: "bg-green-900/85",
+    border: "border-green-500/75",
+  };
+}
+
+function compactMachineLabel(name) {
+  const raw = String(name || "").trim();
+  if (!raw) return "";
+  const m = raw.match(/\d+/);
+  if (m) return `M-${m[0]}`;
+  return raw.length > 6 ? raw.slice(0, 6) : raw;
+}
+
+function machineImageByStatus(status) {
+  return "/icons/machine-cnc.svg";
 }
 
 function isVisibleByStatus(status, machineStatusVisibility) {
@@ -106,6 +170,27 @@ export default function DepartmentFloor2DViewer({
     () => renderElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE),
     [renderElements],
   );
+  const zoneSizeBaseline = useMemo(() => {
+    const valuesW = zoneElements
+      .map((z) => Number(z?.w) || 0)
+      .filter((v) => Number.isFinite(v) && v > 0.05)
+      .sort((a, b) => a - b);
+    const valuesH = zoneElements
+      .map((z) => Number(z?.h) || 0)
+      .filter((v) => Number.isFinite(v) && v > 0.05)
+      .sort((a, b) => a - b);
+
+    const median = (arr, fallback) => {
+      if (!arr.length) return fallback;
+      const mid = Math.floor(arr.length / 2);
+      return arr.length % 2 ? arr[mid] : (arr[mid - 1] + arr[mid]) / 2;
+    };
+
+    return {
+      w: Math.max(MIN_ZONE_SIZE, median(valuesW, 0.34)),
+      h: Math.max(MIN_ZONE_SIZE, median(valuesH, 0.34)),
+    };
+  }, [zoneElements]);
 
   const zoneById = useMemo(() => {
     const map = new Map();
@@ -124,6 +209,40 @@ export default function DepartmentFloor2DViewer({
 
   const focusPad = 0.02;
   const focusSize = 1 - focusPad * 2;
+  const allZonesRects = useMemo(() => {
+    const zones = [...zoneElements].sort((a, b) => {
+      const ay = Number(a?.y) || 0;
+      const by = Number(b?.y) || 0;
+      if (Math.abs(ay - by) > 0.01) return ay - by;
+      const ax = Number(a?.x) || 0;
+      const bx = Number(b?.x) || 0;
+      return ax - bx;
+    });
+    const count = zones.length;
+    if (!count) return new Map();
+
+    const cols = Math.max(1, Math.ceil(Math.sqrt(count)));
+    const rows = Math.max(1, Math.ceil(count / cols));
+    const pad = 0.02;
+    const gap = 0.03;
+    const usableW = 1 - pad * 2 - gap * (cols - 1);
+    const usableH = 1 - pad * 2 - gap * (rows - 1);
+    const cellW = Math.max(0.12, usableW / cols);
+    const cellH = Math.max(0.12, usableH / rows);
+
+    const map = new Map();
+    zones.forEach((z, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      map.set(String(z.id), {
+        x: clamp01(pad + col * (cellW + gap)),
+        y: clamp01(pad + row * (cellH + gap)),
+        w: clamp01(cellW),
+        h: clamp01(cellH),
+      });
+    });
+    return map;
+  }, [zoneElements]);
 
   const isInsideZone = (el, zone) => {
     if (!el || !zone) return false;
@@ -215,6 +334,10 @@ export default function DepartmentFloor2DViewer({
 
   const toViewRect = (el) => {
     if (!focusedZone) {
+      if (el?.type === ELEMENT_TYPES.ZONE) {
+        const auto = allZonesRects.get(String(el?.id));
+        if (auto) return auto;
+      }
       return {
         x: clamp01(Number(el?.x) || 0),
         y: clamp01(Number(el?.y) || 0),
@@ -285,6 +408,29 @@ export default function DepartmentFloor2DViewer({
     }
   };
 
+  // Safety: auto-recover zones that accidentally became tiny.
+  useEffect(() => {
+    if (!fullScreen || typeof onUpdateElement !== "function") return;
+    for (const el of zoneElements) {
+      if (el?.type !== ELEMENT_TYPES.ZONE) continue;
+      const w = Number(el?.w) || 0;
+      const h = Number(el?.h) || 0;
+      const minAllowedW = Math.max(MIN_ZONE_SIZE, zoneSizeBaseline.w * 0.7);
+      const minAllowedH = Math.max(MIN_ZONE_SIZE, zoneSizeBaseline.h * 0.7);
+      if (w >= minAllowedW && h >= minAllowedH) continue;
+      const nextW = zoneSizeBaseline.w;
+      const nextH = zoneSizeBaseline.h;
+      const x = clamp01(Number(el?.x) || 0);
+      const y = clamp01(Number(el?.y) || 0);
+      onUpdateElement(String(el.id), {
+        x: Math.min(x, Math.max(0, 1 - nextW)),
+        y: Math.min(y, Math.max(0, 1 - nextH)),
+        w: nextW,
+        h: nextH,
+      });
+    }
+  }, [zoneElements, zoneSizeBaseline, fullScreen, onUpdateElement]);
+
   const onCanvasPointerMove = (e) => {
     const n = normFromClient(e.clientX, e.clientY);
     if (!n) return;
@@ -298,14 +444,56 @@ export default function DepartmentFloor2DViewer({
     }
 
     if (dragState) {
-      const nextX = n.x - dragState.offsetX;
-      const nextY = n.y - dragState.offsetY;
+      let nextX = n.x - dragState.offsetX;
+      let nextY = n.y - dragState.offsetY;
+      let moveW = dragState.w;
+      let moveH = dragState.h;
+
+      const draggedEl = renderElements.find(
+        (el) => String(el?.id) === String(dragState.id),
+      );
+
+      // Disable rearrangement for zones and machines (keep legacy stable behavior).
+      if (
+        draggedEl?.type === ELEMENT_TYPES.ZONE ||
+        draggedEl?.type === ELEMENT_TYPES.MACHINE
+      ) {
+        return;
+      }
+
+      // Zone drag should move position only (keep zone size from source element).
+      if (draggedEl?.type === ELEMENT_TYPES.ZONE) {
+        moveW = Math.max(MIN_ZONE_SIZE, Number(draggedEl?.w) || dragState.w);
+        moveH = Math.max(MIN_ZONE_SIZE, Number(draggedEl?.h) || dragState.h);
+      }
+
+      // Constrain machines to remain inside their current zone body.
+      if (draggedEl?.type === ELEMENT_TYPES.MACHINE) {
+        const homeZone = focusedZone || findZoneForElement(draggedEl);
+        if (homeZone) {
+          const zoneRect = toViewRect(homeZone);
+          const headerH = Math.min(0.08, Math.max(0.035, zoneRect.h * 0.15));
+          const bodyPad = Math.max(0.004, zoneRect.w * 0.01);
+          const bodyX = zoneRect.x + bodyPad;
+          const bodyY = zoneRect.y + headerH + bodyPad;
+          const bodyW = Math.max(0.02, zoneRect.w - bodyPad * 2);
+          const bodyH = Math.max(0.02, zoneRect.h - headerH - bodyPad * 2);
+
+          const minX = bodyX;
+          const minY = bodyY;
+          const maxX = Math.max(minX, bodyX + bodyW - dragState.w);
+          const maxY = Math.max(minY, bodyY + bodyH - dragState.h);
+          nextX = Math.max(minX, Math.min(maxX, nextX));
+          nextY = Math.max(minY, Math.min(maxY, nextY));
+        }
+      }
+
       patchMove(
         dragState.id,
-        Math.max(0, Math.min(1 - dragState.w, nextX)),
-        Math.max(0, Math.min(1 - dragState.h, nextY)),
-        dragState.w,
-        dragState.h,
+        Math.max(0, Math.min(1 - moveW, nextX)),
+        Math.max(0, Math.min(1 - moveH, nextY)),
+        moveW,
+        moveH,
       );
     }
   };
@@ -474,15 +662,18 @@ export default function DepartmentFloor2DViewer({
             (m) => String(m?.id) === String(el?.id),
           );
           const total = Math.max(1, zoneMachines.length);
-          const cols = 10;
+          // Keep compact grid balanced in all-zones view so icon stays readable.
+          const cols = focusedZone
+            ? 10
+            : Math.min(8, Math.max(6, total));
           const rows = Math.max(3, Math.ceil(total / cols));
-          const gapX = Math.max(0.002, bodyW * 0.01);
-          const gapY = Math.max(0.002, bodyH * 0.02);
+          const gapX = Math.max(0.002, bodyW * (focusedZone ? 0.01 : 0.016));
+          const gapY = Math.max(0.002, bodyH * (focusedZone ? 0.02 : 0.026));
           const cellW = Math.max(0.01, (bodyW - gapX * (cols - 1)) / cols);
           const cellH = Math.max(0.01, (bodyH - gapY * (rows - 1)) / rows);
           const col = Math.max(0, machineIndex) % cols;
           const row = Math.floor(Math.max(0, machineIndex) / cols);
-          const itemPad = Math.max(0.001, Math.min(cellW, cellH) * 0.08);
+          const itemPad = Math.max(0.001, Math.min(cellW, cellH) * (focusedZone ? 0.08 : 0.05));
           rect = {
             x: clamp01(bodyX + col * (cellW + gapX) + itemPad),
             y: clamp01(bodyY + row * (cellH + gapY) + itemPad),
@@ -522,12 +713,9 @@ export default function DepartmentFloor2DViewer({
               onPointerDown={(e) => {
                 if (!fullScreen) return;
                 e.stopPropagation();
-                if (isMachineAddMode) {
-                  onFocusZoneChange?.(String(el.id));
-                  onSelectElement?.(String(el.id));
-                  return;
-                }
-                if (isAddMode) return;
+                // Always focus the clicked zone in fullscreen editor so it opens wide.
+                if (isAddMode && !isMachineAddMode) return;
+                onFocusZoneChange?.(String(el.id));
                 onSelectElement?.(String(el.id));
               }}
             >
@@ -619,6 +807,9 @@ export default function DepartmentFloor2DViewer({
           const meta = machineMetaById?.[machineId];
           const status = meta?.status || "RUNNING";
           const name = machineDisplayName(el, machineMetaById);
+          const compactZoneView = !focusedZone;
+          const tone = statusTone(status);
+          const compactName = compactMachineLabel(name);
           const oee = meta ? computeMachineOeePct(meta) : null;
           return (
             <button
@@ -626,8 +817,8 @@ export default function DepartmentFloor2DViewer({
               type="button"
               className={
                 isSelected
-                  ? `absolute z-[20] rounded-lg border-2 border-sky-500 bg-white/95 shadow-sm ${isAddMode ? "pointer-events-none" : ""}`
-                  : `absolute z-[20] rounded-lg border border-slate-300 bg-white/95 shadow-sm ${isAddMode ? "pointer-events-none" : ""}`
+                  ? `absolute z-[20] rounded-md ring-2 ring-sky-500/90 ${isAddMode ? "pointer-events-none" : ""}`
+                  : `absolute z-[20] rounded-md ${isAddMode ? "pointer-events-none" : ""}`
               }
               style={{ left, top, width, height, transform: `rotate(${rotation}deg)` }}
               onPointerDown={(e) => {
@@ -635,19 +826,6 @@ export default function DepartmentFloor2DViewer({
                 e.stopPropagation();
                 if (fullScreen) {
                   onSelectElement?.(String(el.id));
-                  const n = normFromClient(e.clientX, e.clientY);
-                  if (!n) return;
-                  const w = rect.w;
-                  const h = rect.h;
-                  const x = rect.x;
-                  const y = rect.y;
-                  setDragState({
-                    id: String(el.id),
-                    w,
-                    h,
-                    offsetX: n.x - x,
-                    offsetY: n.y - y,
-                  });
                   return;
                 }
                 if (typeof onOpenMachineDetails === "function" && machineId) {
@@ -679,33 +857,26 @@ export default function DepartmentFloor2DViewer({
               }}
               onMouseLeave={() => setHover(null)}
             >
-              <div className="relative h-full w-full overflow-hidden rounded-md border border-slate-500/50 bg-gradient-to-b from-slate-100 to-slate-200">
-                <div className="absolute inset-x-0 top-0 min-h-7 bg-slate-900/95 px-1.5 py-0.5">
-                  <div
-                    className="whitespace-normal break-words text-[9px] font-semibold leading-tight text-white"
-                    title={name}
-                  >
+              <div className={`relative h-full w-full overflow-hidden rounded-sm border ${tone.border}`}>
+                <div className={`absolute inset-[2%] rounded-md ${tone.glow}`} />
+                <div className={`absolute inset-x-0 top-0 ${compactZoneView ? "h-0.5" : "h-1"} ${statusTint(status)}`} />
+                <img
+                  src={machineImageByStatus(status)}
+                  alt="Machine"
+                  className={`pointer-events-none absolute inset-0 m-auto object-contain drop-shadow-[0_2px_2px_rgba(0,0,0,0.32)] ${
+                    compactZoneView ? "h-[95%] w-[95%]" : "h-[98%] w-[98%]"
+                  }`}
+                />
+                <div className={`absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full ${tone.badge}`} />
+                {compactZoneView ? (
+                  <div className={`absolute inset-x-0.5 bottom-0.5 truncate rounded px-0.5 py-[1px] text-center text-[6px] font-semibold leading-tight text-white ${tone.nameBg}`}>
+                    {compactName}
+                  </div>
+                ) : (
+                  <div className={`absolute inset-x-1 bottom-0.5 rounded px-1 py-[1px] text-center text-[8px] font-semibold leading-tight text-white ${tone.nameBg}`}>
                     {name}
                   </div>
-                </div>
-
-                <div className="absolute inset-x-0 top-7 h-1">
-                  <div className={`h-full w-full ${statusTint(status)}`} />
-                </div>
-
-                <div className="absolute inset-x-0 bottom-0 top-8 flex items-center justify-center">
-                  <div className="grid h-full w-full grid-cols-2 gap-1 px-1.5 py-1.5">
-                    <div className="rounded border border-slate-400 bg-white/85 shadow-inner" />
-                    <div className="rounded border border-slate-400 bg-white/85 shadow-inner" />
-                    <div className="rounded border border-slate-400 bg-white/85 shadow-inner" />
-                    <div className="rounded border border-slate-400 bg-white/85 shadow-inner" />
-                  </div>
-                  <img
-                    src="/icons/machine.svg"
-                    alt="Machine"
-                    className="pointer-events-none absolute h-5 w-5 opacity-75"
-                  />
-                </div>
+                )}
               </div>
               {showMachineLabels ? null : null}
             </button>

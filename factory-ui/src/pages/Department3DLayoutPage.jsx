@@ -430,7 +430,7 @@ function relayoutMachinesInZones(elements) {
     const zh = Number(z?.h) || 0;
     const total = list.length;
     const cols = 10;
-    const rows = Math.max(1, Math.ceil(total / cols));
+    const rows = Math.max(3, Math.ceil(total / cols));
 
     const headerH = Math.min(0.08, Math.max(0.035, zh * 0.15));
     const bodyPad = Math.max(0.004, zw * 0.01);
@@ -491,7 +491,7 @@ function normalizeLayoutForEditing(layoutLike) {
     ...base,
     threeD: {
       ...(base?.threeD || {}),
-      planeScale: Math.max(Number(base?.threeD?.planeScale) || 1, nextPlaneScale),
+      planeScale: Math.max(1, nextPlaneScale),
     },
     elements: rebuilt,
   };
@@ -734,7 +734,7 @@ export default function Department3DLayoutPage() {
   const [deptResult, setDeptResult] = useState(null);
   const [draft, setDraft] = useState(null);
   const [showMachineMarkers, setShowMachineMarkers] = useState(true);
-  const [showMachineLabels, setShowMachineLabels] = useState(true);
+  const [showMachineLabels, setShowMachineLabels] = useState(false);
   const [machineStatusVisibility, setMachineStatusVisibility] = useState({
     RUNNING: true,
     IDLE: true,
@@ -1192,7 +1192,7 @@ export default function Department3DLayoutPage() {
     });
     const idx = zoneMachines.length;
     const cols = 10;
-    const rows = Math.max(1, Math.ceil((idx + 1) / cols));
+    const rows = Math.max(3, Math.ceil((idx + 1) / cols));
     const padX = Math.max(0.004, zw * 0.02);
     const padY = Math.max(0.01, zh * 0.10);
     const usableW = Math.max(0.02, zw - padX * 2);
@@ -1253,12 +1253,11 @@ export default function Department3DLayoutPage() {
       const hadFloor = nextElements.some((e) => e?.type === ELEMENT_TYPES.FLOOR);
       if (!hadFloor && updatedFloors.length) rebuilt.push(updatedFloors[0]);
       const nextPlaneScale = computePlaneScaleFromElements(rebuilt);
-      const prevPlaneScale = Number(prev?.threeD?.planeScale) || 1;
       return {
         ...prev,
         threeD: {
           ...(prev.threeD || {}),
-          planeScale: Math.max(prevPlaneScale, nextPlaneScale),
+          planeScale: Math.max(1, nextPlaneScale),
         },
         elements: rebuilt,
       };
@@ -1447,6 +1446,27 @@ export default function Department3DLayoutPage() {
                   onClick={onReset}
                 >
                   Reset
+                </button>
+                <button
+                  type="button"
+                  className={neutralBtnClass}
+                  onClick={() => {
+                    setFocusedZoneId("");
+                    setPendingMachinePlacement(null);
+                    pushToast({
+                      kind: "info",
+                      message: "Back to all zones view",
+                      ts: Date.now(),
+                    });
+                  }}
+                  disabled={!focusedZone}
+                  title={
+                    focusedZone
+                      ? "Return to all zones canvas"
+                      : "Already in all zones view"
+                  }
+                >
+                  Back to all zones
                 </button>
                 <button
                   type="button"
@@ -2056,25 +2076,10 @@ export default function Department3DLayoutPage() {
                       <span className="font-semibold">Selected zone:</span>{" "}
                       {focusedZone?.label || "Select a zone from canvas/list"}
                     </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="mt-2">
                       <button
                         type="button"
-                        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                        onClick={() => {
-                          setFocusedZoneId("");
-                          setPendingMachinePlacement(null);
-                          pushToast({
-                            kind: "info",
-                            message: "Back to all zones view",
-                            ts: Date.now(),
-                          });
-                        }}
-                      >
-                        Back to all zones
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                        className="w-full rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
                         onClick={() => {
                           if (!focusedZone) return;
                           pushToast({
@@ -3185,12 +3190,7 @@ export default function Department3DLayoutPage() {
                               const nextPlaneScale = shouldResize
                                 ? computePlaneScaleFromElements(normalizedElements)
                                 : (prev?.threeD?.planeScale ?? 1);
-                              const prevPlaneScale =
-                                Number(prev?.threeD?.planeScale) || 1;
-                              const planeScale = Math.max(
-                                prevPlaneScale,
-                                nextPlaneScale,
-                              );
+                              const planeScale = Math.max(1, nextPlaneScale);
 
                               return {
                                 ...prev,

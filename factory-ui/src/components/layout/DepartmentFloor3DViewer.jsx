@@ -101,10 +101,10 @@ function statusColor(status) {
 function zoneFillColor(colorKey) {
   const k = String(colorKey || "").toLowerCase();
   if (k === "dark-green" || k === "darkgreen" || k === "green")
-    return "#14532d";
-  if (k === "orange") return "#f97316";
-  if (k === "yellow") return "#facc15";
-  return "#14532d";
+    return "#166534";
+  if (k === "orange") return "#15803d";
+  if (k === "yellow") return "#16a34a";
+  return "#166534";
 }
 
 function computeMachineOeePct(machine) {
@@ -133,12 +133,15 @@ function computeMachineOeePct(machine) {
 function machineModelUrlForStatus(status, fullScreen = false) {
   // Use generic machine.glb in fullscreen for consistent appearance
   if (fullScreen) return "/models/machine.glb";
-  
-  // Use status-based models in preview mode for visual status indication
+
+  // Status-colored models in preview mode.
   const s = String(status || "").toUpperCase();
   if (s === "DOWN") return "/models/machine-down.glb";
   if (s === "IDLE") return "/models/machine-idle.glb";
-  // Default to RUNNING for unknown/other states.
+  if (s === "RUNNING") return "/models/machine-running.glb";
+  // Fallbacks for statuses without dedicated GLB.
+  if (s === "MAINTENANCE") return "/models/machine-idle.glb";
+  if (s === "OFF" || s === "OFFLINE") return "/models/machine-down.glb";
   return "/models/machine-running.glb";
 }
 
@@ -343,7 +346,7 @@ const PlacedGLB = memo(function PlacedGLB({
       const hasModelXZ = Number.isFinite(modelXZ) && modelXZ > 0.000001;
       const computedFitScale =
         hasTarget && hasModelXZ
-          ? clamp((target * 0.88) / modelXZ, 0.001, 100)
+          ? clamp((target * 1.12) / modelXZ, 0.001, 100)
           : 1;
       const computedYOffset = Number.isFinite(minY)
         ? -minY * computedFitScale
@@ -355,7 +358,7 @@ const PlacedGLB = memo(function PlacedGLB({
     }
   }, [measured, fitW, fitD]);
 
-  // No tint color - use status-specific models directly for better performance
+  // Use model colors as-authored.
   const cloned = useMemo(() => scene.clone(true), [scene]);
 
   return (
@@ -548,9 +551,9 @@ const MachineElement = memo(function MachineElement({
           <Text
             position={[0, 0.65, 0]}
             fontSize={0.14}
-            color={fullScreen ? "#ffffff" : markerColor}
+            color="#f8fafc"
             outlineWidth={0.012}
-            outlineColor="#000000"
+            outlineColor="#0b1220"
             anchorX="center"
             anchorY="bottom"
             material-depthTest={false}
@@ -652,9 +655,29 @@ const ZoneModel3D = memo(function ZoneModel3D({ width, depth, color }) {
   const w = Math.max(0.02, Number(width) || 1);
   const d = Math.max(0.02, Number(depth) || 1);
   const { scene } = useGLTF("/models/zone-green.glb");
+  const resolvedColor = color || "#ffffff";
 
   const clonedScene = useMemo(() => {
     const clone = scene.clone(true);
+
+    // Force zone model tint so zone canvas can be white regardless of source GLB color.
+    clone.traverse((obj) => {
+      if (!obj?.isMesh) return;
+      if (Array.isArray(obj.material)) {
+        obj.material = obj.material.map((mat) => {
+          if (!mat) return mat;
+          const next = mat.clone();
+          if ("color" in next) next.color = new Color(resolvedColor);
+          return next;
+        });
+        return;
+      }
+      if (obj.material) {
+        const next = obj.material.clone();
+        if ("color" in next) next.color = new Color(resolvedColor);
+        obj.material = next;
+      }
+    });
     
     // Calculate bounding box of the loaded model
     const box = new Box3().setFromObject(clone);
@@ -674,7 +697,7 @@ const ZoneModel3D = memo(function ZoneModel3D({ width, depth, color }) {
     clone.position.set(-center.x * scaleX, -box.min.y * scaleY, -center.z * scaleZ);
 
     return clone;
-  }, [scene, w, d]);
+  }, [scene, w, d, resolvedColor]);
 
   return <primitive object={clonedScene} />;
 });
@@ -1016,6 +1039,228 @@ export default function DepartmentFloor3DViewer({
     })
   , [placeableElements, machineMetaById, machineStatusVisibility]);
 
+  const previewLayout = useMemo(() => {
+    if (fullScreen || zoneElements.length === 0) {
+      return {
+        zones: zoneElements,
+        walkways: walkwayElements,
+        placeables: visiblePlaceableElements,
+        floors: floorElements,
+      };
+    }
+
+    const sourceZoneById = new Map(zoneElements.map((z) => [String(z.id), z]));
+    const resolveSourceZoneForMachine = (m) => {
+      const zid = String(m?.meta?.zoneId || "").trim();
+      if (zid && sourceZoneById.has(zid)) return sourceZoneById.get(zid);
+      const zname = String(m?.meta?.zoneName || "").trim();
+      if (zname) {
+        const byName = zoneElements.find(
+          (z) => String(z?.label || "").trim() === zname,
+        );
+        if (byName) return byName;
+      }
+      const mx = Number(m?.x) || 0;
+      const my = Number(m?.y) || 0;
+      const mw = Number(m?.w) || 0;
+      const mh = Number(m?.h) || 0;
+      const cx = mx + mw / 2;
+      const cy = my + mh / 2;
+      return zoneElements.find((z) => {
+        const zx = Number(z?.x) || 0;
+        const zy = Number(z?.y) || 0;
+        const zw = Number(z?.w) || 0;
+        const zh = Number(z?.h) || 0;
+        return cx >= zx && cx <= zx + zw && cy >= zy && cy <= zy + zh;
+      }) || null;
+    };
+
+    const machines = visiblePlaceableElements.filter(
+      (e) => e?.type === ELEMENT_TYPES.MACHINE,
+    );
+    const grouped = new Map(zoneElements.map((z) => [String(z.id), []]));
+    for (const m of machines) {
+      const sourceZone = resolveSourceZoneForMachine(m);
+      if (!sourceZone) continue;
+      grouped.get(String(sourceZone.id)).push(m);
+    }
+
+    const zoneCount = zoneElements.length;
+    const cols =
+      zoneCount <= 4 ? 2 : zoneCount <= 6 ? 3 : zoneCount <= 8 ? 4 : 5;
+    const rows = Math.max(1, Math.ceil(zoneCount / cols));
+    const frameX = 0.03;
+    const frameY = 0.04;
+    const gapX = 0.02;
+    const gapY = 0.03;
+    const slotW = Math.max(
+      0.08,
+      (1 - frameX * 2 - gapX * (cols - 1)) / cols,
+    );
+    const slotH = Math.max(
+      0.08,
+      (1 - frameY * 2 - gapY * (rows - 1)) / rows,
+    );
+
+    let maxCount = 0;
+    for (const list of grouped.values()) {
+      maxCount = Math.max(maxCount, list.length || 0);
+    }
+    const minScale = 0.58;
+    const maxScale = 0.98;
+    // Shared preview grid for all zones:
+    // bias toward wider bottom rows (e.g. 1..6 on front row for ~20 machines)
+    // while keeping newest machine numbers on upper rows.
+    const maxColsByCount = clamp(
+      Math.ceil(Math.sqrt(Math.max(1, maxCount)) * 1.3),
+      5,
+      12,
+    );
+    const maxRowsByCount = Math.max(
+      1,
+      Math.ceil(Math.max(1, maxCount) / maxColsByCount),
+    );
+    const maxCapacity = maxColsByCount * maxRowsByCount;
+    const maxFill = clamp(maxCount / Math.max(1, maxCapacity), 0, 1);
+    const maxDensityFactor = clamp(0.55 + maxFill * 0.45, 0.55, 1);
+    const uniformZoneScale = clamp(
+      minScale + (maxScale - minScale) * maxDensityFactor,
+      minScale,
+      maxScale,
+    );
+    const remappedZones = zoneElements.map((z, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const zw = slotW * uniformZoneScale;
+      const zh = slotH * uniformZoneScale;
+      const slotX = frameX + col * (slotW + gapX);
+      const slotY = frameY + row * (slotH + gapY);
+      return {
+        ...z,
+        x: clamp01(slotX + (slotW - zw) / 2),
+        y: clamp01(slotY + (slotH - zh) / 2),
+        w: zw,
+        h: zh,
+      };
+    });
+    const zoneById = new Map(remappedZones.map((z) => [String(z.id), z]));
+
+    const remappedMachines = [];
+    for (const z of remappedZones) {
+      const zid = String(z.id);
+      const list = (grouped.get(zid) || []).sort((a, b) =>
+        String(a?.label || "").localeCompare(String(b?.label || ""), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      );
+      // Preview: use almost full zone area for machines (no header reserve),
+      // so we avoid large empty strips in front.
+      const headerH = 0;
+      const padX = Math.max(0.004, z.w * 0.018);
+      const padY = Math.max(0.004, z.h * 0.018);
+      const bodyX = z.x + padX;
+      const bodyY = z.y + headerH + padY;
+      const bodyW = Math.max(0.02, z.w - padX * 2);
+      const bodyH = Math.max(0.02, z.h - headerH - padY * 2);
+      // Use one shared machine grid pattern for all zones in preview,
+      // derived from the busiest zone, so positions are visually consistent.
+      const colsM = maxColsByCount;
+      const rowsM = Math.max(2, maxRowsByCount);
+      const cellW = Math.max(0.01, bodyW / colsM);
+      const cellH = Math.max(0.01, bodyH / rowsM);
+      const fillRatio = 0.86;
+
+      for (let i = 0; i < list.length; i += 1) {
+        const m = list[i];
+        const col = i % colsM;
+        // Numbering/order from front(bottom on screen) to back(top on screen):
+        // front row -> 1..N, next rows behind -> following numbers.
+        const logicalRow = Math.floor(i / colsM);
+        const row = logicalRow;
+        const mw = Math.max(0.008, cellW * fillRatio);
+        const mh = Math.max(0.008, cellH * fillRatio);
+        const mx = clamp01(bodyX + col * cellW + (cellW - mw) / 2);
+        const my = clamp01(bodyY + row * cellH + (cellH - mh) / 2);
+        remappedMachines.push({
+          ...m,
+          x: clamp(mx, 0, 1 - mw),
+          y: clamp(my, 0, 1 - mh),
+          w: mw,
+          h: mh,
+          meta: {
+            ...(m?.meta || {}),
+            zoneId: zid,
+            zoneName: String(z?.label || ""),
+          },
+        });
+      }
+    }
+
+    const others = visiblePlaceableElements.filter(
+      (e) => e?.type !== ELEMENT_TYPES.MACHINE,
+    );
+    const remappedPlaceables = [...remappedMachines, ...others];
+
+    const pad = 0.02;
+    const minX = Math.max(
+      0,
+      Math.min(...remappedZones.map((z) => Number(z?.x) || 0)) - pad,
+    );
+    const minY = Math.max(
+      0,
+      Math.min(...remappedZones.map((z) => Number(z?.y) || 0)) - pad,
+    );
+    const maxX = Math.min(
+      1,
+      Math.max(
+        ...remappedZones.map((z) => (Number(z?.x) || 0) + (Number(z?.w) || 0)),
+      ) + pad,
+    );
+    const maxY = Math.min(
+      1,
+      Math.max(
+        ...remappedZones.map((z) => (Number(z?.y) || 0) + (Number(z?.h) || 0)),
+      ) + pad,
+    );
+    const baseFloor = floorElements[0] || {};
+    const remappedFloors = [
+      {
+        id: String(baseFloor?.id || "__preview_floor__"),
+        type: ELEMENT_TYPES.FLOOR,
+        label: String(baseFloor?.label || "Floor"),
+        modelUrl: baseFloor?.modelUrl || "/models/floor-model.glb",
+        rotationDeg: 0,
+        x: minX,
+        y: minY,
+        w: Math.max(0.02, maxX - minX),
+        h: Math.max(0.02, maxY - minY),
+      },
+    ];
+
+    return {
+      zones: remappedZones,
+      walkways: [],
+      placeables: remappedPlaceables,
+      floors: remappedFloors,
+    };
+  }, [
+    fullScreen,
+    zoneElements,
+    walkwayElements,
+    visiblePlaceableElements,
+    floorElements,
+  ]);
+
+  const sceneFloorElements = fullScreen ? floorElements : previewLayout.floors;
+  const sceneZoneElements = fullScreen ? zoneElements : previewLayout.zones;
+  const sceneWalkwayElements = fullScreen
+    ? walkwayElements
+    : previewLayout.walkways;
+  const sceneVisiblePlaceableElements = fullScreen
+    ? visiblePlaceableElements
+    : previewLayout.placeables;
+
   const addOverlayType =
     addElementType === ELEMENT_TYPES.FLOOR ||
     addElementType === ELEMENT_TYPES.ZONE ||
@@ -1296,7 +1541,7 @@ export default function DepartmentFloor3DViewer({
       
       {/* HTML tooltip overlay - only render for hovered machine */}
       {!fullScreen && hoveredMachineId && hoveredTooltipPosition && (() => {
-        const machineData = visiblePlaceableElements.find(
+        const machineData = sceneVisiblePlaceableElements.find(
           el => el?.type === ELEMENT_TYPES.MACHINE && String(el?.machineId || "") === hoveredMachineId
         );
         if (!machineData) return null;
@@ -1339,10 +1584,10 @@ export default function DepartmentFloor3DViewer({
       >
         <Canvas
           camera={{ position: cameraPosition, fov: fullScreen ? 45 : 34 }}
-          // Optimized DPR for 100+ machines - lower pixel density = better performance
-          dpr={[0.4, 0.8]}
+          // Balanced DPR for faster load on 3D layout page.
+          dpr={fullScreen ? [1, 1.5] : [0.75, 1.15]}
           gl={{ 
-            antialias: false, // Disabled for performance - use FXAA post-processing if needed
+            antialias: false,
             powerPreference: "high-performance", // Force dedicated GPU
             stencil: false, // Not needed, saves memory
             depth: true,
@@ -1352,7 +1597,7 @@ export default function DepartmentFloor3DViewer({
             failIfMajorPerformanceCaveat: false, // Try even on slow GPUs
             // Performance: low precision shaders, no logarithmic depth
             logarithmicDepthBuffer: false,
-            precision: "lowp", // Low precision = faster shaders
+            precision: "mediump",
           }}
           // Demand rendering: only updates when invalidate() is called
           frameloop="demand"
@@ -1385,8 +1630,8 @@ export default function DepartmentFloor3DViewer({
               - Auto-layout is only applied when loading a layout with NO saved elements
           */}
           {(() => {
-            const list = floorElements.length
-              ? floorElements
+            const list = sceneFloorElements.length
+              ? sceneFloorElements
               : [
                   {
                     id: "__default_floor__",
@@ -1498,10 +1743,22 @@ export default function DepartmentFloor3DViewer({
                       : undefined
                   }
                 >
-                  {/* Load 3D floor model and scale only X and Z axes (preserve Y height) */}
-                  <Suspense fallback={null}>
-                    <FloorModel3D width={w} depth={d} url={floorModelUrl} />
-                  </Suspense>
+                  {/* In preview mode, use a clean white base plane for consistent organization.
+                      Keep model-based floor only in fullscreen editor mode. */}
+                  {fullScreen ? (
+                    <Suspense fallback={null}>
+                      <FloorModel3D width={w} depth={d} url={floorModelUrl} />
+                    </Suspense>
+                  ) : (
+                    <mesh
+                      rotation={[-Math.PI / 2, 0, 0]}
+                      position={[0, 0.002, 0]}
+                      receiveShadow={false}
+                    >
+                      <planeGeometry args={[w, d]} />
+                      <meshStandardMaterial color="#e5e7eb" />
+                    </mesh>
+                  )}
                   
                   {id !== "__default_floor__" ? (
                     <mesh
@@ -1544,7 +1801,7 @@ export default function DepartmentFloor3DViewer({
           })()}
 
           {/* 2D overlays: zones + walkways */}
-          {zoneElements.map((el) => {
+          {sceneZoneElements.map((el) => {
             const id = String(el.id);
             const isSelected = selectedId && String(selectedId) === id;
             const wNorm = clamp01(Number(el.w) || 0.15);
@@ -1713,8 +1970,8 @@ export default function DepartmentFloor3DViewer({
             };
 
             // Calculate machine centers for each zone
-            const zoneMachineCenters = zoneElements.reduce((acc, zone) => {
-              const machinesInZone = placeableElements.filter(machine => {
+            const zoneMachineCenters = sceneZoneElements.reduce((acc, zone) => {
+              const machinesInZone = sceneVisiblePlaceableElements.filter(machine => {
                 const machineWNorm = clamp01(Number(machine.w) || 0.12);
                 const machineHNorm = clamp01(Number(machine.h) || 0.12);
                 const machineCx = clamp01((Number(machine.x) || 0.5) + machineWNorm / 2);
@@ -1750,7 +2007,7 @@ export default function DepartmentFloor3DViewer({
               return acc;
             }, {});
 
-            return zoneElements.map((zone) => {
+            return sceneZoneElements.map((zone) => {
               const zoneName = String(zone.label || "").trim() || "Zone";
               const labelCenter = zoneMachineCenters[zone.id];
               if (!labelCenter) return null;
@@ -1761,9 +2018,9 @@ export default function DepartmentFloor3DViewer({
                 <Billboard key={`zone-label-${zone.id}`} follow lockX lockZ position={[labelPos.x, 1.5, labelPos.z]}>
                   <Text
                     fontSize={0.28}
-                    color="#ffffff"
+                    color="#000000"
                     outlineWidth={0.025}
-                    outlineColor="#000000"
+                    outlineColor="#ffffff"
                     anchorX="center"
                     anchorY="middle"
                     renderOrder={150}
@@ -1777,7 +2034,7 @@ export default function DepartmentFloor3DViewer({
             });
           })()}
 
-          {walkwayElements.map((el) => {
+          {sceneWalkwayElements.map((el) => {
             const id = String(el.id);
             const isSelected = selectedId && String(selectedId) === id;
             const wNorm = clamp01(Number(el.w) || 0.2);
@@ -2078,7 +2335,7 @@ export default function DepartmentFloor3DViewer({
             ? (() => {
                 // Prepare machine data with positions for efficient label limiting
                 const machinesWithPositions = useMemo(() => {
-                  return visiblePlaceableElements.map((el) => {
+                  return sceneVisiblePlaceableElements.map((el) => {
                     const wNorm = clamp01(Number(el.w) || 0.12);
                     const hNorm = clamp01(Number(el.h) || 0.12);
                     const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2);
@@ -2086,7 +2343,7 @@ export default function DepartmentFloor3DViewer({
                     const pos = normToPlane(cx, cy, effectivePlaneSize);
                     return { el, pos, id: String(el.id) };
                   });
-                }, [visiblePlaceableElements, effectivePlaneSize]);
+                }, [sceneVisiblePlaceableElements, effectivePlaneSize]);
 
                 // Limit labels to closest 25 machines for performance
                 const machinesWithLabels = useLimitedLabels(
@@ -2302,8 +2559,10 @@ export default function DepartmentFloor3DViewer({
                     !!machineId &&
                     typeof onOpenMachineDetails === "function";
 
-                  // Only show label if this machine is in the limited label set
-                  const showLabel = showMachineLabels && labelIds.has(String(el.id));
+                  // Show label for every machine when label toggle is enabled.
+                  const showLabel =
+                    showMachineLabels &&
+                    el?.type === ELEMENT_TYPES.MACHINE;
 
                   const machineElement = (
                     <MachineElement
