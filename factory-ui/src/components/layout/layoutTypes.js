@@ -32,6 +32,7 @@ export function normalizeElement(raw) {
     type,
     label: raw.label ? String(raw.label) : '',
     machineId: raw.machineId ? String(raw.machineId) : undefined,
+    meta: raw.meta && typeof raw.meta === 'object' ? { ...raw.meta } : undefined,
     // modelUrl is preserved for all elements, especially floor elements with predefined models
     // This enables saving/loading custom floor plans (floor(1x2).glb, floor(2x3).glb, etc.) from MongoDB
     modelUrl: raw.modelUrl ? String(raw.modelUrl) : undefined,

@@ -145,6 +145,21 @@ function machineModelUrlForStatus(status, fullScreen = false) {
   return "/models/machine-running.glb";
 }
 
+function machineOrderIndex(machine) {
+  const raw = Number(machine?.meta?.slotIndex);
+  return Number.isFinite(raw) ? raw : Number.POSITIVE_INFINITY;
+}
+
+function sortMachinesForZone(a, b) {
+  const ai = machineOrderIndex(a);
+  const bi = machineOrderIndex(b);
+  if (ai !== bi) return ai - bi;
+  return String(a?.label || "").localeCompare(String(b?.label || ""), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
 function setCursor(cursor) {
   if (typeof document === "undefined") return;
   document.body.style.cursor = cursor || "default";
@@ -1128,7 +1143,16 @@ export default function DepartmentFloor3DViewer({
       minScale,
       maxScale,
     );
-    const remappedZones = zoneElements.map((z, i) => {
+    const orderedZones = [...zoneElements].sort((a, b) => {
+      const ay = Number(a?.y) || 0;
+      const by = Number(b?.y) || 0;
+      if (Math.abs(ay - by) > 0.0005) return ay - by;
+      const ax = Number(a?.x) || 0;
+      const bx = Number(b?.x) || 0;
+      return ax - bx;
+    });
+
+    const remappedZones = orderedZones.map((z, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const zw = slotW * uniformZoneScale;
@@ -1148,12 +1172,7 @@ export default function DepartmentFloor3DViewer({
     const remappedMachines = [];
     for (const z of remappedZones) {
       const zid = String(z.id);
-      const list = (grouped.get(zid) || []).sort((a, b) =>
-        String(a?.label || "").localeCompare(String(b?.label || ""), undefined, {
-          numeric: true,
-          sensitivity: "base",
-        }),
-      );
+      const list = (grouped.get(zid) || []).sort(sortMachinesForZone);
       // Preview: use almost full zone area for machines (no header reserve),
       // so we avoid large empty strips in front.
       const headerH = 0;

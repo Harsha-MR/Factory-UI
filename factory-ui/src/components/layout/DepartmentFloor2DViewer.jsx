@@ -86,7 +86,7 @@ function compactMachineLabel(name) {
   return raw.length > 6 ? raw.slice(0, 6) : raw;
 }
 
-function machineImageByStatus(status) {
+function machineImageByStatus() {
   return "/icons/machine-cnc.svg";
 }
 
@@ -103,6 +103,22 @@ function machineDisplayName(el, machineMetaById) {
     machineMetaById?.[mid]?.name ||
     el?.label ||
     (mid ? `Machine ${mid}` : "Machine")
+  );
+}
+
+function machineOrderIndex(machine) {
+  const raw = Number(machine?.meta?.slotIndex);
+  return Number.isFinite(raw) ? raw : Number.POSITIVE_INFINITY;
+}
+
+function sortMachinesForZone(a, b, machineMetaById) {
+  const ai = machineOrderIndex(a);
+  const bi = machineOrderIndex(b);
+  if (ai !== bi) return ai - bi;
+  return machineDisplayName(a, machineMetaById).localeCompare(
+    machineDisplayName(b, machineMetaById),
+    undefined,
+    { numeric: true, sensitivity: "base" },
   );
 }
 
@@ -123,6 +139,12 @@ export default function DepartmentFloor2DViewer({
   onUpdateElement,
   focusedZoneId = "",
   onFocusZoneChange,
+  zoneRearrangeMode = false,
+  zoneSwapSourceId = "",
+  onZoneSwapPick,
+  machineRearrangeMode = false,
+  machineSwapSourceId = "",
+  onMachineSwapPick,
 }) {
   const containerRef = useRef(null);
   const boardRef = useRef(null);
@@ -320,13 +342,7 @@ export default function DepartmentFloor2DViewer({
       grouped.get(zid).push(m);
     }
     for (const [zid, arr] of grouped.entries()) {
-      arr.sort((a, b) =>
-        machineDisplayName(a, machineMetaById).localeCompare(
-          machineDisplayName(b, machineMetaById),
-          undefined,
-          { numeric: true, sensitivity: "base" },
-        ),
-      );
+      arr.sort((a, b) => sortMachinesForZone(a, b, machineMetaById));
       grouped.set(zid, arr);
     }
     return grouped;
@@ -700,12 +716,17 @@ export default function DepartmentFloor2DViewer({
         }
 
         if (el?.type === ELEMENT_TYPES.ZONE) {
+          const isSwapSource =
+            zoneRearrangeMode &&
+            String(zoneSwapSourceId || "") === String(el?.id || "");
           return (
             <button
               key={String(el.id)}
               type="button"
               className={
-                isSelected
+                isSwapSource
+                  ? `absolute z-[6] overflow-hidden rounded-lg border-2 border-sky-600 bg-sky-100/35 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
+                  : isSelected
                   ? `absolute z-[5] overflow-hidden rounded-lg border-2 border-sky-500 bg-emerald-100/10 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
                   : `absolute z-[5] overflow-hidden rounded-lg border border-emerald-400/70 bg-emerald-100/10 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
               }
@@ -713,6 +734,10 @@ export default function DepartmentFloor2DViewer({
               onPointerDown={(e) => {
                 if (!fullScreen) return;
                 e.stopPropagation();
+                if (zoneRearrangeMode && typeof onZoneSwapPick === "function") {
+                  onZoneSwapPick(String(el.id));
+                  return;
+                }
                 // Always focus the clicked zone in fullscreen editor so it opens wide.
                 if (isAddMode && !isMachineAddMode) return;
                 onFocusZoneChange?.(String(el.id));
@@ -816,7 +841,10 @@ export default function DepartmentFloor2DViewer({
               key={String(el.id)}
               type="button"
               className={
-                isSelected
+                machineRearrangeMode &&
+                String(machineSwapSourceId || "") === String(el?.id || "")
+                  ? `absolute z-[20] rounded-md ring-2 ring-indigo-500/95 ${isAddMode ? "pointer-events-none" : ""}`
+                  : isSelected
                   ? `absolute z-[20] rounded-md ring-2 ring-sky-500/90 ${isAddMode ? "pointer-events-none" : ""}`
                   : `absolute z-[20] rounded-md ${isAddMode ? "pointer-events-none" : ""}`
               }
@@ -824,6 +852,10 @@ export default function DepartmentFloor2DViewer({
               onPointerDown={(e) => {
                 if (isAddMode) return;
                 e.stopPropagation();
+                if (machineRearrangeMode && typeof onMachineSwapPick === "function") {
+                  onMachineSwapPick(String(el.id));
+                  return;
+                }
                 if (fullScreen) {
                   onSelectElement?.(String(el.id));
                   return;
@@ -861,7 +893,7 @@ export default function DepartmentFloor2DViewer({
                 <div className={`absolute inset-[2%] rounded-md ${tone.glow}`} />
                 <div className={`absolute inset-x-0 top-0 ${compactZoneView ? "h-0.5" : "h-1"} ${statusTint(status)}`} />
                 <img
-                  src={machineImageByStatus(status)}
+                  src={machineImageByStatus()}
                   alt="Machine"
                   className={`pointer-events-none absolute inset-0 m-auto object-contain drop-shadow-[0_2px_2px_rgba(0,0,0,0.32)] ${
                     compactZoneView ? "h-[95%] w-[95%]" : "h-[98%] w-[98%]"

@@ -394,6 +394,21 @@ function zoneForMachineByMeta(machine, zones) {
   return zoneForElement(machine, zones);
 }
 
+function machineOrderIndex(machine) {
+  const raw = Number(machine?.meta?.slotIndex);
+  return Number.isFinite(raw) ? raw : Number.POSITIVE_INFINITY;
+}
+
+function sortMachinesForZone(a, b) {
+  const ai = machineOrderIndex(a);
+  const bi = machineOrderIndex(b);
+  if (ai !== bi) return ai - bi;
+  return String(a?.label || "").localeCompare(String(b?.label || ""), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
 function relayoutMachinesInZones(elements) {
   const all = Array.isArray(elements) ? elements : [];
   const zones = all.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
@@ -417,12 +432,7 @@ function relayoutMachinesInZones(elements) {
     const list = grouped.get(zid) || [];
     if (!list.length) continue;
 
-    list.sort((a, b) =>
-      String(a?.label || "").localeCompare(String(b?.label || ""), undefined, {
-        numeric: true,
-        sensitivity: "base",
-      }),
-    );
+    list.sort(sortMachinesForZone);
 
     const zx = Number(z?.x) || 0;
     const zy = Number(z?.y) || 0;
@@ -458,13 +468,14 @@ function relayoutMachinesInZones(elements) {
         y: my,
         w: mw,
         h: mh,
-        meta: {
-          ...(m?.meta || {}),
-          zoneId: zid,
-          zoneName: String(z?.label || ""),
-        },
-      });
-    }
+          meta: {
+            ...(m?.meta || {}),
+            zoneId: zid,
+            zoneName: String(z?.label || ""),
+            slotIndex: i,
+          },
+        });
+      }
   }
 
   return all.map((el) => {
@@ -761,6 +772,10 @@ export default function Department3DLayoutPage() {
   const [activeTool, setActiveTool] = useState("select");
   const [selectedId, setSelectedId] = useState("");
   const [focusedZoneId, setFocusedZoneId] = useState("");
+  const [zoneRearrangeMode, setZoneRearrangeMode] = useState(false);
+  const [zoneSwapSourceId, setZoneSwapSourceId] = useState("");
+  const [machineRearrangeMode, setMachineRearrangeMode] = useState(false);
+  const [machineSwapSourceId, setMachineSwapSourceId] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const requestedLayoutView = location.state?.layoutView;
@@ -1128,7 +1143,269 @@ export default function Department3DLayoutPage() {
     setDraft(normalizeLayoutForEditing(base));
     setLayoutVersions({ current: null, previous: null });
     setLayoutView("current");
+    setZoneRearrangeMode(false);
+    setZoneSwapSourceId("");
+    setMachineRearrangeMode(false);
+    setMachineSwapSourceId("");
   };
+
+  const handleZoneSwapPick = useCallback(
+    (pickedZoneId) => {
+      const targetId = String(pickedZoneId || "").trim();
+      if (!targetId) return;
+
+      if (!zoneSwapSourceId) {
+        setZoneSwapSourceId(targetId);
+        pushToast({
+          kind: "info",
+          message: "Zone selected. Click another zone to swap positions.",
+          ts: Date.now(),
+        });
+        return;
+      }
+
+      if (zoneSwapSourceId === targetId) {
+        setZoneSwapSourceId("");
+        pushToast({
+          kind: "info",
+          message: "Zone swap canceled.",
+          ts: Date.now(),
+        });
+        return;
+      }
+
+      setDraft((prev) => {
+        if (!prev) return prev;
+        const list = Array.isArray(prev.elements) ? prev.elements : [];
+        const src = list.find(
+          (e) =>
+            e?.type === ELEMENT_TYPES.ZONE &&
+            String(e?.id) === String(zoneSwapSourceId),
+        );
+        const dst = list.find(
+          (e) =>
+            e?.type === ELEMENT_TYPES.ZONE &&
+            String(e?.id) === String(targetId),
+        );
+        if (!src || !dst) return prev;
+
+        const srcRect = {
+          x: Number(src?.x) || 0,
+          y: Number(src?.y) || 0,
+          w: Math.max(0.02, Number(src?.w) || 0.2),
+          h: Math.max(0.02, Number(src?.h) || 0.16),
+        };
+        const dstRect = {
+          x: Number(dst?.x) || 0,
+          y: Number(dst?.y) || 0,
+          w: Math.max(0.02, Number(dst?.w) || 0.2),
+          h: Math.max(0.02, Number(dst?.h) || 0.16),
+        };
+
+        const centerInside = (el, r) => {
+          const ex = Number(el?.x) || 0;
+          const ey = Number(el?.y) || 0;
+          const ew = Number(el?.w) || 0;
+          const eh = Number(el?.h) || 0;
+          const cx = ex + ew / 2;
+          const cy = ey + eh / 2;
+          return (
+            cx >= r.x &&
+            cx <= r.x + r.w &&
+            cy >= r.y &&
+            cy <= r.y + r.h
+          );
+        };
+
+        const belongsToZone = (el, zone, zoneRect) => {
+          if (!el || el?.type === ELEMENT_TYPES.FLOOR || el?.type === ELEMENT_TYPES.ZONE)
+            return false;
+          const zoneId = String(zone?.id || "");
+          const zoneName = String(zone?.label || "").trim();
+          const metaZoneId = String(el?.meta?.zoneId || "").trim();
+          const metaZoneName = String(el?.meta?.zoneName || "").trim();
+          if (metaZoneId) return metaZoneId === zoneId;
+          if (metaZoneName) return metaZoneName === zoneName;
+          return centerInside(el, zoneRect);
+        };
+
+        const moveElementBetweenZones = (el, fromRect, toRect) => {
+          const ex = Number(el?.x) || 0;
+          const ey = Number(el?.y) || 0;
+          const ew = Math.max(0.01, Number(el?.w) || 0.08);
+          const eh = Math.max(0.01, Number(el?.h) || 0.08);
+
+          const relX = (ex - fromRect.x) / Math.max(0.0001, fromRect.w);
+          const relY = (ey - fromRect.y) / Math.max(0.0001, fromRect.h);
+          const relW = ew / Math.max(0.0001, fromRect.w);
+          const relH = eh / Math.max(0.0001, fromRect.h);
+
+          const nw = clamp(relW * toRect.w, 0.01, 0.5);
+          const nh = clamp(relH * toRect.h, 0.01, 0.5);
+          const nx = clamp(toRect.x + relX * toRect.w, 0, 1 - nw);
+          const ny = clamp(toRect.y + relY * toRect.h, 0, 1 - nh);
+
+          return {
+            ...el,
+            x: nx,
+            y: ny,
+            w: nw,
+            h: nh,
+          };
+        };
+
+        const swapped = list.map((el) => {
+          if (el?.type === ELEMENT_TYPES.ZONE) {
+            const id = String(el?.id);
+            if (id === String(src.id)) {
+              return { ...el, ...dstRect };
+            }
+            if (id === String(dst.id)) {
+              return { ...el, ...srcRect };
+            }
+            return el;
+          }
+
+          if (belongsToZone(el, src, srcRect)) {
+            return moveElementBetweenZones(el, srcRect, dstRect);
+          }
+          if (belongsToZone(el, dst, dstRect)) {
+            return moveElementBetweenZones(el, dstRect, srcRect);
+          }
+          return el;
+        });
+        return { ...prev, elements: swapped };
+      });
+
+      setZoneSwapSourceId("");
+      setSelectedId(targetId);
+      setFocusedZoneId("");
+      pushToast({
+        kind: "success",
+        message: "Zones swapped successfully. Click Save to DB to persist.",
+        ts: Date.now(),
+      });
+    },
+    [zoneSwapSourceId, pushToast],
+  );
+
+  const handleMachineSwapPick = useCallback(
+    (pickedMachineId) => {
+      const targetId = String(pickedMachineId || "").trim();
+      if (!targetId) return;
+
+      if (!focusedZoneId) {
+        pushToast({
+          kind: "info",
+          message: "Open a zone first, then rearrange machines in that zone.",
+          ts: Date.now(),
+        });
+        return;
+      }
+
+      if (!machineSwapSourceId) {
+        setMachineSwapSourceId(targetId);
+        pushToast({
+          kind: "info",
+          message: "Machine selected. Click another machine in this zone to swap.",
+          ts: Date.now(),
+        });
+        return;
+      }
+
+      if (machineSwapSourceId === targetId) {
+        setMachineSwapSourceId("");
+        pushToast({
+          kind: "info",
+          message: "Machine swap canceled.",
+          ts: Date.now(),
+        });
+        return;
+      }
+
+      setDraft((prev) => {
+        if (!prev) return prev;
+        const list = Array.isArray(prev.elements) ? prev.elements : [];
+        const zones = list.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
+        const focusZone = zones.find((z) => String(z?.id) === String(focusedZoneId));
+        if (!focusZone) return prev;
+
+        const src = list.find(
+          (e) =>
+            e?.type === ELEMENT_TYPES.MACHINE &&
+            String(e?.id) === String(machineSwapSourceId),
+        );
+        const dst = list.find(
+          (e) =>
+            e?.type === ELEMENT_TYPES.MACHINE &&
+            String(e?.id) === String(targetId),
+        );
+        if (!src || !dst) return prev;
+
+        const srcZone = zoneForMachineByMeta(src, zones);
+        const dstZone = zoneForMachineByMeta(dst, zones);
+        const sameFocusedZone =
+          srcZone &&
+          dstZone &&
+          String(srcZone?.id) === String(focusZone?.id) &&
+          String(dstZone?.id) === String(focusZone?.id);
+        if (!sameFocusedZone) {
+          pushToast({
+            kind: "info",
+            message: "Swap is allowed only inside the opened zone.",
+            ts: Date.now(),
+          });
+          return prev;
+        }
+
+        const zoneMachines = list
+          .filter((e) => e?.type === ELEMENT_TYPES.MACHINE)
+          .filter(
+            (e) =>
+              String(zoneForMachineByMeta(e, zones)?.id || "") ===
+              String(focusZone?.id || ""),
+          )
+          .sort(sortMachinesForZone);
+
+        const indexById = new Map(
+          zoneMachines.map((m, i) => [String(m?.id || ""), i]),
+        );
+        const srcIdx = indexById.get(String(src?.id || ""));
+        const dstIdx = indexById.get(String(dst?.id || ""));
+        if (!Number.isFinite(srcIdx) || !Number.isFinite(dstIdx)) return prev;
+
+        const swapped = list.map((el) => {
+          if (el?.type !== ELEMENT_TYPES.MACHINE) return el;
+          const id = String(el?.id || "");
+          if (!indexById.has(id)) return el;
+
+          const currentIndex = indexById.get(id);
+          let nextIndex = currentIndex;
+          if (id === String(src?.id || "")) nextIndex = dstIdx;
+          if (id === String(dst?.id || "")) nextIndex = srcIdx;
+
+          return {
+            ...el,
+            meta: {
+              ...(el?.meta || {}),
+              zoneId: String(focusZone?.id || ""),
+              zoneName: String(focusZone?.label || ""),
+              slotIndex: nextIndex,
+            },
+          };
+        });
+        return { ...prev, elements: swapped };
+      });
+
+      setMachineSwapSourceId("");
+      pushToast({
+        kind: "success",
+        message: "Machines swapped in zone. Click Save to DB to persist.",
+        ts: Date.now(),
+      });
+    },
+    [focusedZoneId, machineSwapSourceId, pushToast],
+  );
 
   const addMachineFromSidebar = () => {
     if (!draft) {
@@ -1233,6 +1510,7 @@ export default function Department3DLayoutPage() {
         zoneName,
         machineName,
         zoneId,
+        slotIndex: idx,
         createdAt: new Date().toISOString(),
       },
     };
@@ -1446,6 +1724,69 @@ export default function Department3DLayoutPage() {
                   onClick={onReset}
                 >
                   Reset
+                </button>
+                <button
+                  type="button"
+                  className={
+                    zoneRearrangeMode
+                      ? "rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-700"
+                      : "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  }
+                  onClick={() => {
+                    const next = !zoneRearrangeMode;
+                    setZoneRearrangeMode(next);
+                    setZoneSwapSourceId("");
+                    setMachineRearrangeMode(false);
+                    setMachineSwapSourceId("");
+                    setPendingMachinePlacement(null);
+                    setActiveTool("select");
+                    if (next) setFocusedZoneId("");
+                    pushToast({
+                      kind: "info",
+                      message: next
+                        ? "Rearrange mode on. Click two zones to swap."
+                        : "Rearrange mode off.",
+                      ts: Date.now(),
+                    });
+                  }}
+                  title="Swap positions of any two zones"
+                >
+                  Rearrange zones
+                </button>
+                <button
+                  type="button"
+                  className={
+                    machineRearrangeMode
+                      ? "rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
+                      : "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  }
+                  onClick={() => {
+                    if (!focusedZoneId) {
+                      pushToast({
+                        kind: "info",
+                        message: "Open a zone first to rearrange machines inside it.",
+                        ts: Date.now(),
+                      });
+                      return;
+                    }
+                    const next = !machineRearrangeMode;
+                    setMachineRearrangeMode(next);
+                    setMachineSwapSourceId("");
+                    setZoneRearrangeMode(false);
+                    setZoneSwapSourceId("");
+                    setPendingMachinePlacement(null);
+                    setActiveTool("select");
+                    pushToast({
+                      kind: "info",
+                      message: next
+                        ? "Machine rearrange on. Click two machines in this zone to swap."
+                        : "Machine rearrange off.",
+                      ts: Date.now(),
+                    });
+                  }}
+                  title="Swap two machines inside opened zone"
+                >
+                  Rearrange machines
                 </button>
                 <button
                   type="button"
@@ -2817,10 +3158,14 @@ export default function Department3DLayoutPage() {
                     }
                   : undefined
               }
-              focusedZoneId={isFullscreen ? focusedZoneId : ""}
+              focusedZoneId={
+                isFullscreen ? (zoneRearrangeMode ? "" : focusedZoneId) : ""
+              }
               onFocusZoneChange={
                 isFullscreen
-                  ? (id) => setFocusedZoneId(String(id || ""))
+                  ? zoneRearrangeMode
+                    ? undefined
+                    : (id) => setFocusedZoneId(String(id || ""))
                   : undefined
               }
               onAddElement={
@@ -3251,6 +3596,16 @@ export default function Department3DLayoutPage() {
                       }
                     }
                   : undefined
+              }
+              zoneRearrangeMode={isFullscreen ? zoneRearrangeMode : false}
+              zoneSwapSourceId={isFullscreen ? zoneSwapSourceId : ""}
+              onZoneSwapPick={isFullscreen ? handleZoneSwapPick : undefined}
+              machineRearrangeMode={
+                isFullscreen ? machineRearrangeMode : false
+              }
+              machineSwapSourceId={isFullscreen ? machineSwapSourceId : ""}
+              onMachineSwapPick={
+                isFullscreen ? handleMachineSwapPick : undefined
               }
               onMoveElement={
                 isFullscreen
