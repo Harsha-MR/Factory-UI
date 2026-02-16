@@ -502,6 +502,10 @@ const MachineElement = memo(function MachineElement({
   const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2);
   const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2);
   const pos = normToPlane(cx, cy, effectivePlaneSize);
+  const labelY = Math.max(
+    0.92,
+    Math.max(Number(fitW) || 0, Number(fitD) || 0) * 0.55,
+  );
 
   const content = (
     <group
@@ -566,7 +570,7 @@ const MachineElement = memo(function MachineElement({
       (labelText || machineName) ? (
         <Billboard follow lockX lockZ>
           <Text
-            position={[0, 0.65, 0]}
+            position={[0, labelY, 0]}
             fontSize={0.14}
             color="#f8fafc"
             outlineWidth={0.012}
@@ -611,6 +615,8 @@ const MachineElement = memo(function MachineElement({
     prev.hoveredMachineId === next.hoveredMachineId &&
     prev.showLabel === next.showLabel &&
     prev.uniformScale === next.uniformScale &&
+    prev.fitW === next.fitW &&
+    prev.fitD === next.fitD &&
     prev.machineStatus === next.machineStatus &&
     prev.fullScreen === next.fullScreen
   );
