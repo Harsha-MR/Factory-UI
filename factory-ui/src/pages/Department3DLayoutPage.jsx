@@ -36,6 +36,22 @@ const MODEL_LIBRARY = {
 };
 
 const FLOOR_MODEL_OPTIONS = [
+  {
+    label: "Department floor (3 walls)",
+    url: "/models/floor-model.glb?shell=3",
+  },
+  {
+    label: "Department floor (2 walls)",
+    url: "/models/floor-model.glb?shell=2",
+  },
+  {
+    label: "Department floor (2 walls - top+left)",
+    url: "/models/floor-model.glb?shell=2l",
+  },
+  {
+    label: "Department floor (No walls)",
+    url: "/models/floor-model.glb?shell=none",
+  },
   // { label: "Floor plan 1", url: "/models/pre-defined-models/floor/floor-plan1.glb" },
   {
     label: "Floor plan(2x3)",
@@ -51,7 +67,30 @@ const FLOOR_MODEL_OPTIONS = [
   },
 ];
 
-function FloorModelPreview({ url }) {
+function floorShellModeFromModelUrl(modelUrl) {
+  const u = String(modelUrl || "");
+  const m = u.match(/[?&]shell=([^&]+)/i);
+  const raw = String(m?.[1] || "").trim().toLowerCase();
+  if (raw === "none" || raw === "0") return "none";
+  if (raw === "2" || raw === "two") return "2";
+  if (raw === "2l" || raw === "2-left" || raw === "two-left") return "2l";
+  if (raw === "3" || raw === "three") return "3";
+  return "";
+}
+
+function floorModeLabelFromModelUrl(modelUrl) {
+  const shellMode = floorShellModeFromModelUrl(modelUrl);
+  if (shellMode === "none") return "No walls";
+  if (shellMode === "2") return "2 walls";
+  if (shellMode === "2l") return "2 walls (top+left)";
+  if (shellMode === "3") return "3 walls";
+  if (String(modelUrl || "").includes("/models/pre-defined-models/")) {
+    return "Predefined floor";
+  }
+  return "Default floor";
+}
+
+function FloorModelPreviewGLB({ url }) {
   const { scene } = useGLTF(url);
 
   const previewScene = useMemo(() => {
@@ -69,6 +108,51 @@ function FloorModelPreview({ url }) {
   }, [scene]);
 
   return <primitive object={previewScene} />;
+}
+
+function FloorShellPreview({ mode = "3" }) {
+  const w = 1.6;
+  const d = 1.15;
+  const h = 0.42;
+  const t = 0.06;
+  const showBack = mode === "2" || mode === "2l" || mode === "3";
+  const showLeft = mode === "2l" || mode === "3";
+  const showRight = mode === "2" || mode === "3";
+
+  return (
+    <group position={[0, -0.25, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[w, d]} />
+        <meshStandardMaterial color="#d1d5db" />
+      </mesh>
+      {showBack ? (
+        <mesh position={[0, h / 2, -d / 2 + t / 2]}>
+          <boxGeometry args={[w, h, t]} />
+          <meshStandardMaterial color="#e5e7eb" />
+        </mesh>
+      ) : null}
+      {showLeft ? (
+        <mesh position={[-w / 2 + t / 2, h / 2, 0]}>
+          <boxGeometry args={[t, h, d]} />
+          <meshStandardMaterial color="#f3f4f6" />
+        </mesh>
+      ) : null}
+      {showRight ? (
+        <mesh position={[w / 2 - t / 2, h / 2, 0]}>
+          <boxGeometry args={[t, h, d]} />
+          <meshStandardMaterial color="#f3f4f6" />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
+
+function FloorModelPreview({ url }) {
+  const shellMode = floorShellModeFromModelUrl(url);
+  const isShellPreset =
+    String(url || "").includes("/models/floor-model.glb") && !!shellMode;
+  if (isShellPreset) return <FloorShellPreview mode={shellMode} />;
+  return <FloorModelPreviewGLB url={url} />;
 }
 
 function typeLabel(t) {
@@ -1329,7 +1413,7 @@ export default function Department3DLayoutPage() {
           return centerInside(el, zoneRect);
         };
 
-        const moveElementBetweenZones = (el, fromRect, toRect) => {
+        const moveElementBetweenZones = (el, fromRect, toRect, toZone) => {
           const ex = Number(el?.x) || 0;
           const ey = Number(el?.y) || 0;
           const ew = Math.max(0.01, Number(el?.w) || 0.08);
@@ -1345,16 +1429,27 @@ export default function Department3DLayoutPage() {
           const nx = clamp(toRect.x + relX * toRect.w, 0, 1 - nw);
           const ny = clamp(toRect.y + relY * toRect.h, 0, 1 - nh);
 
-          return {
+          const next = {
             ...el,
             x: nx,
             y: ny,
             w: nw,
             h: nh,
           };
+          if (
+            el?.type === ELEMENT_TYPES.MACHINE ||
+            el?.type === ELEMENT_TYPES.TRANSPORTER
+          ) {
+            next.meta = {
+              ...(el?.meta || {}),
+              zoneId: String(toZone?.id || ""),
+              zoneName: String(toZone?.label || ""),
+            };
+          }
+          return next;
         };
 
-        const swapped = list.map((el) => {
+        let swapped = list.map((el) => {
           if (el?.type === ELEMENT_TYPES.ZONE) {
             const id = String(el?.id);
             if (id === String(src.id)) {
@@ -1367,14 +1462,32 @@ export default function Department3DLayoutPage() {
           }
 
           if (belongsToZone(el, src, srcRect)) {
-            return moveElementBetweenZones(el, srcRect, dstRect);
+            return moveElementBetweenZones(el, srcRect, dstRect, dst);
           }
           if (belongsToZone(el, dst, dstRect)) {
-            return moveElementBetweenZones(el, dstRect, srcRect);
+            return moveElementBetweenZones(el, dstRect, srcRect, src);
           }
           return el;
         });
-        return { ...prev, elements: swapped };
+        const srcZoneIndex = swapped.findIndex(
+          (e) =>
+            e?.type === ELEMENT_TYPES.ZONE &&
+            String(e?.id || "") === String(src?.id || ""),
+        );
+        const dstZoneIndex = swapped.findIndex(
+          (e) =>
+            e?.type === ELEMENT_TYPES.ZONE &&
+            String(e?.id || "") === String(dst?.id || ""),
+        );
+        if (srcZoneIndex >= 0 && dstZoneIndex >= 0 && srcZoneIndex !== dstZoneIndex) {
+          const next = [...swapped];
+          const tmp = next[srcZoneIndex];
+          next[srcZoneIndex] = next[dstZoneIndex];
+          next[dstZoneIndex] = tmp;
+          swapped = next;
+        }
+        const normalized = relayoutMachinesInZones(swapped);
+        return { ...prev, elements: normalized };
       });
 
       setZoneSwapSourceId("");
@@ -1890,6 +2003,10 @@ export default function Department3DLayoutPage() {
       e?.type === ELEMENT_TYPES.ZONE &&
       String(e?.id) === String(focusedZoneId || ""),
   );
+  const activeFloor = (draft?.elements || []).find(
+    (e) => e?.type === ELEMENT_TYPES.FLOOR,
+  );
+  const activeFloorModeLabel = floorModeLabelFromModelUrl(activeFloor?.modelUrl);
   const zoneMergeSelectedCount = (draft?.elements || []).filter(
     (e) =>
       e?.type === ELEMENT_TYPES.ZONE &&
@@ -2170,14 +2287,19 @@ export default function Department3DLayoutPage() {
                     Previous
                   </button>
                 </div>
-                <button
-                  type="button"
-                  className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-800"
-                  onClick={toggleFullscreen}
-                  title="Exit fullscreen"
-                >
-                  Exit
-                </button>
+                <div className="flex flex-col items-end gap-1">
+                  <button
+                    type="button"
+                    className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-800"
+                    onClick={toggleFullscreen}
+                    title="Exit fullscreen"
+                  >
+                    Exit
+                  </button>
+                  <div className="rounded-md border border-slate-300 bg-white/90 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm">
+                    Floor: {activeFloorModeLabel}
+                  </div>
+                </div>
               </>
             ) : (
               // Non-fullscreen mode: Back to Dashboard, Current, Previous, Full Screen
@@ -3012,6 +3134,40 @@ export default function Department3DLayoutPage() {
 
                     {selectedElement.type === ELEMENT_TYPES.FLOOR ? (
                       <>
+                        <label className="mt-2 block text-xs text-slate-600">
+                          Floor model
+                          <select
+                            className="mt-1 w-full rounded-lg border px-2 py-1 text-xs text-slate-700"
+                            value={
+                              selectedElement.modelUrl ||
+                              defaultFloorModelUrl
+                            }
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setDraft((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      elements: (prev.elements || []).map(
+                                        (x) =>
+                                          String(x.id) ===
+                                          String(selectedElement.id)
+                                            ? { ...x, modelUrl: value }
+                                            : x,
+                                      ),
+                                    }
+                                  : prev,
+                              );
+                            }}
+                          >
+                            {FLOOR_MODEL_OPTIONS.map((opt) => (
+                              <option key={opt.url} value={opt.url}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           <label className="block text-xs text-slate-600">
                             Length (1-100 units)
@@ -3826,6 +3982,12 @@ export default function Department3DLayoutPage() {
 
                               let nextElements = (() => {
                                 const list = [...(prev.elements || [])];
+                                if (t === ELEMENT_TYPES.FLOOR) {
+                                  const withoutFloors = list.filter(
+                                    (e) => e?.type !== ELEMENT_TYPES.FLOOR,
+                                  );
+                                  return [addedElement, ...withoutFloors];
+                                }
                                 if (t !== ELEMENT_TYPES.ZONE) {
                                   list.push(addedElement);
                                   return list;

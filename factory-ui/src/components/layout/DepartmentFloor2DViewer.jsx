@@ -378,17 +378,21 @@ export default function DepartmentFloor2DViewer({
       if (explicitZoneId && zoneById.has(explicitZoneId)) {
         return zoneById.get(explicitZoneId);
       }
-      const machineZoneName = String(
-        machineMetaById?.[String(el?.machineId || "")]?.zoneName ||
-          el?.meta?.zoneName ||
-          "",
-      ).trim();
-      if (machineZoneName && zoneByName.has(machineZoneName)) {
-        return zoneByName.get(machineZoneName);
+      const elementZoneName = String(el?.meta?.zoneName || "").trim();
+      if (elementZoneName && zoneByName.has(elementZoneName)) {
+        return zoneByName.get(elementZoneName);
       }
     }
     for (const z of zoneElements) {
       if (isInsideZone(el, z)) return z;
+    }
+    if (el?.type === ELEMENT_TYPES.MACHINE) {
+      const machineZoneName = String(
+        machineMetaById?.[String(el?.machineId || "")]?.zoneName || "",
+      ).trim();
+      if (machineZoneName && zoneByName.has(machineZoneName)) {
+        return zoneByName.get(machineZoneName);
+      }
     }
     return nearestZoneForElement(el);
   };
@@ -774,11 +778,14 @@ export default function DepartmentFloor2DViewer({
         const isSelected = String(selectedId) === String(el?.id);
 
         if (el?.type === ELEMENT_TYPES.FLOOR) {
-          if (zoneCount > 0) return null;
           return (
             <div
               key={String(el.id)}
-              className="pointer-events-none absolute rounded-md border border-slate-400 bg-gradient-to-br from-slate-100 to-slate-200"
+              className={
+                zoneCount > 0
+                  ? "pointer-events-none absolute rounded-md border border-slate-300/80 bg-gradient-to-br from-slate-100/55 to-slate-200/55"
+                  : "pointer-events-none absolute rounded-md border border-slate-400 bg-gradient-to-br from-slate-100 to-slate-200"
+              }
               style={{ left, top, width, height, transform: `rotate(${rotation}deg)` }}
             />
           );
@@ -922,6 +929,9 @@ export default function DepartmentFloor2DViewer({
               key={String(el.id)}
               type="button"
               className={
+                (isAddMode || zoneRearrangeMode || zoneMergeMode)
+                  ? "pointer-events-none absolute z-[20] rounded-md"
+                  : 
                 machineRearrangeMode &&
                 String(machineSwapSourceId || "") === String(el?.id || "")
                   ? `absolute z-[20] rounded-md ring-2 ring-indigo-500/95 ${isAddMode ? "pointer-events-none" : ""}`

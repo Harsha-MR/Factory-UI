@@ -673,6 +673,81 @@ const FloorModel3D = memo(function FloorModel3D({ width, depth, url }) {
   return <primitive object={clonedScene} />;
 });
 
+function floorShellModeFromModelUrl(modelUrl) {
+  const url = String(modelUrl || "");
+  const m = url.match(/[?&]shell=([^&]+)/i);
+  const raw = String(m?.[1] || "").trim().toLowerCase();
+  if (raw === "none" || raw === "0") return "none";
+  if (raw === "2" || raw === "two") return "2";
+  if (raw === "2l" || raw === "2-left" || raw === "two-left") return "2l";
+  if (raw === "3" || raw === "three") return "3";
+  // Default department shell mode when unspecified.
+  return "3";
+}
+
+// Procedural wall shell for department floor when no dedicated wall GLB exists.
+// Dynamic with floor size; rendered once for the whole department floor.
+const DepartmentShellWalls = memo(function DepartmentShellWalls({
+  width,
+  depth,
+  wallHeight = 1.4,
+  wallMode = "3",
+}) {
+  const w = Math.max(0.02, Number(width) || 1);
+  const d = Math.max(0.02, Number(depth) || 1);
+  const h = Math.max(0.4, Number(wallHeight) || 1.4);
+  const t = Math.max(0.05, Math.min(w, d) * 0.03); // wall thickness
+  const capH = 0.03;
+
+  const mode = String(wallMode || "3");
+  const showBack = mode === "2" || mode === "2l" || mode === "3";
+  const showLeft = mode === "2l" || mode === "3";
+  const showRight = mode === "2" || mode === "3";
+
+  return (
+    <group position={[0, 0, 0]}>
+      {showBack ? (
+        <mesh position={[0, h / 2, -d / 2 + t / 2]} renderOrder={2}>
+          <boxGeometry args={[w, h, t]} />
+          <meshStandardMaterial color="#d1d5db" />
+        </mesh>
+      ) : null}
+      {showLeft ? (
+        <mesh position={[-w / 2 + t / 2, h / 2, 0]} renderOrder={2}>
+          <boxGeometry args={[t, h, d]} />
+          <meshStandardMaterial color="#e5e7eb" />
+        </mesh>
+      ) : null}
+      {showRight ? (
+        <mesh position={[w / 2 - t / 2, h / 2, 0]} renderOrder={2}>
+          <boxGeometry args={[t, h, d]} />
+          <meshStandardMaterial color="#e5e7eb" />
+        </mesh>
+      ) : null}
+
+      {/* Top caps for cleaner edge definition */}
+      {showBack ? (
+        <mesh position={[0, h + capH / 2, -d / 2 + t / 2]} renderOrder={3}>
+          <boxGeometry args={[w, capH, t]} />
+          <meshStandardMaterial color="#f3f4f6" />
+        </mesh>
+      ) : null}
+      {showLeft ? (
+        <mesh position={[-w / 2 + t / 2, h + capH / 2, 0]} renderOrder={3}>
+          <boxGeometry args={[t, capH, d]} />
+          <meshStandardMaterial color="#f3f4f6" />
+        </mesh>
+      ) : null}
+      {showRight ? (
+        <mesh position={[w / 2 - t / 2, h + capH / 2, 0]} renderOrder={3}>
+          <boxGeometry args={[t, capH, d]} />
+          <meshStandardMaterial color="#f3f4f6" />
+        </mesh>
+      ) : null}
+    </group>
+  );
+});
+
 // Zone Model using zone-green.glb
 const ZoneModel3D = memo(function ZoneModel3D({ width, depth, color }) {
   const w = Math.max(0.02, Number(width) || 1);
@@ -1824,7 +1899,7 @@ export default function DepartmentFloor3DViewer({
                   },
                 ];
 
-            return list.map((el) => {
+            return list.map((el, floorIdx) => {
               const id = String(el.id);
               const isSelected = selectedId && String(selectedId) === id;
               const wNorm = clamp01(Number(el.w) || 0.9);
@@ -1834,9 +1909,11 @@ export default function DepartmentFloor3DViewer({
               const pos = normToPlane(cx, cy, effectivePlaneSize);
               const w = Math.max(0.02, wNorm) * effectivePlaneSize;
               const d = Math.max(0.02, hNorm) * effectivePlaneSize;
+              const shellWallHeight = clamp(Math.max(w, d) * 0.18, 0.9, 2.2);
               const rot = (Number(el.rotationDeg) || 0) * (Math.PI / 180);
               // modelUrl is preserved from MongoDB - supports predefined floors (floor(1x2).glb, etc.)
               const floorModelUrl = el.modelUrl || "/models/floor-model.glb";
+              const shellMode = floorShellModeFromModelUrl(floorModelUrl);
 
               // Disable all editing interactions in non-fullScreen
               const allowEdit = fullScreen;
@@ -1939,6 +2016,16 @@ export default function DepartmentFloor3DViewer({
                       <meshStandardMaterial color="#e5e7eb" />
                     </mesh>
                   )}
+
+                  {/* One connected shell for department floor (dynamic + scalable). */}
+                  {floorIdx === 0 && shellMode !== "none" ? (
+                    <DepartmentShellWalls
+                      width={w}
+                      depth={d}
+                      wallHeight={shellWallHeight}
+                      wallMode={shellMode}
+                    />
+                  ) : null}
                   
                   {id !== "__default_floor__" ? (
                     <mesh
