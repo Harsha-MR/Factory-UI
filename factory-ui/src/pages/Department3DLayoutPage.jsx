@@ -998,6 +998,61 @@ export default function Department3DLayoutPage() {
     setShowFloorPicker(false);
   };
 
+  const applyFloorSelection = useCallback(
+    ({ modelUrl, label }) => {
+      const floorModelUrl = String(modelUrl || defaultFloorModelUrl || "").trim();
+      if (!floorModelUrl) return;
+      const floorLabel = String(label || defaultFloorModelLabel || "Floor").trim();
+      const nextFloorId = `floor-${nanoid(6)}`;
+
+      setDraft((prev) => {
+        if (!prev) return prev;
+        const list = Array.isArray(prev.elements) ? prev.elements : [];
+        const existingFloors = list.filter((e) => e?.type === ELEMENT_TYPES.FLOOR);
+        const zones = list.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
+        const withoutFloors = list.filter((e) => e?.type !== ELEMENT_TYPES.FLOOR);
+
+        const baseFloor = existingFloors[0]
+          ? {
+              ...existingFloors[0],
+              label: floorLabel || existingFloors[0].label || "Floor",
+              modelUrl: floorModelUrl,
+            }
+          : {
+              id: nextFloorId,
+              type: ELEMENT_TYPES.FLOOR,
+              label: floorLabel || "Floor",
+              modelUrl: floorModelUrl,
+              rotationDeg: 0,
+              x: 0.02,
+              y: 0.02,
+              w: 0.96,
+              h: 0.96,
+            };
+
+        const sizedFloors = expandFloorForZones([baseFloor], zones);
+        const singleFloor = sizedFloors[0] || baseFloor;
+        return {
+          ...prev,
+          elements: [singleFloor, ...withoutFloors],
+        };
+      });
+
+      setActiveTool("select");
+      setNameInputDialog(null);
+      setNameInput("");
+      setShowFloorPicker(false);
+      setSelectedFloorModelUrl(floorModelUrl);
+      setSelectedFloorModelLabel(floorLabel);
+      pushToast({
+        kind: "success",
+        message: `Floor applied: ${floorLabel}.`,
+        ts: Date.now(),
+      });
+    },
+    [defaultFloorModelLabel, defaultFloorModelUrl, pushToast],
+  );
+
   const layoutCtx = useMemo(() => {
     return {
       factoryId: deptResult?.factory?.id || "",
@@ -2548,7 +2603,19 @@ export default function Department3DLayoutPage() {
                         value={nameInput}
                         onChange={(e) => setNameInput(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" && nameInput.trim()) {
+                          if (e.key === "Enter") {
+                            if (nameInputDialog.type === "floor") {
+                              applyFloorSelection({
+                                modelUrl:
+                                  selectedFloorModelUrl || defaultFloorModelUrl,
+                                label:
+                                  nameInput.trim() ||
+                                  selectedFloorModelLabel ||
+                                  defaultFloorModelLabel,
+                              });
+                              return;
+                            }
+                            if (!nameInput.trim()) return;
                             if (nameInputDialog.type === "zone") {
                               const normalized = nameInput.trim().toLowerCase();
                               const exists = (draft?.elements || []).some(
@@ -2603,12 +2670,10 @@ export default function Department3DLayoutPage() {
                                     : "w-full rounded-md border border-slate-200 bg-white p-2 text-left hover:bg-slate-50"
                                 }
                                 onClick={() => {
-                                  setSelectedFloorModelUrl(opt.url);
-                                  setSelectedFloorModelLabel(
-                                    opt.label || opt.url,
-                                  );
-                                  setNameInput(opt.label || opt.url);
-                                  setShowFloorPicker(false);
+                                  applyFloorSelection({
+                                    modelUrl: opt.url,
+                                    label: opt.label || opt.url,
+                                  });
                                 }}
                               >
                                 <div className="text-xs font-semibold text-slate-800">
@@ -2694,8 +2759,21 @@ export default function Department3DLayoutPage() {
                       <button
                         type="button"
                         className="flex-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                        disabled={!nameInput.trim()}
+                        disabled={
+                          nameInputDialog.type === "floor" ? false : !nameInput.trim()
+                        }
                         onClick={() => {
+                          if (nameInputDialog.type === "floor") {
+                            applyFloorSelection({
+                              modelUrl:
+                                selectedFloorModelUrl || defaultFloorModelUrl,
+                              label:
+                                nameInput.trim() ||
+                                selectedFloorModelLabel ||
+                                defaultFloorModelLabel,
+                            });
+                            return;
+                          }
                           if (nameInput.trim()) {
                             if (nameInputDialog.type === "zone") {
                               const normalized = nameInput.trim().toLowerCase();
@@ -2722,7 +2800,7 @@ export default function Department3DLayoutPage() {
                                 nameInputDialog.type === "zone"
                                   ? "Zone name accepted. Draw on canvas to place; it will auto-align in the grid."
                                   : nameInputDialog.type === "floor"
-                                    ? "Floor name accepted. Draw on canvas to place floor."
+                                    ? "Floor applied."
                                     : "Walkway name accepted. Draw on canvas to place walkway.",
                               ts: Date.now(),
                             });
