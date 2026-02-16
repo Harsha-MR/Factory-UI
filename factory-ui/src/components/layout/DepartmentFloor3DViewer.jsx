@@ -1236,13 +1236,23 @@ export default function DepartmentFloor3DViewer({
       };
     }
 
-    const sourceZoneById = new Map(zoneElements.map((z) => [String(z.id), z]));
+    const ROW_Y_TOLERANCE = 0.08;
+    const orderedZones = [...zoneElements].sort((a, b) => {
+      const ay = Number(a?.y) || 0;
+      const by = Number(b?.y) || 0;
+      if (Math.abs(ay - by) > ROW_Y_TOLERANCE) return ay - by;
+      const ax = Number(a?.x) || 0;
+      const bx = Number(b?.x) || 0;
+      return ax - bx;
+    });
+
+    const sourceZoneById = new Map(orderedZones.map((z) => [String(z.id), z]));
     const resolveSourceZoneForMachine = (m) => {
       const zid = String(m?.meta?.zoneId || "").trim();
       if (zid && sourceZoneById.has(zid)) return sourceZoneById.get(zid);
       const zname = String(m?.meta?.zoneName || "").trim();
       if (zname) {
-        const byName = zoneElements.find(
+        const byName = orderedZones.find(
           (z) => String(z?.label || "").trim() === zname,
         );
         if (byName) return byName;
@@ -1253,7 +1263,7 @@ export default function DepartmentFloor3DViewer({
       const mh = Number(m?.h) || 0;
       const cx = mx + mw / 2;
       const cy = my + mh / 2;
-      return zoneElements.find((z) => {
+      return orderedZones.find((z) => {
         const zx = Number(z?.x) || 0;
         const zy = Number(z?.y) || 0;
         const zw = Number(z?.w) || 0;
@@ -1265,14 +1275,14 @@ export default function DepartmentFloor3DViewer({
     const machines = visiblePlaceableElements.filter(
       (e) => e?.type === ELEMENT_TYPES.MACHINE,
     );
-    const grouped = new Map(zoneElements.map((z) => [String(z.id), []]));
+    const grouped = new Map(orderedZones.map((z) => [String(z.id), []]));
     for (const m of machines) {
       const sourceZone = resolveSourceZoneForMachine(m);
       if (!sourceZone) continue;
       grouped.get(String(sourceZone.id)).push(m);
     }
 
-    const zoneCount = zoneElements.length;
+    const zoneCount = orderedZones.length;
     const getRowCounts = (count) => {
       if (count <= 0) return [1];
       if (count === 1) return [1];
@@ -1350,7 +1360,7 @@ export default function DepartmentFloor3DViewer({
     const remappedZones = [];
     const availableW = Math.max(0.1, frameW);
     for (let i = 0; i < zoneCount; i += 1) {
-      const z = zoneElements[i];
+      const z = orderedZones[i];
       const { row, col } = indexToRowCol(i);
       const rowCols = Math.max(1, rowCounts[row] || maxCols);
       const rowGapX = rowCols > 1 ? gapX : 0;
