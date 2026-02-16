@@ -234,15 +234,22 @@ export default function DepartmentFloor2DViewer({
 
   const focusPad = 0.02;
   const focusSize = 1 - focusPad * 2;
-  const allZonesRects = useMemo(() => {
-    const zones = [...zoneElements].sort((a, b) => {
+  const allZonesOrdered = useMemo(() => {
+    // Row-bucket tolerance for sort in all-zones view.
+    // Prevents tiny Y differences from reordering zones unexpectedly.
+    const ROW_Y_TOLERANCE = 0.08;
+    return [...zoneElements].sort((a, b) => {
       const ay = Number(a?.y) || 0;
       const by = Number(b?.y) || 0;
-      if (Math.abs(ay - by) > 0.01) return ay - by;
+      if (Math.abs(ay - by) > ROW_Y_TOLERANCE) return ay - by;
       const ax = Number(a?.x) || 0;
       const bx = Number(b?.x) || 0;
       return ax - bx;
     });
+  }, [zoneElements]);
+
+  const allZonesRects = useMemo(() => {
+    const zones = allZonesOrdered;
     const count = zones.length;
     if (!count) return new Map();
 
@@ -267,7 +274,59 @@ export default function DepartmentFloor2DViewer({
       });
     });
     return map;
-  }, [zoneElements]);
+  }, [allZonesOrdered]);
+
+  const findInsertBeforeZoneId = (pointer) => {
+    if (focusedZone || !pointer || !allZonesOrdered.length) return "";
+    const items = allZonesOrdered
+      .map((z) => {
+        const r = allZonesRects.get(String(z?.id || ""));
+        if (!r) return null;
+        return { id: String(z.id), rect: r };
+      })
+      .filter(Boolean);
+    if (!items.length) return "";
+
+    const ROW_TOL = 0.08;
+    const rows = [];
+    for (const it of items) {
+      const y = Number(it.rect?.y) || 0;
+      const last = rows[rows.length - 1];
+      if (!last || Math.abs(y - last.yRef) > ROW_TOL) {
+        rows.push({ yRef: y, items: [it] });
+      } else {
+        last.items.push(it);
+        last.yRef =
+          (last.yRef * (last.items.length - 1) + y) / last.items.length;
+      }
+    }
+
+    let rowIndex = 0;
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < rows.length; i += 1) {
+      const d = Math.abs(pointer.y - rows[i].yRef);
+      if (d < best) {
+        best = d;
+        rowIndex = i;
+      }
+    }
+
+    const row = rows[rowIndex];
+    row.items.sort((a, b) => (Number(a.rect?.x) || 0) - (Number(b.rect?.x) || 0));
+    for (const it of row.items) {
+      const centerX = (Number(it.rect?.x) || 0) + (Number(it.rect?.w) || 0) / 2;
+      if (pointer.x <= centerX) return it.id;
+    }
+
+    if (rowIndex < rows.length - 1) {
+      const nextRow = rows[rowIndex + 1];
+      nextRow.items.sort(
+        (a, b) => (Number(a.rect?.x) || 0) - (Number(b.rect?.x) || 0),
+      );
+      return String(nextRow.items[0]?.id || "");
+    }
+    return "";
+  };
 
   const isInsideZone = (el, zone) => {
     if (!el || !zone) return false;
@@ -610,10 +669,17 @@ export default function DepartmentFloor2DViewer({
 
           if (isAddPointTool) {
             const mapped = fromViewRect(n.x, n.y, 0.12, 0.12);
+            const insertBeforeZoneId =
+              addType === ELEMENT_TYPES.ZONE
+                ? findInsertBeforeZoneId({ x: n.x, y: n.y })
+                : "";
             onAddElement(addType, {
               x: mapped.x,
               y: mapped.y,
               rotationDeg: 0,
+              ...(insertBeforeZoneId
+                ? { insertBeforeZoneId }
+                : null),
             });
           }
         }}

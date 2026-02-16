@@ -1,4 +1,4 @@
-import {
+﻿import {
   Component,
   Suspense,
   memo,
@@ -172,8 +172,8 @@ function noRaycast() {
 // HTML-based tooltip for fixed screen-space size (doesn't scale with canvas zoom)
 function MachineHoverTooltipHTML({ title, status, oeePct, accentColor, position }) {
   const safeTitle = String(title || "Machine");
-  const safeStatus = String(status || "—");
-  const oeeText = oeePct == null ? "—" : `${Number(oeePct).toFixed(1)}%`;
+  const safeStatus = String(status || "â€”");
+  const oeeText = oeePct == null ? "â€”" : `${Number(oeePct).toFixed(1)}%`;
   const accent = accentColor || "#22c55e";
 
   if (!position) return null;
@@ -199,7 +199,7 @@ function MachineHoverTooltipHTML({ title, status, oeePct, accentColor, position 
         </div>
         <div className="text-xs text-slate-100 mb-1">
           <span className="font-semibold">Status:</span> {safeStatus}
-          <span className="mx-2">•</span>
+          <span className="mx-2">â€¢</span>
           <span className="font-semibold">OEE:</span> {oeeText}
         </div>
         <div className="text-xs text-slate-500 italic">
@@ -891,8 +891,8 @@ export default function DepartmentFloor3DViewer({
     if ("enableDamping" in controls) controls.enableDamping = true;
     if ("dampingFactor" in controls) controls.dampingFactor = 0.12;
 
-    // Make movement speeds identical in both modes
-    if ("rotateSpeed" in controls) controls.rotateSpeed = 1.0;
+    // Slightly slower rotation for easier machine focusing.
+    if ("rotateSpeed" in controls) controls.rotateSpeed = 0.65;
     if ("zoomSpeed" in controls) controls.zoomSpeed = 1.0;
     if ("panSpeed" in controls) controls.panSpeed = 1.0;
 
@@ -937,6 +937,60 @@ export default function DepartmentFloor3DViewer({
         pos.z + offset.z,
       );
       cam.lookAt(pos.x, effectiveFloorY, pos.z);
+      if (typeof controls.update === "function") controls.update();
+    },
+    [fullScreen, effectivePlaneSize, effectiveFloorY],
+  );
+
+  const centerPreviewCameraOnLayout = useCallback(
+    (zones) => {
+      if (fullScreen) return;
+      const cam = cameraRef.current;
+      const controls = orbitRef.current;
+      if (!cam || !controls || !controls.target) return;
+
+      const safeZones = Array.isArray(zones) ? zones.filter(Boolean) : [];
+      let cx = 0.5;
+      let cy = 0.5;
+      let spanNorm = 0.8;
+
+      if (safeZones.length) {
+        const minX = Math.min(...safeZones.map((z) => Number(z?.x) || 0));
+        const minY = Math.min(...safeZones.map((z) => Number(z?.y) || 0));
+        const maxX = Math.max(
+          ...safeZones.map((z) => (Number(z?.x) || 0) + (Number(z?.w) || 0)),
+        );
+        const maxY = Math.max(
+          ...safeZones.map((z) => (Number(z?.y) || 0) + (Number(z?.h) || 0)),
+        );
+        cx = clamp01((minX + maxX) / 2);
+        cy = clamp01((minY + maxY) / 2);
+        spanNorm = clamp(Math.max(maxX - minX, maxY - minY), 0.15, 1);
+      }
+
+      const center = normToPlane(cx, cy, effectivePlaneSize);
+      const offset = new Vector3().subVectors(cam.position, controls.target);
+      const fovDeg = Number(cam.fov) || 34;
+      const fovRad = (fovDeg * Math.PI) / 180;
+      const spanWorld = Math.max(0.5, spanNorm * effectivePlaneSize);
+      const fitDist = spanWorld / (2 * Math.tan(fovRad / 2)) + 0.6;
+      const minDist = Math.max(0.8, effectivePlaneSize * 0.32);
+      const maxDist = Math.max(minDist + 0.4, effectivePlaneSize * 2.0);
+      let distance = clamp(fitDist, minDist, maxDist);
+      if (!Number.isFinite(distance) || distance <= 0) {
+        distance = Math.max(minDist, effectivePlaneSize * 0.8);
+      }
+
+      if (offset.length() < 0.0001) offset.set(0, 1, 1);
+      offset.normalize().multiplyScalar(distance);
+
+      controls.target.set(center.x, effectiveFloorY, center.z);
+      cam.position.set(
+        center.x + offset.x,
+        effectiveFloorY + Math.max(0.35, offset.y),
+        center.z + offset.z,
+      );
+      cam.lookAt(center.x, effectiveFloorY, center.z);
       if (typeof controls.update === "function") controls.update();
     },
     [fullScreen, effectivePlaneSize, effectiveFloorY],
@@ -1348,6 +1402,38 @@ export default function DepartmentFloor3DViewer({
   const sceneVisiblePlaceableElements = fullScreen
     ? visiblePlaceableElements
     : previewLayout.placeables;
+
+  const isInsideAnySceneFloor = useCallback(
+    (xNorm, yNorm) => {
+      const x = clamp01(Number(xNorm) || 0);
+      const y = clamp01(Number(yNorm) || 0);
+      const floors = Array.isArray(sceneFloorElements) ? sceneFloorElements : [];
+      if (!floors.length) return true;
+      return floors.some((f) => {
+        const fx = Number(f?.x) || 0;
+        const fy = Number(f?.y) || 0;
+        const fw = Number(f?.w) || 0;
+        const fh = Number(f?.h) || 0;
+        return x >= fx && x <= fx + fw && y >= fy && y <= fy + fh;
+      });
+    },
+    [sceneFloorElements],
+  );
+
+  useEffect(() => {
+    if (fullScreen) return;
+    const onDocPointerDown = (e) => {
+      const root = containerRef.current;
+      if (!root) return;
+      const target = e?.target;
+      if (target instanceof Node && root.contains(target)) return;
+      centerPreviewCameraOnLayout(sceneZoneElements);
+    };
+    document.addEventListener("pointerdown", onDocPointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", onDocPointerDown, true);
+    };
+  }, [fullScreen, sceneZoneElements, centerPreviewCameraOnLayout]);
 
   const addOverlayType =
     addElementType === ELEMENT_TYPES.FLOOR ||
@@ -2343,7 +2429,16 @@ export default function DepartmentFloor3DViewer({
                 maybeStartPanDrag(e);
               }
 
-              if (!fullScreen) return;
+              if (!fullScreen) {
+                const hit = getFloorHitFromEvent(e);
+                if (hit) {
+                  const norm = planeToNorm(hit.x, hit.z, effectivePlaneSize);
+                  if (!isInsideAnySceneFloor(norm.x, norm.y)) {
+                    centerPreviewCameraOnLayout(sceneZoneElements);
+                  }
+                }
+                return;
+              }
 
               if (!isAddMode) {
                 if (typeof onSelectElement === "function") onSelectElement("");
@@ -2548,7 +2643,7 @@ export default function DepartmentFloor3DViewer({
                   setCursor("default");
                 }, []);
 
-                const createPointerEnterHandler = useCallback((el, machineId, canOpenDetails) => (e) => {
+                const createPointerEnterHandler = useCallback((machineId, canOpenDetails) => (e) => {
                   if (!canOpenDetails) return;
                   e.stopPropagation();
                   setHoveredMachineId((prev) => prev === machineId ? prev : machineId);
@@ -2684,7 +2779,7 @@ export default function DepartmentFloor3DViewer({
                       onPointerMove={createPointerMoveHandler(el, isSelected, allowEdit)}
                       onPointerOver={createPointerOverHandler(allowEdit)}
                       onPointerOut={createPointerOutHandler(allowEdit)}
-                      onPointerEnter={createPointerEnterHandler(el, machineId, canOpenDetails)}
+                      onPointerEnter={createPointerEnterHandler(machineId, canOpenDetails)}
                       onPointerLeave={createPointerLeaveHandler(machineId, canOpenDetails)}
                       onPointerMoveOverMachine={createPointerMoveOverMachineHandler(machineId, canOpenDetails)}
                       onClick={createClickHandler(el, machineId, canOpenDetails)}
@@ -2759,7 +2854,7 @@ export default function DepartmentFloor3DViewer({
               RIGHT: fullScreen ? MOUSE.PAN : MOUSE.ROTATE,
             }}
             autoRotate={fullScreen ? autoRotate : false}
-            autoRotateSpeed={1.0}
+            autoRotateSpeed={0.6}
             enabled={controlsEnabled}
             onStart={() => {
               // CRITICAL: Prevent OrbitControls from starting if we're dragging an object
@@ -2793,14 +2888,14 @@ export default function DepartmentFloor3DViewer({
 
       <div className="pointer-events-none absolute bottom-2 right-2 rounded-md border bg-white/80 px-2 py-1 text-xs text-slate-700 backdrop-blur">
         {!fullScreen
-          ? "Hover machine for details • Click machine to open"
+          ? "Hover machine for details • Click machine to focus • Click outside canvas to recenter • Double-click to open"
           : isOverlayAddToolActive
-            ? "Click + drag + release to draw • Camera drag disabled"
+            ? "Click + drag + release to draw â€¢ Camera drag disabled"
             : isAddMode
               ? "Click to place"
               : selectedId
-                ? "Drag to move • Use gizmo to scale"
-                : "Click to select • Drag to move"}
+                ? "Drag to move â€¢ Use gizmo to scale"
+                : "Click to select â€¢ Drag to move"}
       </div>
     </div>
   );
@@ -2817,3 +2912,5 @@ useGLTF.preload("/models/machine-down.glb");
 useGLTF.preload("/models/machine-blender.glb");
 useGLTF.preload("/models/transporter.glb");
 useGLTF.preload("/models/walkway.glb");
+
+

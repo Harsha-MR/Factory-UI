@@ -3824,10 +3824,39 @@ export default function Department3DLayoutPage() {
                                   : null),
                               };
 
-                              let nextElements = [
-                                ...(prev.elements || []),
-                                addedElement,
-                              ];
+                              let nextElements = (() => {
+                                const list = [...(prev.elements || [])];
+                                if (t !== ELEMENT_TYPES.ZONE) {
+                                  list.push(addedElement);
+                                  return list;
+                                }
+                                const beforeZoneId = String(
+                                  pos?.insertBeforeZoneId || "",
+                                ).trim();
+                                if (beforeZoneId) {
+                                  const idx = list.findIndex(
+                                    (e) =>
+                                      e?.type === ELEMENT_TYPES.ZONE &&
+                                      String(e?.id || "") === beforeZoneId,
+                                  );
+                                  if (idx >= 0) {
+                                    list.splice(idx, 0, addedElement);
+                                    return list;
+                                  }
+                                }
+                                let lastZoneIdx = -1;
+                                for (let i = 0; i < list.length; i += 1) {
+                                  if (list[i]?.type === ELEMENT_TYPES.ZONE) {
+                                    lastZoneIdx = i;
+                                  }
+                                }
+                                if (lastZoneIdx >= 0) {
+                                  list.splice(lastZoneIdx + 1, 0, addedElement);
+                                } else {
+                                  list.push(addedElement);
+                                }
+                                return list;
+                              })();
 
                               if (t === ELEMENT_TYPES.ZONE)
                                 nextElements =
