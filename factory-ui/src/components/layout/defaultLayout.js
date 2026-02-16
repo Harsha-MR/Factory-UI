@@ -65,28 +65,51 @@ export function createDefaultLayoutForDepartment(department) {
     }
   })
 
-  // Grid packing with variable-sized zones:
-  // - choose columns
-  // - compute per-col widths and per-row heights
-  const cols = Math.max(1, Math.min(4, Math.ceil(Math.sqrt(zoneCount))))
+  // Odd-zone aware rows:
+  // - 3 zones stay in one full row
+  // - for 5/7/... the last row is stretched to full row width
+  const pickCols = (count) => {
+    if (count <= 1) return 1
+    if (count <= 2) return 2
+    if (count <= 5) return 3
+    if (count <= 7) return 4
+    return 5
+  }
+  const cols = pickCols(zoneCount)
   const rows = Math.ceil(zoneCount / cols)
+  const fullRows = Math.floor(zoneCount / cols)
+  const remainder = zoneCount % cols
 
-  const colWidths = Array.from({ length: cols }, () => 0)
-  const rowHeights = Array.from({ length: rows }, () => 0)
+  const rowSpecs = []
+  if (remainder > 0 && fullRows > 0) {
+    rowSpecs.push(zoneSpecs.slice(zoneCount - remainder))
+    for (let r = 0; r < fullRows; r += 1) {
+      const start = r * cols
+      rowSpecs.push(zoneSpecs.slice(start, start + cols))
+    }
+  } else {
+    for (let r = 0; r < rows; r += 1) {
+      const start = r * cols
+      const end = Math.min(start + cols, zoneSpecs.length)
+      rowSpecs.push(zoneSpecs.slice(start, end))
+    }
+  }
 
-  zoneSpecs.forEach((spec, i) => {
-    const row = Math.floor(i / cols)
-    const col = i % cols
-    if (row >= rows) return
-    colWidths[col] = Math.max(colWidths[col], spec.w)
-    rowHeights[row] = Math.max(rowHeights[row], spec.h)
-  })
+  const rowHeights = rowSpecs.map((items) =>
+    items.reduce((m, s) => Math.max(m, s.h), 0),
+  )
 
   const baseFloorPad = 0.035
   const baseGutterX = 0.03
   const baseGutterY = 0.035
 
-  const baseTotalW = colWidths.reduce((a, b) => a + b, 0) + baseGutterX * (cols - 1) + baseFloorPad * 2
+  const rowWidths = rowSpecs.map(
+    (items) =>
+      items.reduce((sum, spec) => sum + spec.w, 0) +
+      baseGutterX * Math.max(0, items.length - 1),
+  )
+  const contentW = rowWidths.reduce((m, w) => Math.max(m, w), 0)
+  const baseTotalW = contentW + baseFloorPad * 2
   const baseTotalH = rowHeights.reduce((a, b) => a + b, 0) + baseGutterY * (rows - 1) + baseFloorPad * 2
 
   // Scale down uniformly if we don't fit.
@@ -100,10 +123,8 @@ export function createDefaultLayoutForDepartment(department) {
   const innerPad = baseInnerPad * scale
   const gap = baseGap * scale
 
-  const colWScaled = colWidths.map((w) => w * scale)
   const rowHScaled = rowHeights.map((h) => h * scale)
-
-  const usedW = colWScaled.reduce((a, b) => a + b, 0) + gutterX * (cols - 1)
+  const usedW = contentW * scale
   const usedH = rowHScaled.reduce((a, b) => a + b, 0) + gutterY * (rows - 1)
 
   const floorW = clamp01(Math.min(0.98, usedW + floorPad * 2))
@@ -122,72 +143,72 @@ export function createDefaultLayoutForDepartment(department) {
     rotationDeg: 0,
   })
 
-  const colStartX = []
-  for (let c = 0, x = floorX + floorPad; c < cols; c += 1) {
-    colStartX[c] = x
-    x += colWScaled[c] + gutterX
-  }
-
   const rowStartY = []
   for (let r = 0, y = floorY + floorPad; r < rows; r += 1) {
     rowStartY[r] = y
     y += rowHScaled[r] + gutterY
   }
 
-  zoneSpecs.forEach((spec, i) => {
-    const row = Math.floor(i / cols)
-    const col = i % cols
-    if (row >= rows) return
+  rowSpecs.forEach((items, row) => {
+    if (!items.length) return
+    const rawRowW =
+      items.reduce((sum, spec) => sum + spec.w, 0) +
+      baseGutterX * Math.max(0, items.length - 1)
+    const stretch = rawRowW > 0 ? contentW / rawRowW : 1
+    const localGapX = gutterX * stretch
+    const rowCellH = rowHScaled[row]
+    const yBase = rowStartY[row]
+    let xCursor = floorX + floorPad
 
-    const cellW = colWScaled[col]
-    const cellH = rowHScaled[row]
-    const zoneW = spec.w * scale
-    const zoneH = spec.h * scale
-
-    // Center zone in its row/col cell.
-    const x = clamp01(colStartX[col] + Math.max(0, (cellW - zoneW) / 2))
-    const y = clamp01(rowStartY[row] + Math.max(0, (cellH - zoneH) / 2))
-
-    elements.push({
-      id: spec.key,
-      type: ELEMENT_TYPES.ZONE,
-      label: spec.label,
-      x,
-      y,
-      w: clamp01(zoneW),
-      h: clamp01(zoneH),
-      rotationDeg: 0,
-      color: 'dark-green',
-    })
-
-    const machines = spec.machines
-    const n = machines.length
-    if (n <= 0) return
-
-    const mCols = spec.grid.cols
-    const mRows = spec.grid.rows
-    const availW = Math.max(0.02, zoneW - innerPad * 2)
-    const availH = Math.max(0.02, zoneH - innerPad * 2)
-    const cellMW = (availW - gap * (mCols - 1)) / mCols
-    const cellMH = (availH - gap * (mRows - 1)) / mRows
-    const size = clamp01(Math.max(0.02, Math.min(cellMW, cellMH) * 0.92))
-
-    machines.forEach((m, mi) => {
-      const r = Math.floor(mi / mCols)
-      const c = mi % mCols
-      const mx = clamp01(x + innerPad + c * (size + gap))
-      const my = clamp01(y + innerPad + r * (size + gap))
+    items.forEach((spec) => {
+      const zoneW = spec.w * scale * stretch
+      const zoneH = spec.h * scale
+      const x = clamp01(xCursor)
+      const y = clamp01(yBase + Math.max(0, (rowCellH - zoneH) / 2))
 
       elements.push({
-        id: `machine-${m?.id || mi}`,
-        type: ELEMENT_TYPES.MACHINE,
-        machineId: String(m?.id || ''),
-        x: mx,
-        y: my,
-        w: size,
-        h: size,
+        id: spec.key,
+        type: ELEMENT_TYPES.ZONE,
+        label: spec.label,
+        x,
+        y,
+        w: clamp01(zoneW),
+        h: clamp01(zoneH),
         rotationDeg: 0,
+        color: 'dark-green',
       })
+
+      const machines = spec.machines
+      const n = machines.length
+      if (n > 0) {
+        const mCols = spec.grid.cols
+        const mRows = spec.grid.rows
+        const availW = Math.max(0.02, zoneW - innerPad * 2)
+        const availH = Math.max(0.02, zoneH - innerPad * 2)
+        const cellMW = (availW - gap * (mCols - 1)) / mCols
+        const cellMH = (availH - gap * (mRows - 1)) / mRows
+        const size = clamp01(Math.max(0.02, Math.min(cellMW, cellMH) * 0.92))
+
+        machines.forEach((m, mi) => {
+          const r = Math.floor(mi / mCols)
+          const c = mi % mCols
+          const mx = clamp01(x + innerPad + c * (size + gap))
+          const my = clamp01(y + innerPad + r * (size + gap))
+
+          elements.push({
+            id: `machine-${m?.id || mi}`,
+            type: ELEMENT_TYPES.MACHINE,
+            machineId: String(m?.id || ''),
+            x: mx,
+            y: my,
+            w: size,
+            h: size,
+            rotationDeg: 0,
+          })
+        })
+      }
+
+      xCursor += zoneW + localGapX
     })
   })
 

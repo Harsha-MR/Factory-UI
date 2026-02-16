@@ -301,37 +301,187 @@ function expandFloorForZones(floors, zones) {
   return nextFloors;
 }
 
-function computeNextZonePlacement(elements) {
-  const zones = (elements || []).filter((e) => e?.type === ELEMENT_TYPES.ZONE);
-  const count = zones.length;
-  const nextCount = count + 1;
-  const cols =
-    nextCount <= 4
-      ? 2
-      : nextCount <= 6
-        ? 3
-        : nextCount <= 8
-          ? 4
-          : 5;
-  const rows = Math.ceil(nextCount / cols);
-  const startX = 0.02;
-  const startY = 0.02;
+function getZoneLayoutBounds(elements) {
+  const floors = (elements || []).filter((e) => e?.type === ELEMENT_TYPES.FLOOR);
+  if (!floors.length) {
+    return { x: 0.02, y: 0.02, w: 0.96, h: 0.96 };
+  }
+  let largest = floors[0];
+  let largestArea = (Number(largest?.w) || 0) * (Number(largest?.h) || 0);
+  for (let i = 1; i < floors.length; i += 1) {
+    const f = floors[i];
+    const area = (Number(f?.w) || 0) * (Number(f?.h) || 0);
+    if (area > largestArea) {
+      largest = f;
+      largestArea = area;
+    }
+  }
+  const fx = clamp(Number(largest?.x) || 0, 0, 1);
+  const fy = clamp(Number(largest?.y) || 0, 0, 1);
+  const fw = clamp(Number(largest?.w) || 0, 0, 1);
+  const fh = clamp(Number(largest?.h) || 0, 0, 1);
+  const insetX = 0;
+  const insetY = 0;
+  const x = clamp(fx + insetX, 0, 1);
+  const y = clamp(fy + insetY, 0, 1);
+  const w = Math.max(0.2, fw - insetX * 2);
+  const h = Math.max(0.16, fh - insetY * 2);
+  return {
+    x,
+    y,
+    w: clamp(w, 0.2, 1 - x),
+    h: clamp(h, 0.16, 1 - y),
+  };
+}
+
+function getZoneGridColumns(zoneCount) {
+  if (zoneCount <= 1) return 1;
+  if (zoneCount <= 2) return 2;
+  if (zoneCount <= 5) return 3;
+  if (zoneCount <= 7) return 4;
+  return 5;
+}
+
+function computeZoneRowMetadata(zoneCount) {
+  const cols = getZoneGridColumns(zoneCount);
+  const fullRows = Math.floor(zoneCount / cols);
+  const remainder = zoneCount % cols;
+  const rowCounts = [];
+  if (remainder > 0 && fullRows > 0) rowCounts.push(remainder);
+  for (let i = 0; i < fullRows; i += 1) rowCounts.push(cols);
+  if (!rowCounts.length && zoneCount > 0) rowCounts.push(zoneCount);
+  return { cols, rows: rowCounts.length, rowCounts };
+}
+
+function mapZoneOrderToDisplayIndex(index, zoneCount, cols) {
+  const fullRows = Math.floor(zoneCount / cols);
+  const remainder = zoneCount % cols;
+  if (remainder <= 0 || fullRows <= 0) return index;
+  const fullBlockCount = zoneCount - remainder;
+  if (index < fullBlockCount) return index + remainder;
+  return index - fullBlockCount;
+}
+
+function indexToRowCol(index, rowCounts) {
+  let row = 0;
+  let offset = index;
+  while (row < rowCounts.length && offset >= rowCounts[row]) {
+    offset -= rowCounts[row];
+    row += 1;
+  }
+  return { row, col: Math.max(0, offset) };
+}
+
+function computeZoneCellSizeForRow(itemsInRow, rows, bounds) {
+  const startX = bounds.x;
+  const startY = bounds.y;
   const gapX = 0.02;
   const gapY = 0.03;
-  const maxFitW = (1 - startX * 2 - gapX * (cols - 1)) / cols;
-  const maxFitH = (1 - startY * 2 - gapY * (rows - 1)) / rows;
-  const w = clamp(maxFitW, 0.1, maxFitW);
-  const h = clamp(maxFitH, 0.08, maxFitH);
-  const col = count % cols;
-  const row = Math.floor(count / cols);
-  const x = startX + col * (w + gapX);
-  const y = startY + row * (h + gapY);
+  const safeItems = Math.max(1, itemsInRow);
+  const maxFitW = (bounds.w - gapX * (safeItems - 1)) / safeItems;
+  const maxFitH = (bounds.h - gapY * (rows - 1)) / rows;
   return {
-    x: clamp(x, 0, Math.max(0, 1 - w)),
-    y: clamp(y, 0, Math.max(0, 1 - h)),
-    w,
-    h,
+    startX,
+    startY,
+    gapX,
+    gapY,
+    w: clamp(maxFitW, 0.1, maxFitW),
+    h: clamp(maxFitH, 0.08, maxFitH),
   };
+}
+
+function reflowZonesAndContainedElements(elements) {
+  const all = Array.isArray(elements) ? elements : [];
+  const zones = all.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
+  if (zones.length <= 1) return all;
+
+  const bounds = getZoneLayoutBounds(all);
+  const ordered = zones;
+  const zoneCount = ordered.length;
+  const { cols, rows, rowCounts } = computeZoneRowMetadata(zoneCount);
+  const newZoneById = new Map();
+  for (let i = 0; i < ordered.length; i += 1) {
+    const z = ordered[i];
+    const displayIndex = mapZoneOrderToDisplayIndex(i, zoneCount, cols);
+    const { row, col } = indexToRowCol(displayIndex, rowCounts);
+    const itemsInRow = rowCounts[row] || 1;
+    const { startX, startY, gapX, gapY, w, h } = computeZoneCellSizeForRow(
+      itemsInRow,
+      rows,
+      bounds,
+    );
+    newZoneById.set(String(z.id), {
+      ...z,
+      x: clamp(
+        startX + col * (w + gapX),
+        bounds.x,
+        Math.max(bounds.x, bounds.x + bounds.w - w),
+      ),
+      y: clamp(
+        startY + row * (h + gapY),
+        bounds.y,
+        Math.max(bounds.y, bounds.y + bounds.h - h),
+      ),
+      w,
+      h,
+    });
+  }
+
+  return all.map((el) => {
+    if (!el) return el;
+    if (el.type === ELEMENT_TYPES.ZONE) {
+      return newZoneById.get(String(el.id)) || el;
+    }
+    if (
+      el.type !== ELEMENT_TYPES.MACHINE &&
+      el.type !== ELEMENT_TYPES.TRANSPORTER
+    ) {
+      return el;
+    }
+    const oldZone = zoneForElement(el, ordered);
+    if (!oldZone) return el;
+    const newZone = newZoneById.get(String(oldZone.id));
+    if (!newZone) return el;
+    return remapRectIntoZone(el, oldZone, newZone);
+  });
+}
+
+function clampZonesAndContainedElementsToFloor(elements) {
+  const all = Array.isArray(elements) ? elements : [];
+  const zones = all.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
+  if (!zones.length) return all;
+  const bounds = getZoneLayoutBounds(all);
+  const nextZoneById = new Map();
+
+  for (const z of zones) {
+    const zx = Number(z?.x) || 0;
+    const zy = Number(z?.y) || 0;
+    const zw = Math.max(0.02, Number(z?.w) || 0.12);
+    const zh = Math.max(0.02, Number(z?.h) || 0.1);
+    const w = clamp(zw, 0.02, bounds.w);
+    const h = clamp(zh, 0.02, bounds.h);
+    const x = clamp(zx, bounds.x, Math.max(bounds.x, bounds.x + bounds.w - w));
+    const y = clamp(zy, bounds.y, Math.max(bounds.y, bounds.y + bounds.h - h));
+    nextZoneById.set(String(z?.id || ""), { ...z, x, y, w, h });
+  }
+
+  return all.map((el) => {
+    if (!el) return el;
+    if (el.type === ELEMENT_TYPES.ZONE) {
+      return nextZoneById.get(String(el.id)) || el;
+    }
+    if (
+      el.type !== ELEMENT_TYPES.MACHINE &&
+      el.type !== ELEMENT_TYPES.TRANSPORTER
+    ) {
+      return el;
+    }
+    const oldZone = zoneForElement(el, zones);
+    if (!oldZone) return el;
+    const newZone = nextZoneById.get(String(oldZone.id));
+    if (!newZone) return el;
+    return remapRectIntoZone(el, oldZone, newZone);
+  });
 }
 
 function zoneForElement(el, zones) {
@@ -486,7 +636,8 @@ function relayoutMachinesInZones(elements) {
 
 function normalizeLayoutForEditing(layoutLike) {
   const base = withThreeDDefaults(layoutLike);
-  const withMachines = relayoutMachinesInZones(base.elements || []);
+  const clamped = clampZonesAndContainedElementsToFloor(base.elements || []);
+  const withMachines = relayoutMachinesInZones(clamped);
   const zones = withMachines.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
   const floors = withMachines.filter((e) => e?.type === ELEMENT_TYPES.FLOOR);
   const updatedFloors = expandFloorForZones(floors, zones);
@@ -508,63 +659,6 @@ function normalizeLayoutForEditing(layoutLike) {
   };
 }
 
-function reflowZonesAndContainedElements(elements) {
-  const all = Array.isArray(elements) ? elements : [];
-  const zones = all.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
-  if (zones.length <= 1) return all;
-
-  const ordered = zones;
-  const zoneCount = ordered.length;
-  const cols =
-    zoneCount <= 4
-      ? 2
-      : zoneCount <= 6
-        ? 3
-        : zoneCount <= 8
-          ? 4
-          : 5;
-  const rows = Math.ceil(zoneCount / cols);
-  const startX = 0.02;
-  const startY = 0.02;
-  const gapX = 0.02;
-  const gapY = 0.03;
-  const maxFitW = (1 - startX * 2 - gapX * (cols - 1)) / cols;
-  const maxFitH = (1 - startY * 2 - gapY * (rows - 1)) / rows;
-  const w = clamp(maxFitW, 0.1, maxFitW);
-  const h = clamp(maxFitH, 0.08, maxFitH);
-
-  const newZoneById = new Map();
-  for (let i = 0; i < ordered.length; i += 1) {
-    const z = ordered[i];
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    newZoneById.set(String(z.id), {
-      ...z,
-      x: clamp(startX + col * (w + gapX), 0, 1 - w),
-      y: clamp(startY + row * (h + gapY), 0, 1 - h),
-      w,
-      h,
-    });
-  }
-
-  return all.map((el) => {
-    if (!el) return el;
-    if (el.type === ELEMENT_TYPES.ZONE) {
-      return newZoneById.get(String(el.id)) || el;
-    }
-    if (
-      el.type !== ELEMENT_TYPES.MACHINE &&
-      el.type !== ELEMENT_TYPES.TRANSPORTER
-    ) {
-      return el;
-    }
-    const oldZone = zoneForElement(el, ordered);
-    if (!oldZone) return el;
-    const newZone = newZoneById.get(String(oldZone.id));
-    if (!newZone) return el;
-    return remapRectIntoZone(el, oldZone, newZone);
-  });
-}
 
 function withThreeDDefaults(layout) {
   const normalized = normalizeLayout(layout);
@@ -774,6 +868,9 @@ export default function Department3DLayoutPage() {
   const [focusedZoneId, setFocusedZoneId] = useState("");
   const [zoneRearrangeMode, setZoneRearrangeMode] = useState(false);
   const [zoneSwapSourceId, setZoneSwapSourceId] = useState("");
+  const [zoneMergeMode, setZoneMergeMode] = useState(false);
+  const [zoneMergeSelectedIds, setZoneMergeSelectedIds] = useState([]);
+  const [zoneMergeName, setZoneMergeName] = useState("");
   const [machineRearrangeMode, setMachineRearrangeMode] = useState(false);
   const [machineSwapSourceId, setMachineSwapSourceId] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1145,6 +1242,9 @@ export default function Department3DLayoutPage() {
     setLayoutView("current");
     setZoneRearrangeMode(false);
     setZoneSwapSourceId("");
+    setZoneMergeMode(false);
+    setZoneMergeSelectedIds([]);
+    setZoneMergeName("");
     setMachineRearrangeMode(false);
     setMachineSwapSourceId("");
   };
@@ -1407,6 +1507,178 @@ export default function Department3DLayoutPage() {
     [focusedZoneId, machineSwapSourceId, pushToast],
   );
 
+  const handleZoneMergePick = useCallback((pickedZoneId) => {
+    const zoneId = String(pickedZoneId || "").trim();
+    if (!zoneId) return;
+    setZoneMergeSelectedIds((prev) => {
+      const exists = prev.some((id) => String(id) === zoneId);
+      if (exists) return prev.filter((id) => String(id) !== zoneId);
+      return [...prev, zoneId];
+    });
+  }, []);
+
+  const handleMergeSelectedZones = useCallback(() => {
+    if (!draft) return;
+    const elements = Array.isArray(draft.elements) ? draft.elements : [];
+    const zones = elements.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
+    const selectedZones = zones.filter((z) =>
+      zoneMergeSelectedIds.some((id) => String(id) === String(z?.id)),
+    );
+    if (selectedZones.length < 2) {
+      pushToast({
+        kind: "info",
+        message: "Select at least 2 zones to combine.",
+        ts: Date.now(),
+      });
+      return;
+    }
+
+    const trimmedName = String(zoneMergeName || "").trim();
+    const fallbackName = `Zone ${nanoid(4).toUpperCase()}`;
+    const mergedLabel = trimmedName || fallbackName;
+    const nameTaken = zones.some(
+      (z) =>
+        !zoneMergeSelectedIds.some((id) => String(id) === String(z?.id)) &&
+        String(z?.label || "").trim().toLowerCase() ===
+          mergedLabel.toLowerCase(),
+    );
+    if (nameTaken) {
+      pushToast({
+        kind: "info",
+        message: "Merged zone name already exists. Use a unique name.",
+        ts: Date.now(),
+      });
+      return;
+    }
+
+    const selectedIds = new Set(selectedZones.map((z) => String(z?.id || "")));
+    const selectedNames = new Set(
+      selectedZones.map((z) => String(z?.label || "").trim()),
+    );
+    const mergedZoneId = `zone-${nanoid(8)}`;
+
+    const minX = Math.max(
+      0,
+      Math.min(...selectedZones.map((z) => Number(z?.x) || 0)),
+    );
+    const minY = Math.max(
+      0,
+      Math.min(...selectedZones.map((z) => Number(z?.y) || 0)),
+    );
+    const maxX = Math.min(
+      1,
+      Math.max(
+        ...selectedZones.map((z) => (Number(z?.x) || 0) + (Number(z?.w) || 0)),
+      ),
+    );
+    const maxY = Math.min(
+      1,
+      Math.max(
+        ...selectedZones.map((z) => (Number(z?.y) || 0) + (Number(z?.h) || 0)),
+      ),
+    );
+
+    const isInsideZone = (el, zone) => {
+      const ex = Number(el?.x) || 0;
+      const ey = Number(el?.y) || 0;
+      const ew = Number(el?.w) || 0;
+      const eh = Number(el?.h) || 0;
+      const cx = ex + ew / 2;
+      const cy = ey + eh / 2;
+      const zx = Number(zone?.x) || 0;
+      const zy = Number(zone?.y) || 0;
+      const zw = Number(zone?.w) || 0;
+      const zh = Number(zone?.h) || 0;
+      return cx >= zx && cx <= zx + zw && cy >= zy && cy <= zy + zh;
+    };
+
+    const shouldMoveIntoMergedZone = (el) => {
+      if (
+        !el ||
+        el?.type === ELEMENT_TYPES.FLOOR ||
+        el?.type === ELEMENT_TYPES.ZONE
+      ) {
+        return false;
+      }
+      const metaZoneId = String(el?.meta?.zoneId || "").trim();
+      if (metaZoneId && selectedIds.has(metaZoneId)) return true;
+      const metaZoneName = String(el?.meta?.zoneName || "").trim();
+      if (metaZoneName && selectedNames.has(metaZoneName)) return true;
+      return selectedZones.some((z) => isInsideZone(el, z));
+    };
+
+    const updatedElements = [];
+    for (const el of elements) {
+      if (
+        el?.type === ELEMENT_TYPES.ZONE &&
+        selectedIds.has(String(el?.id || ""))
+      ) {
+        continue;
+      }
+      if (shouldMoveIntoMergedZone(el)) {
+        const meta = el?.meta || {};
+        const restMeta = { ...meta };
+        delete restMeta.slotIndex;
+        updatedElements.push({
+          ...el,
+          meta: {
+            ...restMeta,
+            zoneId: mergedZoneId,
+            zoneName: mergedLabel,
+          },
+        });
+      } else {
+        updatedElements.push(el);
+      }
+    }
+
+    updatedElements.push({
+      id: mergedZoneId,
+      type: ELEMENT_TYPES.ZONE,
+      label: mergedLabel,
+      x: minX,
+      y: minY,
+      w: Math.max(0.12, maxX - minX),
+      h: Math.max(0.1, maxY - minY),
+      rotationDeg: 0,
+      color: selectedZones[0]?.color || "dark-green",
+      modelUrl: selectedZones[0]?.modelUrl || "/models/zone-green.glb",
+      scale: Number(selectedZones[0]?.scale) || 1,
+    });
+
+    const reflowed = reflowZonesAndContainedElements(updatedElements);
+    const relayout = relayoutMachinesInZones(reflowed);
+    const nextZones = relayout.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
+    const nextFloors = relayout.filter((e) => e?.type === ELEMENT_TYPES.FLOOR);
+    const resizedFloors = expandFloorForZones(nextFloors, nextZones);
+    const floorById = new Map(resizedFloors.map((f) => [String(f?.id || ""), f]));
+    const normalizedElements = relayout.map((e) => {
+      if (e?.type !== ELEMENT_TYPES.FLOOR) return e;
+      return floorById.get(String(e?.id || "")) || e;
+    });
+
+    setDraft((prev) =>
+      prev
+        ? {
+            ...prev,
+            elements: normalizedElements,
+          }
+        : prev,
+    );
+    setFocusedZoneId(mergedZoneId);
+    setSelectedId(mergedZoneId);
+    setZoneMergeMode(false);
+    setZoneMergeSelectedIds([]);
+    setZoneMergeName("");
+    setActiveTool("select");
+    setPendingMachinePlacement(null);
+    pushToast({
+      kind: "success",
+      message: "Zones combined. Click Save to DB to persist.",
+      ts: Date.now(),
+    });
+  }, [draft, zoneMergeName, zoneMergeSelectedIds, pushToast]);
+
   const addMachineFromSidebar = () => {
     if (!draft) {
       setMachineFormError(
@@ -1618,6 +1890,11 @@ export default function Department3DLayoutPage() {
       e?.type === ELEMENT_TYPES.ZONE &&
       String(e?.id) === String(focusedZoneId || ""),
   );
+  const zoneMergeSelectedCount = (draft?.elements || []).filter(
+    (e) =>
+      e?.type === ELEMENT_TYPES.ZONE &&
+      zoneMergeSelectedIds.some((id) => String(id) === String(e?.id)),
+  ).length;
   const machinePlacementArmed =
     isFullscreen && activeTool === "add:machine" && !!pendingMachinePlacement;
   const viewerActiveTool = isFullscreen
@@ -1627,6 +1904,7 @@ export default function Department3DLayoutPage() {
         ? "select"
         : activeTool
     : "select";
+  const isTwoDEditor = isFullscreen;
 
   return (
     <div className="space-y-3 h-full flex flex-col">
@@ -1725,90 +2003,133 @@ export default function Department3DLayoutPage() {
                 >
                   Reset
                 </button>
-                <button
-                  type="button"
-                  className={
-                    zoneRearrangeMode
-                      ? "rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-700"
-                      : "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  }
-                  onClick={() => {
-                    const next = !zoneRearrangeMode;
-                    setZoneRearrangeMode(next);
-                    setZoneSwapSourceId("");
-                    setMachineRearrangeMode(false);
-                    setMachineSwapSourceId("");
-                    setPendingMachinePlacement(null);
-                    setActiveTool("select");
-                    if (next) setFocusedZoneId("");
-                    pushToast({
-                      kind: "info",
-                      message: next
-                        ? "Rearrange mode on. Click two zones to swap."
-                        : "Rearrange mode off.",
-                      ts: Date.now(),
-                    });
-                  }}
-                  title="Swap positions of any two zones"
-                >
-                  Rearrange zones
-                </button>
-                <button
-                  type="button"
-                  className={
-                    machineRearrangeMode
-                      ? "rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
-                      : "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  }
-                  onClick={() => {
-                    if (!focusedZoneId) {
-                      pushToast({
-                        kind: "info",
-                        message: "Open a zone first to rearrange machines inside it.",
-                        ts: Date.now(),
-                      });
-                      return;
-                    }
-                    const next = !machineRearrangeMode;
-                    setMachineRearrangeMode(next);
-                    setMachineSwapSourceId("");
-                    setZoneRearrangeMode(false);
-                    setZoneSwapSourceId("");
-                    setPendingMachinePlacement(null);
-                    setActiveTool("select");
-                    pushToast({
-                      kind: "info",
-                      message: next
-                        ? "Machine rearrange on. Click two machines in this zone to swap."
-                        : "Machine rearrange off.",
-                      ts: Date.now(),
-                    });
-                  }}
-                  title="Swap two machines inside opened zone"
-                >
-                  Rearrange machines
-                </button>
-                <button
-                  type="button"
-                  className={neutralBtnClass}
-                  onClick={() => {
-                    setFocusedZoneId("");
-                    setPendingMachinePlacement(null);
-                    pushToast({
-                      kind: "info",
-                      message: "Back to all zones view",
-                      ts: Date.now(),
-                    });
-                  }}
-                  disabled={!focusedZone}
-                  title={
-                    focusedZone
-                      ? "Return to all zones canvas"
-                      : "Already in all zones view"
-                  }
-                >
-                  Back to all zones
-                </button>
+                {isTwoDEditor ? (
+                  <>
+                    <button
+                      type="button"
+                      className={
+                        zoneMergeMode
+                          ? "rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-700"
+                          : "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      }
+                      onClick={() => {
+                        const next = !zoneMergeMode;
+                        setZoneMergeMode(next);
+                        setZoneMergeSelectedIds([]);
+                        setZoneMergeName("");
+                        setZoneRearrangeMode(false);
+                        setZoneSwapSourceId("");
+                        setMachineRearrangeMode(false);
+                        setMachineSwapSourceId("");
+                        setFocusedZoneId("");
+                        setSelectedId("");
+                        setPendingMachinePlacement(null);
+                        setActiveTool("select");
+                        pushToast({
+                          kind: "info",
+                          message: next
+                            ? "Combine mode on. Click zones to select, then click Merge selected zones in left panel."
+                            : "Combine mode off.",
+                          ts: Date.now(),
+                        });
+                      }}
+                      title="Combine multiple zones into one"
+                    >
+                      Combine zones
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        zoneRearrangeMode
+                          ? "rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-700"
+                          : "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      }
+                      onClick={() => {
+                        const next = !zoneRearrangeMode;
+                        setZoneRearrangeMode(next);
+                        setZoneSwapSourceId("");
+                        setZoneMergeMode(false);
+                        setZoneMergeSelectedIds([]);
+                        setZoneMergeName("");
+                        setMachineRearrangeMode(false);
+                        setMachineSwapSourceId("");
+                        setPendingMachinePlacement(null);
+                        setActiveTool("select");
+                        if (next) setFocusedZoneId("");
+                        pushToast({
+                          kind: "info",
+                          message: next
+                            ? "Rearrange mode on. Click two zones to swap."
+                            : "Rearrange mode off.",
+                          ts: Date.now(),
+                        });
+                      }}
+                      title="Swap positions of any two zones"
+                    >
+                      Rearrange zones
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        machineRearrangeMode
+                          ? "rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
+                          : "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      }
+                      onClick={() => {
+                        if (!focusedZoneId) {
+                          pushToast({
+                            kind: "info",
+                            message:
+                              "Open a zone first to rearrange machines inside it.",
+                            ts: Date.now(),
+                          });
+                          return;
+                        }
+                        const next = !machineRearrangeMode;
+                        setMachineRearrangeMode(next);
+                        setMachineSwapSourceId("");
+                        setZoneMergeMode(false);
+                        setZoneMergeSelectedIds([]);
+                        setZoneMergeName("");
+                        setZoneRearrangeMode(false);
+                        setZoneSwapSourceId("");
+                        setPendingMachinePlacement(null);
+                        setActiveTool("select");
+                        pushToast({
+                          kind: "info",
+                          message: next
+                            ? "Machine rearrange on. Click two machines in this zone to swap."
+                            : "Machine rearrange off.",
+                          ts: Date.now(),
+                        });
+                      }}
+                      title="Swap two machines inside opened zone"
+                    >
+                      Rearrange machines
+                    </button>
+                    <button
+                      type="button"
+                      className={neutralBtnClass}
+                      onClick={() => {
+                        setFocusedZoneId("");
+                        setPendingMachinePlacement(null);
+                        pushToast({
+                          kind: "info",
+                          message: "Back to all zones view",
+                          ts: Date.now(),
+                        });
+                      }}
+                      disabled={!focusedZone}
+                      title={
+                        focusedZone
+                          ? "Return to all zones canvas"
+                          : "Already in all zones view"
+                      }
+                    >
+                      Back to all zones
+                    </button>
+                  </>
+                ) : null}
                 <button
                   type="button"
                   className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-800"
@@ -1905,7 +2226,7 @@ export default function Department3DLayoutPage() {
                   type="button"
                   className={neutralBtnClass}
                   onClick={toggleFullscreen}
-                  title="Open layout editor"
+                  title="Open 2D layout editor"
                 >
                   Customize Layout (2D)
                 </button>
@@ -1921,7 +2242,7 @@ export default function Department3DLayoutPage() {
               : "mt-4 flex-1 flex flex-col justify-center min-h-0"
           }
         >
-          {isFullscreen ? (
+          {isTwoDEditor ? (
             <div className="absolute left-0 top-0 z-20 flex h-full w-[266px] overflow-hidden border-r bg-white/95">
               <div className="flex w-14 flex-col items-center gap-2 border-r bg-slate-50/80 py-3">
                 <button
@@ -2393,6 +2714,38 @@ export default function Department3DLayoutPage() {
                     Add transporter
                   </button>
                 </div>
+
+                {zoneMergeMode ? (
+                  <div className="mt-4 rounded-lg border border-violet-200 bg-violet-50 p-3">
+                    <div className="text-xs font-semibold text-violet-900">
+                      Combine zones
+                    </div>
+                    <div className="mt-1 text-[11px] text-violet-700">
+                      Click zones on canvas to select, then merge.
+                    </div>
+                    <div className="mt-2 rounded-md bg-white px-2 py-1 text-xs text-slate-700">
+                      <span className="font-semibold">Selected zones:</span>{" "}
+                      {zoneMergeSelectedCount}
+                    </div>
+                    <label className="mt-2 block text-xs text-slate-600">
+                      New merged zone name
+                      <input
+                        className="mt-1 w-full rounded-md border px-2 py-1 text-xs"
+                        value={zoneMergeName}
+                        onChange={(e) => setZoneMergeName(e.target.value)}
+                        placeholder="e.g. Production Block A"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="mt-3 w-full rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                      onClick={handleMergeSelectedZones}
+                      disabled={zoneMergeSelectedCount < 2}
+                    >
+                      Merge selected zones
+                    </button>
+                  </div>
+                ) : null}
 
                 {activeTool === "add:machine" ? (
                   <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
@@ -3056,7 +3409,7 @@ export default function Department3DLayoutPage() {
 
           <div
             style={
-              isFullscreen ? { paddingLeft: 278, height: "100%" } : undefined
+              isTwoDEditor ? { paddingLeft: 278, height: "100%" } : undefined
             }
             className={isFullscreen ? "h-full" : "h-full w-full"}
           >
@@ -3159,11 +3512,15 @@ export default function Department3DLayoutPage() {
                   : undefined
               }
               focusedZoneId={
-                isFullscreen ? (zoneRearrangeMode ? "" : focusedZoneId) : ""
+                isFullscreen
+                  ? zoneRearrangeMode || zoneMergeMode
+                    ? ""
+                    : focusedZoneId
+                  : ""
               }
               onFocusZoneChange={
                 isFullscreen
-                  ? zoneRearrangeMode
+                  ? zoneRearrangeMode || zoneMergeMode
                     ? undefined
                     : (id) => setFocusedZoneId(String(id || ""))
                   : undefined
@@ -3338,10 +3695,6 @@ export default function Department3DLayoutPage() {
                       setDraft((prev) =>
                         prev
                           ? (() => {
-                              const zonePlacement =
-                                t === ELEMENT_TYPES.ZONE
-                                  ? computeNextZonePlacement(prev.elements || [])
-                                  : null;
                               const focusZone =
                                 t === ELEMENT_TYPES.MACHINE
                                   ? (prev.elements || []).find(
@@ -3399,24 +3752,61 @@ export default function Department3DLayoutPage() {
                                       machineH,
                                   )
                                 : finalY;
+                              const zoneBounds = getZoneLayoutBounds(
+                                prev.elements || [],
+                              );
+                              const zoneWClamped = clamp(
+                                finalW,
+                                0.02,
+                                zoneBounds.w,
+                              );
+                              const zoneHClamped = clamp(
+                                finalH,
+                                0.02,
+                                zoneBounds.h,
+                              );
+                              const zoneXClamped = clamp(
+                                finalX,
+                                zoneBounds.x,
+                                Math.max(
+                                  zoneBounds.x,
+                                  zoneBounds.x + zoneBounds.w - zoneWClamped,
+                                ),
+                              );
+                              const zoneYClamped = clamp(
+                                finalY,
+                                zoneBounds.y,
+                                Math.max(
+                                  zoneBounds.y,
+                                  zoneBounds.y + zoneBounds.h - zoneHClamped,
+                                ),
+                              );
 
                               const addedElement = {
                                 id: newId,
                                 type: t,
                                 label,
                                 x:
-                                  zonePlacement?.x ??
-                                  (t === ELEMENT_TYPES.MACHINE
+                                  (t === ELEMENT_TYPES.ZONE
+                                    ? zoneXClamped
+                                    : t === ELEMENT_TYPES.MACHINE
                                     ? machineXInZone
                                     : finalX),
                                 y:
-                                  zonePlacement?.y ??
-                                  (t === ELEMENT_TYPES.MACHINE
+                                  (t === ELEMENT_TYPES.ZONE
+                                    ? zoneYClamped
+                                    : t === ELEMENT_TYPES.MACHINE
                                     ? machineYInZone
                                     : finalY),
                                 ...defaults,
-                                w: zonePlacement?.w ?? finalW,
-                                h: zonePlacement?.h ?? finalH,
+                                w:
+                                  t === ELEMENT_TYPES.ZONE
+                                    ? zoneWClamped
+                                    : finalW,
+                                h:
+                                  t === ELEMENT_TYPES.ZONE
+                                    ? zoneHClamped
+                                    : finalH,
                                 rotationDeg,
                                 ...(color ? { color } : null),
                                 ...(machineId ? { machineId } : null),
@@ -3439,10 +3829,11 @@ export default function Department3DLayoutPage() {
                                 addedElement,
                               ];
 
-                              if (t === ELEMENT_TYPES.ZONE) {
+                              if (t === ELEMENT_TYPES.ZONE)
                                 nextElements =
-                                  reflowZonesAndContainedElements(nextElements);
-                              }
+                                  clampZonesAndContainedElementsToFloor(
+                                    nextElements,
+                                  );
 
                               const zones = nextElements.filter(
                                 (e) => e?.type === ELEMENT_TYPES.ZONE,
@@ -3600,6 +3991,9 @@ export default function Department3DLayoutPage() {
               zoneRearrangeMode={isFullscreen ? zoneRearrangeMode : false}
               zoneSwapSourceId={isFullscreen ? zoneSwapSourceId : ""}
               onZoneSwapPick={isFullscreen ? handleZoneSwapPick : undefined}
+              zoneMergeMode={isFullscreen ? zoneMergeMode : false}
+              zoneMergeSelectedIds={isFullscreen ? zoneMergeSelectedIds : []}
+              onZoneMergePick={isFullscreen ? handleZoneMergePick : undefined}
               machineRearrangeMode={
                 isFullscreen ? machineRearrangeMode : false
               }

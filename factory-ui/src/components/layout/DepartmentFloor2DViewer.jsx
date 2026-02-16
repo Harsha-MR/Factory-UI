@@ -142,6 +142,9 @@ export default function DepartmentFloor2DViewer({
   zoneRearrangeMode = false,
   zoneSwapSourceId = "",
   onZoneSwapPick,
+  zoneMergeMode = false,
+  zoneMergeSelectedIds = [],
+  onZoneMergePick,
   machineRearrangeMode = false,
   machineSwapSourceId = "",
   onMachineSwapPick,
@@ -716,6 +719,12 @@ export default function DepartmentFloor2DViewer({
         }
 
         if (el?.type === ELEMENT_TYPES.ZONE) {
+          const isMergeSelected =
+            zoneMergeMode &&
+            Array.isArray(zoneMergeSelectedIds) &&
+            zoneMergeSelectedIds.some(
+              (id) => String(id) === String(el?.id || ""),
+            );
           const isSwapSource =
             zoneRearrangeMode &&
             String(zoneSwapSourceId || "") === String(el?.id || "");
@@ -724,7 +733,9 @@ export default function DepartmentFloor2DViewer({
               key={String(el.id)}
               type="button"
               className={
-                isSwapSource
+                isMergeSelected
+                  ? `absolute z-[6] overflow-hidden rounded-lg border-2 border-violet-600 bg-violet-200/35 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
+                  : isSwapSource
                   ? `absolute z-[6] overflow-hidden rounded-lg border-2 border-sky-600 bg-sky-100/35 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
                   : isSelected
                   ? `absolute z-[5] overflow-hidden rounded-lg border-2 border-sky-500 bg-emerald-100/10 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
@@ -734,6 +745,10 @@ export default function DepartmentFloor2DViewer({
               onPointerDown={(e) => {
                 if (!fullScreen) return;
                 e.stopPropagation();
+                if (zoneMergeMode && typeof onZoneMergePick === "function") {
+                  onZoneMergePick(String(el.id));
+                  return;
+                }
                 if (zoneRearrangeMode && typeof onZoneSwapPick === "function") {
                   onZoneSwapPick(String(el.id));
                   return;

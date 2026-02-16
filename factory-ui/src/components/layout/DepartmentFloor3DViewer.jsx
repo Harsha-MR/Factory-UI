@@ -1101,31 +1101,63 @@ export default function DepartmentFloor3DViewer({
     }
 
     const zoneCount = zoneElements.length;
-    const cols =
-      zoneCount <= 4 ? 2 : zoneCount <= 6 ? 3 : zoneCount <= 8 ? 4 : 5;
-    const rows = Math.max(1, Math.ceil(zoneCount / cols));
+    const getRowCounts = (count) => {
+      if (count <= 0) return [1];
+      if (count === 1) return [1];
+      if (count === 2) return [2];
+      if (count === 3) return [3];
+      if (count === 4) return [2, 2];
+      if (count === 5) return [3, 2];
+      if (count === 6) return [3, 3];
+      if (count === 7) return [4, 3];
+      if (count === 8) return [4, 4];
+      if (count === 9) return [3, 3, 3];
+      if (count === 10) return [5, 5];
+
+      // For larger counts: avoid tiny last rows (e.g. 5,5,1).
+      // Keep rows visually balanced, up to ~8 zones per row:
+      // 11 -> [6,5], 12 -> [6,6], 13 -> [7,6], 17 -> [6,6,5]
+      const maxPerRow = 8;
+      const rowCount = Math.max(2, Math.ceil(count / maxPerRow));
+      const base = Math.floor(count / rowCount);
+      const remainder = count % rowCount;
+      return Array.from({ length: rowCount }, (_, i) =>
+        base + (i < remainder ? 1 : 0),
+      );
+    };
+    const rowCounts = getRowCounts(zoneCount);
+    const rows = Math.max(1, rowCounts.length);
+    const maxCols = Math.max(...rowCounts, 1);
+    const indexToRowCol = (index) => {
+      let row = 0;
+      let offset = index;
+      while (row < rowCounts.length && offset >= rowCounts[row]) {
+        offset -= rowCounts[row];
+        row += 1;
+      }
+      return { row, col: Math.max(0, offset) };
+    };
+
+    // Keep everything inside a fixed normalized layout frame so no zone can
+    // render outside the white floor canvas in preview.
     const frameX = 0.03;
     const frameY = 0.04;
+    const frameW = 0.94;
+    const frameH = 0.92;
     const gapX = 0.02;
     const gapY = 0.03;
-    const slotW = Math.max(
-      0.08,
-      (1 - frameX * 2 - gapX * (cols - 1)) / cols,
-    );
     const slotH = Math.max(
       0.08,
-      (1 - frameY * 2 - gapY * (rows - 1)) / rows,
+      (frameH - gapY * Math.max(0, rows - 1)) / rows,
     );
 
     let maxCount = 0;
     for (const list of grouped.values()) {
       maxCount = Math.max(maxCount, list.length || 0);
     }
-    const minScale = 0.58;
-    const maxScale = 0.98;
-    // Shared preview grid for all zones:
-    // bias toward wider bottom rows (e.g. 1..6 on front row for ~20 machines)
-    // while keeping newest machine numbers on upper rows.
+    const minScale = 0.9;
+    const maxScale = 0.9;
+    // Shared preview machine grid for all zones.
     const maxColsByCount = clamp(
       Math.ceil(Math.sqrt(Math.max(1, maxCount)) * 1.3),
       5,
@@ -1143,62 +1175,79 @@ export default function DepartmentFloor3DViewer({
       minScale,
       maxScale,
     );
-    const orderedZones = [...zoneElements].sort((a, b) => {
-      const ay = Number(a?.y) || 0;
-      const by = Number(b?.y) || 0;
-      if (Math.abs(ay - by) > 0.0005) return ay - by;
-      const ax = Number(a?.x) || 0;
-      const bx = Number(b?.x) || 0;
-      return ax - bx;
-    });
-
-    const remappedZones = orderedZones.map((z, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const zw = slotW * uniformZoneScale;
+    const remappedZones = [];
+    const availableW = Math.max(0.1, frameW);
+    for (let i = 0; i < zoneCount; i += 1) {
+      const z = zoneElements[i];
+      const { row, col } = indexToRowCol(i);
+      const rowCols = Math.max(1, rowCounts[row] || maxCols);
+      const rowGapX = rowCols > 1 ? gapX : 0;
+      const rowSlotW = Math.max(
+        0.08,
+        (availableW - rowGapX * Math.max(0, rowCols - 1)) / Math.max(1, rowCols),
+      );
+      const zw = rowSlotW * uniformZoneScale;
       const zh = slotH * uniformZoneScale;
-      const slotX = frameX + col * (slotW + gapX);
+      const slotX = frameX + col * (rowSlotW + rowGapX);
+      // Keep row index direction same as 2D ordering (top->bottom),
+      // so later rows in 2D appear lower (bottom) in 3D.
       const slotY = frameY + row * (slotH + gapY);
-      return {
+      remappedZones.push({
         ...z,
-        x: clamp01(slotX + (slotW - zw) / 2),
+        x: clamp01(slotX + (rowSlotW - zw) / 2),
         y: clamp01(slotY + (slotH - zh) / 2),
         w: zw,
         h: zh,
-      };
-    });
-    const zoneById = new Map(remappedZones.map((z) => [String(z.id), z]));
-
+      });
+    }
     const remappedMachines = [];
-    for (const z of remappedZones) {
-      const zid = String(z.id);
-      const list = (grouped.get(zid) || []).sort(sortMachinesForZone);
-      // Preview: use almost full zone area for machines (no header reserve),
-      // so we avoid large empty strips in front.
-      const headerH = 0;
+    const headerH = 0;
+    const zoneBodies = remappedZones.map((z) => {
       const padX = Math.max(0.004, z.w * 0.018);
       const padY = Math.max(0.004, z.h * 0.018);
       const bodyX = z.x + padX;
       const bodyY = z.y + headerH + padY;
       const bodyW = Math.max(0.02, z.w - padX * 2);
       const bodyH = Math.max(0.02, z.h - headerH - padY * 2);
-      // Use one shared machine grid pattern for all zones in preview,
-      // derived from the busiest zone, so positions are visually consistent.
-      const colsM = maxColsByCount;
-      const rowsM = Math.max(2, maxRowsByCount);
+      return { bodyX, bodyY, bodyW, bodyH };
+    });
+    const minBodyW = zoneBodies.length
+      ? Math.min(...zoneBodies.map((b) => b.bodyW))
+      : 0.02;
+    const minBodyH = zoneBodies.length
+      ? Math.min(...zoneBodies.map((b) => b.bodyH))
+      : 0.02;
+    const rowsM = Math.max(2, maxRowsByCount);
+    const colsM = maxColsByCount;
+    const baseCellW = Math.max(0.01, minBodyW / colsM);
+    const baseCellH = Math.max(0.01, minBodyH / rowsM);
+    const fillRatio = 0.86;
+    const uniformMachineSize = Math.max(
+      0.008,
+      Math.min(baseCellW, baseCellH) * fillRatio,
+    );
+
+    for (const z of remappedZones) {
+      const zid = String(z.id);
+      const list = (grouped.get(zid) || []).sort(sortMachinesForZone);
+      // Preview: use almost full zone area for machines.
+      const padX = Math.max(0.004, z.w * 0.018);
+      const padY = Math.max(0.004, z.h * 0.018);
+      const bodyX = z.x + padX;
+      const bodyY = z.y + headerH + padY;
+      const bodyW = Math.max(0.02, z.w - padX * 2);
+      const bodyH = Math.max(0.02, z.h - headerH - padY * 2);
+      // Shared grid pattern and shared machine size across zones.
       const cellW = Math.max(0.01, bodyW / colsM);
       const cellH = Math.max(0.01, bodyH / rowsM);
-      const fillRatio = 0.86;
 
       for (let i = 0; i < list.length; i += 1) {
         const m = list[i];
         const col = i % colsM;
-        // Numbering/order from front(bottom on screen) to back(top on screen):
-        // front row -> 1..N, next rows behind -> following numbers.
         const logicalRow = Math.floor(i / colsM);
         const row = logicalRow;
-        const mw = Math.max(0.008, cellW * fillRatio);
-        const mh = Math.max(0.008, cellH * fillRatio);
+        const mw = uniformMachineSize;
+        const mh = uniformMachineSize;
         const mx = clamp01(bodyX + col * cellW + (cellW - mw) / 2);
         const my = clamp01(bodyY + row * cellH + (cellH - mh) / 2);
         remappedMachines.push({
@@ -1221,27 +1270,10 @@ export default function DepartmentFloor3DViewer({
     );
     const remappedPlaceables = [...remappedMachines, ...others];
 
-    const pad = 0.02;
-    const minX = Math.max(
-      0,
-      Math.min(...remappedZones.map((z) => Number(z?.x) || 0)) - pad,
-    );
-    const minY = Math.max(
-      0,
-      Math.min(...remappedZones.map((z) => Number(z?.y) || 0)) - pad,
-    );
-    const maxX = Math.min(
-      1,
-      Math.max(
-        ...remappedZones.map((z) => (Number(z?.x) || 0) + (Number(z?.w) || 0)),
-      ) + pad,
-    );
-    const maxY = Math.min(
-      1,
-      Math.max(
-        ...remappedZones.map((z) => (Number(z?.y) || 0) + (Number(z?.h) || 0)),
-      ) + pad,
-    );
+    const minX = frameX;
+    const minY = frameY;
+    const maxX = Math.min(1, frameX + frameW);
+    const maxY = Math.min(1, frameY + frameH);
     const baseFloor = floorElements[0] || {};
     const remappedFloors = [
       {
@@ -2673,10 +2705,10 @@ export default function DepartmentFloor3DViewer({
             enableRotate={true}
             // Keep preview zoom range tighter so it looks like the desired default.
             minDistance={
-              fullScreen ? effectivePlaneSize * 0.25 : effectivePlaneSize * 0.18
+              fullScreen ? effectivePlaneSize * 0.12 : effectivePlaneSize * 0.08
             }
             maxDistance={
-              fullScreen ? effectivePlaneSize * 3.0 : effectivePlaneSize * 1.25
+              fullScreen ? effectivePlaneSize * 3.0 : effectivePlaneSize * 1.5
             }
             mouseButtons={{
               LEFT: MOUSE.ROTATE,
