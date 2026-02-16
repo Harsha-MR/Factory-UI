@@ -494,6 +494,7 @@ const MachineElement = memo(function MachineElement({
   onPointerLeave,
   onPointerMoveOverMachine,
   onClick,
+  onDoubleClick,
   selectedObjectRef,
 }) {
   const wNorm = clamp01(Number(el.w) || 0.12);
@@ -523,6 +524,7 @@ const MachineElement = memo(function MachineElement({
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
     >
       <ErrorBoundary
         fallback={() => (
@@ -904,6 +906,41 @@ export default function DepartmentFloor3DViewer({
     controls.mouseButtons.LEFT = mode === "pan" ? MOUSE.PAN : MOUSE.ROTATE;
     if (typeof controls.update === "function") controls.update();
   }, []);
+
+  const focusPreviewCameraOnMachine = useCallback(
+    (el) => {
+      if (fullScreen || !el) return;
+      const cam = cameraRef.current;
+      const controls = orbitRef.current;
+      if (!cam || !controls || !controls.target) return;
+
+      const wNorm = clamp01(Number(el?.w) || 0.12);
+      const hNorm = clamp01(Number(el?.h) || 0.12);
+      const cx = clamp01((Number(el?.x) || 0.5) + wNorm / 2);
+      const cy = clamp01((Number(el?.y) || 0.5) + hNorm / 2);
+      const pos = normToPlane(cx, cy, effectivePlaneSize);
+
+      const offset = new Vector3().subVectors(cam.position, controls.target);
+      let distance = offset.length();
+      const minDist = Math.max(0.5, effectivePlaneSize * 0.035);
+      const maxDist = Math.max(minDist + 0.2, effectivePlaneSize * 1.2);
+      if (!Number.isFinite(distance) || distance < 0.001) {
+        distance = Math.max(minDist, effectivePlaneSize * 0.4);
+      }
+      distance = clamp(distance, minDist, maxDist);
+
+      offset.normalize().multiplyScalar(distance);
+      controls.target.set(pos.x, effectiveFloorY, pos.z);
+      cam.position.set(
+        pos.x + offset.x,
+        effectiveFloorY + Math.max(0.25, offset.y),
+        pos.z + offset.z,
+      );
+      cam.lookAt(pos.x, effectiveFloorY, pos.z);
+      if (typeof controls.update === "function") controls.update();
+    },
+    [fullScreen, effectivePlaneSize, effectiveFloorY],
+  );
 
   const maybeStartPanDrag = (e) => {
     // Allow double-click+drag panning in both fullscreen and non-fullscreen modes
@@ -2429,9 +2466,8 @@ export default function DepartmentFloor3DViewer({
                     }
                   } else if (canOpenDetails) {
                     e.stopPropagation();
-                    onOpenMachineDetails(machineId);
                   }
-                }, [isAddMode, isTransforming, onSelectElement, onOpenMachineDetails, activeTool, setOrbitEnabledNow]);
+                }, [isAddMode, isTransforming, onSelectElement, activeTool, setOrbitEnabledNow]);
 
                 const createPointerMoveHandler = useCallback((el, isSelected, allowEdit) => (e) => {
                   if (!allowEdit) return;
@@ -2512,7 +2548,7 @@ export default function DepartmentFloor3DViewer({
                   setCursor("default");
                 }, []);
 
-                const createPointerEnterHandler = useCallback((machineId, canOpenDetails) => (e) => {
+                const createPointerEnterHandler = useCallback((el, machineId, canOpenDetails) => (e) => {
                   if (!canOpenDetails) return;
                   e.stopPropagation();
                   setHoveredMachineId((prev) => prev === machineId ? prev : machineId);
@@ -2549,7 +2585,13 @@ export default function DepartmentFloor3DViewer({
                   setCursor("default");
                 }, []);
 
-                const createClickHandler = useCallback((machineId, canOpenDetails) => (e) => {
+                const createClickHandler = useCallback((el, machineId, canOpenDetails) => (e) => {
+                  if (!canOpenDetails) return;
+                  e.stopPropagation();
+                  focusPreviewCameraOnMachine(el);
+                }, [focusPreviewCameraOnMachine]);
+
+                const createDoubleClickHandler = useCallback((machineId, canOpenDetails) => (e) => {
                   if (!canOpenDetails) return;
                   e.stopPropagation();
                   onOpenMachineDetails(machineId);
@@ -2642,10 +2684,11 @@ export default function DepartmentFloor3DViewer({
                       onPointerMove={createPointerMoveHandler(el, isSelected, allowEdit)}
                       onPointerOver={createPointerOverHandler(allowEdit)}
                       onPointerOut={createPointerOutHandler(allowEdit)}
-                      onPointerEnter={createPointerEnterHandler(machineId, canOpenDetails)}
+                      onPointerEnter={createPointerEnterHandler(el, machineId, canOpenDetails)}
                       onPointerLeave={createPointerLeaveHandler(machineId, canOpenDetails)}
                       onPointerMoveOverMachine={createPointerMoveOverMachineHandler(machineId, canOpenDetails)}
-                      onClick={createClickHandler(machineId, canOpenDetails)}
+                      onClick={createClickHandler(el, machineId, canOpenDetails)}
+                      onDoubleClick={createDoubleClickHandler(machineId, canOpenDetails)}
                       selectedObjectRef={selectedObjectRef}
                     />
                   );
@@ -2705,17 +2748,17 @@ export default function DepartmentFloor3DViewer({
             enableRotate={true}
             // Keep preview zoom range tighter so it looks like the desired default.
             minDistance={
-              fullScreen ? effectivePlaneSize * 0.12 : effectivePlaneSize * 0.08
+              fullScreen ? effectivePlaneSize * 0.12 : effectivePlaneSize * 0.035
             }
             maxDistance={
-              fullScreen ? effectivePlaneSize * 3.0 : effectivePlaneSize * 1.5
+              fullScreen ? effectivePlaneSize * 3.0 : effectivePlaneSize * 2.0
             }
             mouseButtons={{
               LEFT: MOUSE.ROTATE,
               MIDDLE: MOUSE.DOLLY,
               RIGHT: fullScreen ? MOUSE.PAN : MOUSE.ROTATE,
             }}
-            autoRotate={autoRotate}
+            autoRotate={fullScreen ? autoRotate : false}
             autoRotateSpeed={1.0}
             enabled={controlsEnabled}
             onStart={() => {
