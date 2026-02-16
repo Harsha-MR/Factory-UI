@@ -1468,7 +1468,7 @@ export default function Department3DLayoutPage() {
           return centerInside(el, zoneRect);
         };
 
-        const moveElementBetweenZones = (el, fromRect, toRect, toZone) => {
+        const moveElementBetweenZones = (el, fromRect, toRect) => {
           const ex = Number(el?.x) || 0;
           const ey = Number(el?.y) || 0;
           const ew = Math.max(0.01, Number(el?.w) || 0.08);
@@ -1491,16 +1491,6 @@ export default function Department3DLayoutPage() {
             w: nw,
             h: nh,
           };
-          if (
-            el?.type === ELEMENT_TYPES.MACHINE ||
-            el?.type === ELEMENT_TYPES.TRANSPORTER
-          ) {
-            next.meta = {
-              ...(el?.meta || {}),
-              zoneId: String(toZone?.id || ""),
-              zoneName: String(toZone?.label || ""),
-            };
-          }
           return next;
         };
 
@@ -1517,10 +1507,10 @@ export default function Department3DLayoutPage() {
           }
 
           if (belongsToZone(el, src, srcRect)) {
-            return moveElementBetweenZones(el, srcRect, dstRect, dst);
+            return moveElementBetweenZones(el, srcRect, dstRect);
           }
           if (belongsToZone(el, dst, dstRect)) {
-            return moveElementBetweenZones(el, dstRect, srcRect, src);
+            return moveElementBetweenZones(el, dstRect, srcRect);
           }
           return el;
         });
