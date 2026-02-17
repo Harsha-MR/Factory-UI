@@ -1,4 +1,4 @@
-import { Factory, Menu, X } from "lucide-react";
+import { AlignCenter, Factory, Menu, X } from "lucide-react";
 import { useState } from "react";
 import ProfileDropdown from "./ProfileDropdown";
 
@@ -6,10 +6,10 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { label: "Dashboard", href: "/" },
-    { label: "Factories", href: "/factories" },
-    { label: "Reports", href: "/reports" },
-    { label: "Settings", href: "/settings" },
+    //{ label: "Dashboard", href: "/", icon: AlignCenter },
+    // { label: "Factories", href: "/factories" },
+    //{ label: "Reports", href: "/reports" },
+    //{ label: "Settings", href: "/settings" },
   ];
 
   return (
@@ -46,9 +46,9 @@ export default function Header() {
 
         {/* EXTREME RIGHT — HELP + PROFILE */}
         <div className="hidden md:flex items-center gap-3 ml-auto pr-6 ">
-          <button className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium">
+          {/* <button className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium">
             Help
-          </button>
+          </button>*/}
           <ProfileDropdown />
         </div>
 
