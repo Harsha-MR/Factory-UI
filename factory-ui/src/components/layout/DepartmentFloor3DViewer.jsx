@@ -94,7 +94,7 @@ function statusColor(status) {
   if (s === "IDLE") return "#eab308";
   if (s === "WARNING") return "#f59e0b";
   // if (s === "MAINTENANCE") return "#a855f7"; // TEMP commented
-  if (s === "OFFLINE") return "#94a3b8";
+  // if (s === "OFFLINE") return "#94a3b8"; // TEMP commented
   return "#22c55e"; // RUNNING (default)
 }
 
@@ -141,7 +141,7 @@ function machineModelUrlForStatus(status, fullScreen = false) {
   if (s === "RUNNING") return "/models/machine-running.glb";
   // Fallbacks for statuses without dedicated GLB.
   // if (s === "MAINTENANCE") return "/models/machine-idle.glb"; // TEMP commented
-  if (s === "OFF" || s === "OFFLINE") return "/models/machine-down.glb";
+  // if (s === "OFF" || s === "OFFLINE") return "/models/machine-down.glb"; // TEMP commented
   return "/models/machine-running.glb";
 }
 

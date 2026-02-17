@@ -24,7 +24,7 @@ function statusTint(status) {
   if (s === "DOWN") return "bg-red-500/40";
   if (s === "IDLE") return "bg-yellow-400/45";
   // if (s === "MAINTENANCE") return "bg-purple-500/40"; // TEMP commented
-  if (s === "OFF" || s === "OFFLINE") return "bg-gray-500/42";
+  // if (s === "OFF" || s === "OFFLINE") return "bg-gray-500/42"; // TEMP commented
   return "bg-green-500/40";
 }
 
@@ -62,14 +62,14 @@ function statusTone(status) {
   //     border: "border-purple-500/75",
   //   };
   // }
-  if (s === "OFF" || s === "OFFLINE") {
-    return {
-      glow: "bg-gray-500/36",
-      badge: "bg-gray-500",
-      nameBg: "bg-gray-800/85",
-      border: "border-gray-500/80",
-    };
-  }
+  // if (s === "OFF" || s === "OFFLINE") {
+  //   return {
+  //     glow: "bg-gray-500/36",
+  //     badge: "bg-gray-500",
+  //     nameBg: "bg-gray-800/85",
+  //     border: "border-gray-500/80",
+  //   };
+  // }
   return {
     glow: "bg-green-500/36",
     badge: "bg-green-500",
@@ -106,7 +106,7 @@ function isVisibleByStatus(status, machineStatusVisibility) {
   if (String(status || "").toUpperCase() === "MAINTENANCE") return false;
   if (!machineStatusVisibility || machineStatusVisibility.ALL) return true;
   const key = String(status || "RUNNING").toUpperCase();
-  if (key === "OFFLINE") return !!machineStatusVisibility.OFF;
+  // if (key === "OFFLINE") return !!machineStatusVisibility.OFF; // TEMP commented
   return !!machineStatusVisibility[key];
 }
 

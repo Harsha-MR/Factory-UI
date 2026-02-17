@@ -71,7 +71,7 @@ const STATUS_FILTER_BUTTONS = [
   "IDLE",
   "DOWN",
   // "MAINTENANCE", // TEMP commented
-  "OFF",
+  // "OFF", // TEMP commented
   "ALL",
 ];
 
@@ -947,7 +947,7 @@ export default function Department3DLayoutPage() {
     IDLE: true,
     DOWN: true,
     // MAINTENANCE: true, // TEMP commented
-    OFF: true,
+    // OFF: true, // TEMP commented
     ALL: true,
   });
   const [machineForm, setMachineForm] = useState({
@@ -3813,7 +3813,7 @@ export default function Department3DLayoutPage() {
                               IDLE: true,
                               DOWN: true,
                               // MAINTENANCE: true, // TEMP commented
-                              OFF: true,
+                              // OFF: true, // TEMP commented
                               ALL: true,
                             });
                           } else {
@@ -3822,7 +3822,7 @@ export default function Department3DLayoutPage() {
                               IDLE: false,
                               DOWN: false,
                               // MAINTENANCE: false, // TEMP commented
-                              OFF: false,
+                              // OFF: false, // TEMP commented
                               [s]: true,
                             });
                           }

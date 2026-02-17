@@ -71,10 +71,10 @@ function computeDepartmentSummary(department) {
       case 'WARNING':
         counts.warning++
         break
-      case 'OFFLINE':
-        counts.offline++
-        counts.critical++
-        break
+      // case 'OFFLINE': // TEMP commented
+      //   counts.offline++
+      //   counts.critical++
+      //   break
       // case 'MAINTENANCE': // TEMP commented
       //   counts.maintenance++
       //   counts.critical++
