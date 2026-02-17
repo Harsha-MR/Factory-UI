@@ -1474,7 +1474,8 @@ export default function DepartmentFloor3DViewer({
 
     return {
       zones: remappedZones,
-      walkways: [],
+      // Keep walkway overlays visible in 3D preview as authored in 2D.
+      walkways: walkwayElements,
       placeables: remappedPlaceables,
       floors: remappedFloors,
     };
