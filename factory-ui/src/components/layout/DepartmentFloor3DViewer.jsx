@@ -93,7 +93,7 @@ function statusColor(status) {
   if (s === "DOWN") return "#ef4444";
   if (s === "IDLE") return "#eab308";
   if (s === "WARNING") return "#f59e0b";
-  if (s === "MAINTENANCE") return "#a855f7";
+  // if (s === "MAINTENANCE") return "#a855f7"; // TEMP commented
   if (s === "OFFLINE") return "#94a3b8";
   return "#22c55e"; // RUNNING (default)
 }
@@ -140,7 +140,7 @@ function machineModelUrlForStatus(status, fullScreen = false) {
   if (s === "IDLE") return "/models/machine-idle.glb";
   if (s === "RUNNING") return "/models/machine-running.glb";
   // Fallbacks for statuses without dedicated GLB.
-  if (s === "MAINTENANCE") return "/models/machine-idle.glb";
+  // if (s === "MAINTENANCE") return "/models/machine-idle.glb"; // TEMP commented
   if (s === "OFF" || s === "OFFLINE") return "/models/machine-down.glb";
   return "/models/machine-running.glb";
 }
@@ -1218,6 +1218,7 @@ export default function DepartmentFloor3DViewer({
         machineMetaById && mid && machineMetaById[mid]?.status
           ? machineMetaById[mid].status
           : "RUNNING";
+      if (String(status).toUpperCase() === "MAINTENANCE") return false;
       const v =
         machineStatusVisibility && typeof machineStatusVisibility === "object"
           ? machineStatusVisibility[String(status).toUpperCase()]

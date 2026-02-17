@@ -454,7 +454,7 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
                 </div>
               </div>
 
-              {/* Upcoming Maintenance */}
+              {/* Upcoming Maintenance (TEMP commented)
               <div className="rounded-xl border bg-white">
                 <div className="flex items-center gap-2 border-b px-4 py-3 text-sm font-semibold text-slate-700">
                   <span>Upcoming Maintenance</span>
@@ -471,6 +471,7 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
                   </div>
                 </div>
               </div>
+              */}
             </div>
           </div>
         </div>

@@ -66,11 +66,21 @@ const FLOOR_MODEL_OPTIONS = [
     url: "/models/pre-defined-models/floor/floor(1x2).glb",
   },
 ];
+const STATUS_FILTER_BUTTONS = [
+  "RUNNING",
+  "IDLE",
+  "DOWN",
+  // "MAINTENANCE", // TEMP commented
+  "OFF",
+  "ALL",
+];
 
 function floorShellModeFromModelUrl(modelUrl) {
   const u = String(modelUrl || "");
   const m = u.match(/[?&]shell=([^&]+)/i);
-  const raw = String(m?.[1] || "").trim().toLowerCase();
+  const raw = String(m?.[1] || "")
+    .trim()
+    .toLowerCase();
   if (raw === "none" || raw === "0") return "none";
   if (raw === "2" || raw === "two") return "2";
   if (raw === "2l" || raw === "2-left" || raw === "two-left") return "2l";
@@ -248,7 +258,7 @@ function computeZoneSizeForMachineCount(count) {
   const baseMachine = 0.072;
   const baseGap = 0.016;
   const baseInnerPad = 0.03;
-  const minZoneW = 0.20;
+  const minZoneW = 0.2;
   const minZoneH = 0.16;
   const maxZoneW = 0.9;
   const maxZoneH = 0.9;
@@ -311,7 +321,8 @@ function _expandZoneForMachines(zones, machines, targetZoneId) {
   if (nextX + nextW > 1) nextX = Math.max(0, 1 - nextW);
   if (nextY + nextH > 1) nextY = Math.max(0, 1 - nextH);
 
-  if (nextW === zw && nextH === zh && nextX === zx && nextY === zy) return zones;
+  if (nextW === zw && nextH === zh && nextX === zx && nextY === zy)
+    return zones;
 
   const nextZones = [...zones];
   nextZones[zoneIndex] = { ...zone, x: nextX, y: nextY, w: nextW, h: nextH };
@@ -361,7 +372,9 @@ function expandFloorForZones(floors, zones) {
         },
       ];
 
-  const floorIndex = nextFloors.findIndex((f) => f?.type === ELEMENT_TYPES.FLOOR);
+  const floorIndex = nextFloors.findIndex(
+    (f) => f?.type === ELEMENT_TYPES.FLOOR,
+  );
   if (floorIndex === -1) return nextFloors;
   const floor = nextFloors[floorIndex];
   const modelUrl = String(floor?.modelUrl || "");
@@ -386,7 +399,9 @@ function expandFloorForZones(floors, zones) {
 }
 
 function getZoneLayoutBounds(elements) {
-  const floors = (elements || []).filter((e) => e?.type === ELEMENT_TYPES.FLOOR);
+  const floors = (elements || []).filter(
+    (e) => e?.type === ELEMENT_TYPES.FLOOR,
+  );
   if (!floors.length) {
     return { x: 0.02, y: 0.02, w: 0.96, h: 0.96 };
   }
@@ -637,10 +652,14 @@ function sortMachinesForZone(a, b) {
   const ai = machineOrderIndex(a);
   const bi = machineOrderIndex(b);
   if (ai !== bi) return ai - bi;
-  return String(a?.label || "").localeCompare(String(b?.label || ""), undefined, {
-    numeric: true,
-    sensitivity: "base",
-  });
+  return String(a?.label || "").localeCompare(
+    String(b?.label || ""),
+    undefined,
+    {
+      numeric: true,
+      sensitivity: "base",
+    },
+  );
 }
 
 function relayoutMachinesInZones(elements) {
@@ -702,14 +721,14 @@ function relayoutMachinesInZones(elements) {
         y: my,
         w: mw,
         h: mh,
-          meta: {
-            ...(m?.meta || {}),
-            zoneId: zid,
-            zoneName: String(z?.label || ""),
-            slotIndex: i,
-          },
-        });
-      }
+        meta: {
+          ...(m?.meta || {}),
+          zoneId: zid,
+          zoneName: String(z?.label || ""),
+          slotIndex: i,
+        },
+      });
+    }
   }
 
   return all.map((el) => {
@@ -742,7 +761,6 @@ function normalizeLayoutForEditing(layoutLike) {
     elements: rebuilt,
   };
 }
-
 
 function withThreeDDefaults(layout) {
   const normalized = normalizeLayout(layout);
@@ -928,7 +946,7 @@ export default function Department3DLayoutPage() {
     RUNNING: true,
     IDLE: true,
     DOWN: true,
-    MAINTENANCE: true,
+    // MAINTENANCE: true, // TEMP commented
     OFF: true,
     ALL: true,
   });
@@ -958,6 +976,11 @@ export default function Department3DLayoutPage() {
   const [machineRearrangeMode, setMachineRearrangeMode] = useState(false);
   const [machineSwapSourceId, setMachineSwapSourceId] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // TEMP: feature switches for staged rollout. Set to false to re-enable.
+  const TEMP_DISABLE_ADD_MACHINE = true;
+  const TEMP_DISABLE_ADD_TRANSPORTER = true;
+  const TEMP_DISABLE_COMBINE_ZONES = true;
+  const TEMP_DISABLE_LAYOUT_HISTORY = true;
 
   const requestedLayoutView = location.state?.layoutView;
   const handlePointerPositionChange = useCallback((pos) => {
@@ -1000,17 +1023,25 @@ export default function Department3DLayoutPage() {
 
   const applyFloorSelection = useCallback(
     ({ modelUrl, label }) => {
-      const floorModelUrl = String(modelUrl || defaultFloorModelUrl || "").trim();
+      const floorModelUrl = String(
+        modelUrl || defaultFloorModelUrl || "",
+      ).trim();
       if (!floorModelUrl) return;
-      const floorLabel = String(label || defaultFloorModelLabel || "Floor").trim();
+      const floorLabel = String(
+        label || defaultFloorModelLabel || "Floor",
+      ).trim();
       const nextFloorId = `floor-${nanoid(6)}`;
 
       setDraft((prev) => {
         if (!prev) return prev;
         const list = Array.isArray(prev.elements) ? prev.elements : [];
-        const existingFloors = list.filter((e) => e?.type === ELEMENT_TYPES.FLOOR);
+        const existingFloors = list.filter(
+          (e) => e?.type === ELEMENT_TYPES.FLOOR,
+        );
         const zones = list.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
-        const withoutFloors = list.filter((e) => e?.type !== ELEMENT_TYPES.FLOOR);
+        const withoutFloors = list.filter(
+          (e) => e?.type !== ELEMENT_TYPES.FLOOR,
+        );
 
         const baseFloor = existingFloors[0]
           ? {
@@ -1160,8 +1191,7 @@ export default function Department3DLayoutPage() {
     if (!draft) return;
     const walkways = (draft.elements || []).filter(
       (e) =>
-        e?.type === ELEMENT_TYPES.WALKWAY &&
-        e?.meta?.source !== "left-panel",
+        e?.type === ELEMENT_TYPES.WALKWAY && e?.meta?.source !== "left-panel",
     );
     if (!walkways.length) return;
     setDraft((prev) =>
@@ -1448,16 +1478,15 @@ export default function Department3DLayoutPage() {
           const eh = Number(el?.h) || 0;
           const cx = ex + ew / 2;
           const cy = ey + eh / 2;
-          return (
-            cx >= r.x &&
-            cx <= r.x + r.w &&
-            cy >= r.y &&
-            cy <= r.y + r.h
-          );
+          return cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h;
         };
 
         const belongsToZone = (el, zone, zoneRect) => {
-          if (!el || el?.type === ELEMENT_TYPES.FLOOR || el?.type === ELEMENT_TYPES.ZONE)
+          if (
+            !el ||
+            el?.type === ELEMENT_TYPES.FLOOR ||
+            el?.type === ELEMENT_TYPES.ZONE
+          )
             return false;
           const zoneId = String(zone?.id || "");
           const zoneName = String(zone?.label || "").trim();
@@ -1524,7 +1553,11 @@ export default function Department3DLayoutPage() {
             e?.type === ELEMENT_TYPES.ZONE &&
             String(e?.id || "") === String(dst?.id || ""),
         );
-        if (srcZoneIndex >= 0 && dstZoneIndex >= 0 && srcZoneIndex !== dstZoneIndex) {
+        if (
+          srcZoneIndex >= 0 &&
+          dstZoneIndex >= 0 &&
+          srcZoneIndex !== dstZoneIndex
+        ) {
           const next = [...swapped];
           const tmp = next[srcZoneIndex];
           next[srcZoneIndex] = next[dstZoneIndex];
@@ -1565,7 +1598,8 @@ export default function Department3DLayoutPage() {
         setMachineSwapSourceId(targetId);
         pushToast({
           kind: "info",
-          message: "Machine selected. Click another machine in this zone to swap.",
+          message:
+            "Machine selected. Click another machine in this zone to swap.",
           ts: Date.now(),
         });
         return;
@@ -1585,7 +1619,9 @@ export default function Department3DLayoutPage() {
         if (!prev) return prev;
         const list = Array.isArray(prev.elements) ? prev.elements : [];
         const zones = list.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
-        const focusZone = zones.find((z) => String(z?.id) === String(focusedZoneId));
+        const focusZone = zones.find(
+          (z) => String(z?.id) === String(focusedZoneId),
+        );
         if (!focusZone) return prev;
 
         const src = list.find(
@@ -1665,17 +1701,29 @@ export default function Department3DLayoutPage() {
     [focusedZoneId, machineSwapSourceId, pushToast],
   );
 
-  const handleZoneMergePick = useCallback((pickedZoneId) => {
-    const zoneId = String(pickedZoneId || "").trim();
-    if (!zoneId) return;
-    setZoneMergeSelectedIds((prev) => {
-      const exists = prev.some((id) => String(id) === zoneId);
-      if (exists) return prev.filter((id) => String(id) !== zoneId);
-      return [...prev, zoneId];
-    });
-  }, []);
+  const handleZoneMergePick = useCallback(
+    (pickedZoneId) => {
+      if (TEMP_DISABLE_COMBINE_ZONES) return;
+      const zoneId = String(pickedZoneId || "").trim();
+      if (!zoneId) return;
+      setZoneMergeSelectedIds((prev) => {
+        const exists = prev.some((id) => String(id) === zoneId);
+        if (exists) return prev.filter((id) => String(id) !== zoneId);
+        return [...prev, zoneId];
+      });
+    },
+    [TEMP_DISABLE_COMBINE_ZONES],
+  );
 
   const handleMergeSelectedZones = useCallback(() => {
+    if (TEMP_DISABLE_COMBINE_ZONES) {
+      pushToast({
+        kind: "info",
+        message: "Combine zones is temporarily disabled.",
+        ts: Date.now(),
+      });
+      return;
+    }
     if (!draft) return;
     const elements = Array.isArray(draft.elements) ? draft.elements : [];
     const zones = elements.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
@@ -1697,8 +1745,9 @@ export default function Department3DLayoutPage() {
     const nameTaken = zones.some(
       (z) =>
         !zoneMergeSelectedIds.some((id) => String(id) === String(z?.id)) &&
-        String(z?.label || "").trim().toLowerCase() ===
-          mergedLabel.toLowerCase(),
+        String(z?.label || "")
+          .trim()
+          .toLowerCase() === mergedLabel.toLowerCase(),
     );
     if (nameTaken) {
       pushToast({
@@ -1809,7 +1858,9 @@ export default function Department3DLayoutPage() {
     const nextZones = relayout.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
     const nextFloors = relayout.filter((e) => e?.type === ELEMENT_TYPES.FLOOR);
     const resizedFloors = expandFloorForZones(nextFloors, nextZones);
-    const floorById = new Map(resizedFloors.map((f) => [String(f?.id || ""), f]));
+    const floorById = new Map(
+      resizedFloors.map((f) => [String(f?.id || ""), f]),
+    );
     const normalizedElements = relayout.map((e) => {
       if (e?.type !== ELEMENT_TYPES.FLOOR) return e;
       return floorById.get(String(e?.id || "")) || e;
@@ -1835,9 +1886,23 @@ export default function Department3DLayoutPage() {
       message: "Zones combined. Click Save to DB to persist.",
       ts: Date.now(),
     });
-  }, [draft, zoneMergeName, zoneMergeSelectedIds, pushToast]);
+  }, [
+    draft,
+    zoneMergeName,
+    zoneMergeSelectedIds,
+    pushToast,
+    TEMP_DISABLE_COMBINE_ZONES,
+  ]);
 
   const addMachineFromSidebar = () => {
+    if (TEMP_DISABLE_ADD_MACHINE) {
+      pushToast({
+        kind: "info",
+        message: "Add machine is temporarily disabled.",
+        ts: Date.now(),
+      });
+      return;
+    }
     if (!draft) {
       setMachineFormError(
         "Layout is still loading. Please try again in a second.",
@@ -1866,13 +1931,19 @@ export default function Department3DLayoutPage() {
     const normalized = machineName.toLowerCase();
     const existingNames = new Set();
     for (const m of Object.values(machineMetaById || {})) {
-      const n = String(m?.name || "").trim().toLowerCase();
+      const n = String(m?.name || "")
+        .trim()
+        .toLowerCase();
       if (n) existingNames.add(n);
     }
     for (const el of draft?.elements || []) {
       if (el?.type !== ELEMENT_TYPES.MACHINE) continue;
-      const n1 = String(el?.label || "").trim().toLowerCase();
-      const n2 = String(el?.meta?.machineName || "").trim().toLowerCase();
+      const n1 = String(el?.label || "")
+        .trim()
+        .toLowerCase();
+      const n2 = String(el?.meta?.machineName || "")
+        .trim()
+        .toLowerCase();
       if (n1) existingNames.add(n1);
       if (n2) existingNames.add(n2);
     }
@@ -1901,7 +1972,7 @@ export default function Department3DLayoutPage() {
     const cols = 10;
     const rows = Math.max(3, Math.ceil((idx + 1) / cols));
     const padX = Math.max(0.004, zw * 0.02);
-    const padY = Math.max(0.01, zh * 0.10);
+    const padY = Math.max(0.01, zh * 0.1);
     const usableW = Math.max(0.02, zw - padX * 2);
     const usableH = Math.max(0.02, zh - padY * 2);
     const cellW = usableW / cols;
@@ -1910,16 +1981,8 @@ export default function Department3DLayoutPage() {
     const mh = clamp(cellH * 0.72, 0.01, 0.08);
     const col = idx % cols;
     const row = Math.floor(idx / cols);
-    const x = clamp(
-      zx + padX + col * cellW + (cellW - mw) / 2,
-      0,
-      1 - mw,
-    );
-    const y = clamp(
-      zy + padY + row * cellH + (cellH - mh) / 2,
-      0,
-      1 - mh,
-    );
+    const x = clamp(zx + padX + col * cellW + (cellW - mw) / 2, 0, 1 - mw);
+    const y = clamp(zy + padY + row * cellH + (cellH - mh) / 2, 0, 1 - mh);
 
     const newId = nanoid(8);
     const machineEl = {
@@ -1950,7 +2013,9 @@ export default function Department3DLayoutPage() {
       const withAdded = [...(prev.elements || []), machineEl];
       const nextElements = relayoutMachinesInZones(withAdded);
       const zones = nextElements.filter((e) => e?.type === ELEMENT_TYPES.ZONE);
-      const floors = nextElements.filter((e) => e?.type === ELEMENT_TYPES.FLOOR);
+      const floors = nextElements.filter(
+        (e) => e?.type === ELEMENT_TYPES.FLOOR,
+      );
       const updatedFloors = expandFloorForZones(floors, zones);
       const floorById = new Map(updatedFloors.map((f) => [String(f.id), f]));
       const rebuilt = nextElements.map((e) => {
@@ -1958,7 +2023,9 @@ export default function Department3DLayoutPage() {
         const nextFloor = floorById.get(String(e.id));
         return nextFloor || e;
       });
-      const hadFloor = nextElements.some((e) => e?.type === ELEMENT_TYPES.FLOOR);
+      const hadFloor = nextElements.some(
+        (e) => e?.type === ELEMENT_TYPES.FLOOR,
+      );
       if (!hadFloor && updatedFloors.length) rebuilt.push(updatedFloors[0]);
       const nextPlaneScale = computePlaneScaleFromElements(rebuilt);
       return {
@@ -1985,6 +2052,14 @@ export default function Department3DLayoutPage() {
   };
 
   const applyLayoutView = (next) => {
+    if (TEMP_DISABLE_LAYOUT_HISTORY) {
+      pushToast({
+        kind: "info",
+        message: "Current/Previous layout switch is temporarily disabled.",
+        ts: Date.now(),
+      });
+      return;
+    }
     const v = next === "previous" ? "previous" : "current";
     setLayoutView(v);
     const chosen =
@@ -2051,20 +2126,29 @@ export default function Department3DLayoutPage() {
   const activeFloor = (draft?.elements || []).find(
     (e) => e?.type === ELEMENT_TYPES.FLOOR,
   );
-  const activeFloorModeLabel = floorModeLabelFromModelUrl(activeFloor?.modelUrl);
+  const activeFloorModeLabel = floorModeLabelFromModelUrl(
+    activeFloor?.modelUrl,
+  );
   const zoneMergeSelectedCount = (draft?.elements || []).filter(
     (e) =>
       e?.type === ELEMENT_TYPES.ZONE &&
       zoneMergeSelectedIds.some((id) => String(id) === String(e?.id)),
   ).length;
   const machinePlacementArmed =
-    isFullscreen && activeTool === "add:machine" && !!pendingMachinePlacement;
+    isFullscreen &&
+    !TEMP_DISABLE_ADD_MACHINE &&
+    activeTool === "add:machine" &&
+    !!pendingMachinePlacement;
+  const blockedAddTool =
+    (TEMP_DISABLE_ADD_MACHINE && activeTool === "add:machine") ||
+    (TEMP_DISABLE_ADD_TRANSPORTER && activeTool === "add:transporter");
+  const effectiveActiveTool = blockedAddTool ? "select" : activeTool;
   const viewerActiveTool = isFullscreen
     ? machinePlacementArmed
       ? "add:machine"
-      : activeTool === "add:machine"
+      : effectiveActiveTool === "add:machine"
         ? "select"
-        : activeTool
+        : effectiveActiveTool
     : "select";
   const isTwoDEditor = isFullscreen;
 
@@ -2167,38 +2251,40 @@ export default function Department3DLayoutPage() {
                 </button>
                 {isTwoDEditor ? (
                   <>
-                    <button
-                      type="button"
-                      className={
-                        zoneMergeMode
-                          ? "rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-700"
-                          : "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                      }
-                      onClick={() => {
-                        const next = !zoneMergeMode;
-                        setZoneMergeMode(next);
-                        setZoneMergeSelectedIds([]);
-                        setZoneMergeName("");
-                        setZoneRearrangeMode(false);
-                        setZoneSwapSourceId("");
-                        setMachineRearrangeMode(false);
-                        setMachineSwapSourceId("");
-                        setFocusedZoneId("");
-                        setSelectedId("");
-                        setPendingMachinePlacement(null);
-                        setActiveTool("select");
-                        pushToast({
-                          kind: "info",
-                          message: next
-                            ? "Combine mode on. Click zones to select, then click Merge selected zones in left panel."
-                            : "Combine mode off.",
-                          ts: Date.now(),
-                        });
-                      }}
-                      title="Combine multiple zones into one"
-                    >
-                      Combine zones
-                    </button>
+                    {!TEMP_DISABLE_COMBINE_ZONES ? (
+                      <button
+                        type="button"
+                        className={
+                          zoneMergeMode
+                            ? "rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-700"
+                            : "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        }
+                        onClick={() => {
+                          const next = !zoneMergeMode;
+                          setZoneMergeMode(next);
+                          setZoneMergeSelectedIds([]);
+                          setZoneMergeName("");
+                          setZoneRearrangeMode(false);
+                          setZoneSwapSourceId("");
+                          setMachineRearrangeMode(false);
+                          setMachineSwapSourceId("");
+                          setFocusedZoneId("");
+                          setSelectedId("");
+                          setPendingMachinePlacement(null);
+                          setActiveTool("select");
+                          pushToast({
+                            kind: "info",
+                            message: next
+                              ? "Combine mode on. Click zones to select, then click Merge selected zones in left panel."
+                              : "Combine mode off.",
+                            ts: Date.now(),
+                          });
+                        }}
+                        title="Combine multiple zones into one"
+                      >
+                        Combine zones
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       className={
@@ -2299,39 +2385,41 @@ export default function Department3DLayoutPage() {
                 >
                   Save to DB
                 </button>
-                <div
-                  className="mr-1 inline-flex items-center gap-1 rounded-lg border bg-white px-1 py-1"
-                  title="Switch between saved layouts"
-                >
-                  <button
-                    type="button"
-                    className={
-                      layoutView === "current"
-                        ? "rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white"
-                        : "rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                    }
-                    onClick={() => applyLayoutView("current")}
+                {!TEMP_DISABLE_LAYOUT_HISTORY ? (
+                  <div
+                    className="mr-1 inline-flex items-center gap-1 rounded-lg border bg-white px-1 py-1"
+                    title="Switch between saved layouts"
                   >
-                    Current
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      layoutView === "previous"
-                        ? "rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white"
-                        : "rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    }
-                    onClick={() => applyLayoutView("previous")}
-                    disabled={!layoutVersions?.previous}
-                    title={
-                      layoutVersions?.previous
-                        ? "View previous saved layout"
-                        : "No previous saved layout yet"
-                    }
-                  >
-                    Previous
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      className={
+                        layoutView === "current"
+                          ? "rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white"
+                          : "rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                      }
+                      onClick={() => applyLayoutView("current")}
+                    >
+                      Current
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        layoutView === "previous"
+                          ? "rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white"
+                          : "rounded-md px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      }
+                      onClick={() => applyLayoutView("previous")}
+                      disabled={!layoutVersions?.previous}
+                      title={
+                        layoutVersions?.previous
+                          ? "View previous saved layout"
+                          : "No previous saved layout yet"
+                      }
+                    >
+                      Previous
+                    </button>
+                  </div>
+                ) : null}
                 <div className="flex flex-col items-end gap-1">
                   <button
                     type="button"
@@ -2356,39 +2444,41 @@ export default function Department3DLayoutPage() {
                 >
                   Back to Dashboard
                 </button>
-                <div
-                  className="mr-1 inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/40 px-1 py-1"
-                  title="Switch between saved layouts"
-                >
-                  <button
-                    type="button"
-                    className={
-                      layoutView === "current"
-                        ? "rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white"
-                        : "rounded-md px-2.5 py-1 text-xs text-slate-200 hover:bg-white/5"
-                    }
-                    onClick={() => applyLayoutView("current")}
+                {!TEMP_DISABLE_LAYOUT_HISTORY ? (
+                  <div
+                    className="mr-1 inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/40 px-1 py-1"
+                    title="Switch between saved layouts"
                   >
-                    Current
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      layoutView === "previous"
-                        ? "rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white"
-                        : "rounded-md px-2.5 py-1 text-xs text-slate-200 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
-                    }
-                    onClick={() => applyLayoutView("previous")}
-                    disabled={!layoutVersions?.previous}
-                    title={
-                      layoutVersions?.previous
-                        ? "View previous saved layout"
-                        : "No previous saved layout yet"
-                    }
-                  >
-                    Previous
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      className={
+                        layoutView === "current"
+                          ? "rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white"
+                          : "rounded-md px-2.5 py-1 text-xs text-slate-200 hover:bg-white/5"
+                      }
+                      onClick={() => applyLayoutView("current")}
+                    >
+                      Current
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        layoutView === "previous"
+                          ? "rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white"
+                          : "rounded-md px-2.5 py-1 text-xs text-slate-200 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                      }
+                      onClick={() => applyLayoutView("previous")}
+                      disabled={!layoutVersions?.previous}
+                      title={
+                        layoutVersions?.previous
+                          ? "View previous saved layout"
+                          : "No previous saved layout yet"
+                      }
+                    >
+                      Previous
+                    </button>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   className={neutralBtnClass}
@@ -2438,37 +2528,39 @@ export default function Department3DLayoutPage() {
                   </svg>
                 </button>
 
-                <button
-                  type="button"
-                  className={
-                    activeTool === "add:machine"
-                      ? "grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white"
-                      : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
-                  }
-                  title="Add machine"
-                  onClick={() => setActiveTool("add:machine")}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden="true"
+                {!TEMP_DISABLE_ADD_MACHINE ? (
+                  <button
+                    type="button"
+                    className={
+                      activeTool === "add:machine"
+                        ? "grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white"
+                        : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
+                    }
+                    title="Add machine"
+                    onClick={() => setActiveTool("add:machine")}
                   >
-                    <path
-                      d="M4 8h16v10H4V8z"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M8 8V5h8v3"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 8h16v10H4V8z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M8 8V5h8v3"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                ) : null}
 
                 <button
                   type="button"
@@ -2539,37 +2631,39 @@ export default function Department3DLayoutPage() {
                   </svg>
                 </button>
 
-                <button
-                  type="button"
-                  className={
-                    activeTool === "add:transporter"
-                      ? "grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white"
-                      : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
-                  }
-                  title="Add transporter"
-                  onClick={() => setActiveTool("add:transporter")}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden="true"
+                {!TEMP_DISABLE_ADD_TRANSPORTER ? (
+                  <button
+                    type="button"
+                    className={
+                      activeTool === "add:transporter"
+                        ? "grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-white"
+                        : "grid h-10 w-10 place-items-center rounded-lg border bg-white text-slate-700 hover:bg-slate-50"
+                    }
+                    title="Add transporter"
+                    onClick={() => setActiveTool("add:transporter")}
                   >
-                    <path
-                      d="M3 16V8h11v8H3z"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M14 11h4l3 3v2h-7v-5z"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M3 16V8h11v8H3z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M14 11h4l3 3v2h-7v-5z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                ) : null}
               </div>
 
               <div className="h-full flex-1 overflow-auto p-3">
@@ -2611,8 +2705,9 @@ export default function Department3DLayoutPage() {
                               const exists = (draft?.elements || []).some(
                                 (el) =>
                                   el?.type === ELEMENT_TYPES.ZONE &&
-                                  String(el?.label || "").trim().toLowerCase() ===
-                                    normalized,
+                                  String(el?.label || "")
+                                    .trim()
+                                    .toLowerCase() === normalized,
                               );
                               if (exists) {
                                 pushToast({
@@ -2750,7 +2845,9 @@ export default function Department3DLayoutPage() {
                         type="button"
                         className="flex-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
                         disabled={
-                          nameInputDialog.type === "floor" ? false : !nameInput.trim()
+                          nameInputDialog.type === "floor"
+                            ? false
+                            : !nameInput.trim()
                         }
                         onClick={() => {
                           if (nameInputDialog.type === "floor") {
@@ -2770,8 +2867,9 @@ export default function Department3DLayoutPage() {
                               const exists = (draft?.elements || []).some(
                                 (el) =>
                                   el?.type === ELEMENT_TYPES.ZONE &&
-                                  String(el?.label || "").trim().toLowerCase() ===
-                                    normalized,
+                                  String(el?.label || "")
+                                    .trim()
+                                    .toLowerCase() === normalized,
                               );
                               if (exists) {
                                 pushToast({
@@ -2831,22 +2929,24 @@ export default function Department3DLayoutPage() {
                   >
                     Select / Move
                   </button>
-                  <button
-                    type="button"
-                    className={
-                      activeTool === "add:machine"
-                        ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
-                        : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                    }
-                    onClick={() => {
-                      setActiveTool("add:machine");
-                      if (selectedElement?.type === ELEMENT_TYPES.ZONE) {
-                        setFocusedZoneId(String(selectedElement.id));
+                  {!TEMP_DISABLE_ADD_MACHINE ? (
+                    <button
+                      type="button"
+                      className={
+                        activeTool === "add:machine"
+                          ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+                          : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                       }
-                    }}
-                  >
-                    Add machine
-                  </button>
+                      onClick={() => {
+                        setActiveTool("add:machine");
+                        if (selectedElement?.type === ELEMENT_TYPES.ZONE) {
+                          setFocusedZoneId(String(selectedElement.id));
+                        }
+                      }}
+                    >
+                      Add machine
+                    </button>
+                  ) : null}
 
                   <button
                     type="button"
@@ -2892,17 +2992,19 @@ export default function Department3DLayoutPage() {
                     Add walkway
                   </button>
 
-                  <button
-                    type="button"
-                    className={
-                      activeTool === "add:transporter"
-                        ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
-                        : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                    }
-                    onClick={() => setActiveTool("add:transporter")}
-                  >
-                    Add transporter
-                  </button>
+                  {!TEMP_DISABLE_ADD_TRANSPORTER ? (
+                    <button
+                      type="button"
+                      className={
+                        activeTool === "add:transporter"
+                          ? "rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+                          : "rounded-lg border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                      }
+                      onClick={() => setActiveTool("add:transporter")}
+                    >
+                      Add transporter
+                    </button>
+                  ) : null}
                 </div>
 
                 {zoneMergeMode ? (
@@ -3020,6 +3122,7 @@ export default function Department3DLayoutPage() {
                       className="mt-3 w-full rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
                       onClick={addMachineFromSidebar}
                       disabled={
+                        TEMP_DISABLE_ADD_MACHINE ||
                         !machineForm.machineName.trim() ||
                         !focusedZone
                       }
@@ -3207,8 +3310,7 @@ export default function Department3DLayoutPage() {
                           <select
                             className="mt-1 w-full rounded-lg border px-2 py-1 text-xs text-slate-700"
                             value={
-                              selectedElement.modelUrl ||
-                              defaultFloorModelUrl
+                              selectedElement.modelUrl || defaultFloorModelUrl
                             }
                             onChange={(e) => {
                               const value = e.target.value;
@@ -3659,7 +3761,7 @@ export default function Department3DLayoutPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {["RUNNING", "IDLE", "DOWN", "MAINTENANCE", "OFF", "ALL"].map(
+                  {STATUS_FILTER_BUTTONS.map(
                     (s) => (
                       <button
                         key={s}
@@ -3675,7 +3777,7 @@ export default function Department3DLayoutPage() {
                               RUNNING: true,
                               IDLE: true,
                               DOWN: true,
-                              MAINTENANCE: true,
+                              // MAINTENANCE: true, // TEMP commented
                               OFF: true,
                               ALL: true,
                             });
@@ -3684,7 +3786,7 @@ export default function Department3DLayoutPage() {
                               RUNNING: false,
                               IDLE: false,
                               DOWN: false,
-                              MAINTENANCE: false,
+                              // MAINTENANCE: false, // TEMP commented
                               OFF: false,
                               [s]: true,
                             });
@@ -3701,601 +3803,634 @@ export default function Department3DLayoutPage() {
 
             {isFullscreen ? (
               <DepartmentFloor2DViewer
-              elements={draft?.elements || []}
-              showMachineMarkers={showMachineMarkers}
-              showMachineLabels={showMachineLabels}
-              machineMetaById={machineMetaById}
-              onOpenMachineDetails={
-                !isFullscreen ? onOpenMachineDetails : undefined
-              }
-              machineStatusVisibility={machineStatusVisibility}
-              onPointerPositionChange={
-                isFullscreen ? handlePointerPositionChange : undefined
-              }
-              fullScreen={isFullscreen}
-              activeTool={viewerActiveTool}
-              selectedId={isFullscreen ? selectedId : ""}
-              onSelectElement={
-                isFullscreen
-                  ? (id) => {
-                    setSelectedId(String(id || ""));
-                    const next = (draft?.elements || []).find(
-                      (e) => String(e?.id) === String(id || ""),
-                    );
-                    if (
-                      activeTool === "add:machine" &&
-                      next?.type === ELEMENT_TYPES.ZONE
-                    ) {
-                      setFocusedZoneId(String(next.id));
-                    } else if (!id) {
-                      setFocusedZoneId("");
-                    } else if (activeTool !== "add:machine") {
-                      setActiveTool("select");
-                    }
-                    }
-                  : undefined
-              }
-              focusedZoneId={
-                isFullscreen
-                  ? zoneRearrangeMode || zoneMergeMode
-                    ? ""
-                    : focusedZoneId
-                  : ""
-              }
-              onFocusZoneChange={
-                isFullscreen
-                  ? zoneRearrangeMode || zoneMergeMode
-                    ? undefined
-                    : (id) => setFocusedZoneId(String(id || ""))
-                  : undefined
-              }
-              onAddElement={
-                isFullscreen
-                  ? (type, pos) => {
-                      const t = String(type);
-                      const newId = nanoid(8);
-                      const defaultModelUrl = MODEL_LIBRARY[t]?.[0]?.url;
-                      const machineSeed =
-                        t === ELEMENT_TYPES.MACHINE && pendingMachinePlacement
-                          ? pendingMachinePlacement
-                          : null;
+                elements={draft?.elements || []}
+                showMachineMarkers={showMachineMarkers}
+                showMachineLabels={showMachineLabels}
+                machineMetaById={machineMetaById}
+                onOpenMachineDetails={
+                  !isFullscreen ? onOpenMachineDetails : undefined
+                }
+                machineStatusVisibility={machineStatusVisibility}
+                onPointerPositionChange={
+                  isFullscreen ? handlePointerPositionChange : undefined
+                }
+                fullScreen={isFullscreen}
+                activeTool={viewerActiveTool}
+                selectedId={isFullscreen ? selectedId : ""}
+                onSelectElement={
+                  isFullscreen
+                    ? (id) => {
+                        setSelectedId(String(id || ""));
+                        const next = (draft?.elements || []).find(
+                          (e) => String(e?.id) === String(id || ""),
+                        );
+                        if (
+                          activeTool === "add:machine" &&
+                          next?.type === ELEMENT_TYPES.ZONE
+                        ) {
+                          setFocusedZoneId(String(next.id));
+                        } else if (!id) {
+                          setFocusedZoneId("");
+                        } else if (activeTool !== "add:machine") {
+                          setActiveTool("select");
+                        }
+                      }
+                    : undefined
+                }
+                focusedZoneId={
+                  isFullscreen
+                    ? zoneRearrangeMode || zoneMergeMode
+                      ? ""
+                      : focusedZoneId
+                    : ""
+                }
+                onFocusZoneChange={
+                  isFullscreen
+                    ? zoneRearrangeMode || zoneMergeMode
+                      ? undefined
+                      : (id) => setFocusedZoneId(String(id || ""))
+                    : undefined
+                }
+                onAddElement={
+                  isFullscreen
+                    ? (type, pos) => {
+                        const t = String(type);
+                        if (
+                          TEMP_DISABLE_ADD_MACHINE &&
+                          t === ELEMENT_TYPES.MACHINE
+                        ) {
+                          pushToast({
+                            kind: "info",
+                            message: "Add machine is temporarily disabled.",
+                            ts: Date.now(),
+                          });
+                          setActiveTool("select");
+                          setPendingMachinePlacement(null);
+                          return;
+                        }
+                        if (
+                          TEMP_DISABLE_ADD_TRANSPORTER &&
+                          t === ELEMENT_TYPES.TRANSPORTER
+                        ) {
+                          pushToast({
+                            kind: "info",
+                            message: "Add transporter is temporarily disabled.",
+                            ts: Date.now(),
+                          });
+                          setActiveTool("select");
+                          return;
+                        }
+                        const newId = nanoid(8);
+                        const defaultModelUrl = MODEL_LIBRARY[t]?.[0]?.url;
+                        const machineSeed =
+                          t === ELEMENT_TYPES.MACHINE && pendingMachinePlacement
+                            ? pendingMachinePlacement
+                            : null;
 
-                      // Use custom name from dialog for floor/zone/walkway, or machine name, or default
-                      const label =
-                        (t === ELEMENT_TYPES.FLOOR ||
-                          t === ELEMENT_TYPES.ZONE ||
-                          t === ELEMENT_TYPES.WALKWAY) &&
-                        nameInput.trim()
-                          ? nameInput.trim()
-                          : machineSeed?.machineName
-                            ? machineSeed.machineName
-                            : `${typeLabel(t)} ${newId.slice(0, 4)}`;
+                        // Use custom name from dialog for floor/zone/walkway, or machine name, or default
+                        const label =
+                          (t === ELEMENT_TYPES.FLOOR ||
+                            t === ELEMENT_TYPES.ZONE ||
+                            t === ELEMENT_TYPES.WALKWAY) &&
+                          nameInput.trim()
+                            ? nameInput.trim()
+                            : machineSeed?.machineName
+                              ? machineSeed.machineName
+                              : `${typeLabel(t)} ${newId.slice(0, 4)}`;
 
-                      const defaultsForType = () => {
-                        if (t === ELEMENT_TYPES.FLOOR) {
-                          const floorModelUrl =
-                            selectedFloorModelUrl ||
-                            defaultFloorModelUrl ||
-                            "/models/floor-model.glb";
+                        const defaultsForType = () => {
+                          if (t === ELEMENT_TYPES.FLOOR) {
+                            const floorModelUrl =
+                              selectedFloorModelUrl ||
+                              defaultFloorModelUrl ||
+                              "/models/floor-model.glb";
+                            return {
+                              w: 0.95,
+                              h: 0.95,
+                              modelUrl: floorModelUrl,
+                            };
+                          }
+                          if (t === ELEMENT_TYPES.ZONE) {
+                            return {
+                              w: 0.35,
+                              h: 0.22,
+                              color: "dark-green",
+                              modelUrl: "/models/zone-green.glb",
+                              scale: 1,
+                            };
+                          }
+                          if (t === ELEMENT_TYPES.MACHINE) {
+                            return {
+                              w: machineSeed?.w ?? 0.12,
+                              h: machineSeed?.h ?? 0.12,
+                              scale: machineSeed?.scale ?? 1,
+                              modelUrl:
+                                machineSeed?.modelUrl ?? defaultModelUrl,
+                            };
+                          }
+                          if (t === ELEMENT_TYPES.WALKWAY) {
+                            return {
+                              w: 0.3,
+                              h: 0.06,
+                              modelUrl: "/models/zone-green.glb",
+                              scale: 1,
+                            };
+                          }
+                          if (t === ELEMENT_TYPES.TRANSPORTER) {
+                            return {
+                              w: 0.18,
+                              h: 0.08,
+                              scale: 1,
+                              modelUrl: defaultModelUrl,
+                            };
+                          }
                           return {
-                            w: 0.95,
-                            h: 0.95,
-                            modelUrl: floorModelUrl,
-                          };
-                        }
-                        if (t === ELEMENT_TYPES.ZONE) {
-                          return {
-                            w: 0.35,
-                            h: 0.22,
-                            color: "dark-green",
-                            modelUrl: "/models/zone-green.glb",
-                            scale: 1,
-                          };
-                        }
-                        if (t === ELEMENT_TYPES.MACHINE) {
-                          return {
-                            w: machineSeed?.w ?? 0.12,
-                            h: machineSeed?.h ?? 0.12,
-                            scale: machineSeed?.scale ?? 1,
-                            modelUrl: machineSeed?.modelUrl ?? defaultModelUrl,
-                          };
-                        }
-                        if (t === ELEMENT_TYPES.WALKWAY) {
-                          return {
-                            w: 0.3,
-                            h: 0.06,
-                            modelUrl: "/models/zone-green.glb",
-                            scale: 1,
-                          };
-                        }
-                        if (t === ELEMENT_TYPES.TRANSPORTER) {
-                          return {
-                            w: 0.18,
-                            h: 0.08,
+                            w: 0.12,
+                            h: 0.12,
                             scale: 1,
                             modelUrl: defaultModelUrl,
                           };
-                        }
-                        return {
-                          w: 0.12,
-                          h: 0.12,
-                          scale: 1,
-                          modelUrl: defaultModelUrl,
                         };
-                      };
 
-                      const defaults = defaultsForType();
+                        const defaults = defaultsForType();
 
-                      const isDragRect =
-                        pos &&
-                        typeof pos === "object" &&
-                        Number.isFinite(Number(pos.w)) &&
-                        Number.isFinite(Number(pos.h));
-                      const rawX = clamp(pos?.x ?? 0.5, 0, 1);
-                      const rawY = clamp(pos?.y ?? 0.5, 0, 1);
+                        const isDragRect =
+                          pos &&
+                          typeof pos === "object" &&
+                          Number.isFinite(Number(pos.w)) &&
+                          Number.isFinite(Number(pos.h));
+                        const rawX = clamp(pos?.x ?? 0.5, 0, 1);
+                        const rawY = clamp(pos?.y ?? 0.5, 0, 1);
 
-                      const baseW = Number(defaults.w);
-                      const baseH = Number(defaults.h);
-                      const fallbackW =
-                        Number.isFinite(baseW) && baseW > 0 ? baseW : 0.12;
-                      const fallbackH =
-                        Number.isFinite(baseH) && baseH > 0 ? baseH : 0.12;
+                        const baseW = Number(defaults.w);
+                        const baseH = Number(defaults.h);
+                        const fallbackW =
+                          Number.isFinite(baseW) && baseW > 0 ? baseW : 0.12;
+                        const fallbackH =
+                          Number.isFinite(baseH) && baseH > 0 ? baseH : 0.12;
 
-                      const finalW = clamp(
-                        isDragRect ? Number(pos?.w) : fallbackW,
-                        0.02,
-                        1,
-                      );
-                      const finalH = clamp(
-                        isDragRect ? Number(pos?.h) : fallbackH,
-                        0.02,
-                        1,
-                      );
+                        const finalW = clamp(
+                          isDragRect ? Number(pos?.w) : fallbackW,
+                          0.02,
+                          1,
+                        );
+                        const finalH = clamp(
+                          isDragRect ? Number(pos?.h) : fallbackH,
+                          0.02,
+                          1,
+                        );
 
-                      const shouldCenter =
-                        !isDragRect &&
-                        (t === ELEMENT_TYPES.FLOOR ||
-                          t === ELEMENT_TYPES.ZONE ||
-                          t === ELEMENT_TYPES.WALKWAY ||
-                          t === ELEMENT_TYPES.MACHINE ||
-                          t === ELEMENT_TYPES.TRANSPORTER);
+                        const shouldCenter =
+                          !isDragRect &&
+                          (t === ELEMENT_TYPES.FLOOR ||
+                            t === ELEMENT_TYPES.ZONE ||
+                            t === ELEMENT_TYPES.WALKWAY ||
+                            t === ELEMENT_TYPES.MACHINE ||
+                            t === ELEMENT_TYPES.TRANSPORTER);
 
-                      const finalX = isDragRect
-                        ? clamp(rawX, 0, 1 - finalW)
-                        : shouldCenter
-                          ? clamp(rawX - finalW / 2, 0, 1 - finalW)
-                          : clamp(rawX, 0, 1 - finalW);
+                        const finalX = isDragRect
+                          ? clamp(rawX, 0, 1 - finalW)
+                          : shouldCenter
+                            ? clamp(rawX - finalW / 2, 0, 1 - finalW)
+                            : clamp(rawX, 0, 1 - finalW);
 
-                      const finalY = isDragRect
-                        ? clamp(rawY, 0, 1 - finalH)
-                        : shouldCenter
-                          ? clamp(rawY - finalH / 2, 0, 1 - finalH)
-                          : clamp(rawY, 0, 1 - finalH);
+                        const finalY = isDragRect
+                          ? clamp(rawY, 0, 1 - finalH)
+                          : shouldCenter
+                            ? clamp(rawY - finalH / 2, 0, 1 - finalH)
+                            : clamp(rawY, 0, 1 - finalH);
 
-                      const color =
-                        t === ELEMENT_TYPES.ZONE
-                          ? pos?.color || defaults.color || "dark-green"
-                          : undefined;
-                      const rotationDeg = Number.isFinite(
-                        Number(pos?.rotationDeg),
-                      )
-                        ? Number(pos.rotationDeg)
-                        : 0;
+                        const color =
+                          t === ELEMENT_TYPES.ZONE
+                            ? pos?.color || defaults.color || "dark-green"
+                            : undefined;
+                        const rotationDeg = Number.isFinite(
+                          Number(pos?.rotationDeg),
+                        )
+                          ? Number(pos.rotationDeg)
+                          : 0;
 
-                      const machineId =
-                        t === ELEMENT_TYPES.MACHINE
-                          ? machineSeed?.machineId ||
-                            `${layoutCtx?.departmentId || "dept"}-${nanoid(6)}`
-                          : undefined;
-                      const machineMeta =
-                        t === ELEMENT_TYPES.MACHINE
-                          ? {
-                              plantId:
-                                machineSeed?.meta?.plantId ||
-                                layoutCtx?.plantId ||
-                                "",
-                              departmentId:
-                                machineSeed?.meta?.departmentId ||
-                                layoutCtx?.departmentId ||
-                                "",
-                              zoneId:
-                                machineSeed?.meta?.zoneId ||
-                                focusedZoneId ||
-                                "",
-                              zoneName:
-                                machineSeed?.meta?.zoneName ||
-                                machineSeed?.zoneName ||
-                                "",
-                              machineName:
-                                machineSeed?.meta?.machineName ||
-                                machineSeed?.machineName ||
-                                label,
-                              createdAt:
-                                machineSeed?.meta?.createdAt ||
-                                new Date().toISOString(),
-                            }
-                          : null;
+                        const machineId =
+                          t === ELEMENT_TYPES.MACHINE
+                            ? machineSeed?.machineId ||
+                              `${layoutCtx?.departmentId || "dept"}-${nanoid(6)}`
+                            : undefined;
+                        const machineMeta =
+                          t === ELEMENT_TYPES.MACHINE
+                            ? {
+                                plantId:
+                                  machineSeed?.meta?.plantId ||
+                                  layoutCtx?.plantId ||
+                                  "",
+                                departmentId:
+                                  machineSeed?.meta?.departmentId ||
+                                  layoutCtx?.departmentId ||
+                                  "",
+                                zoneId:
+                                  machineSeed?.meta?.zoneId ||
+                                  focusedZoneId ||
+                                  "",
+                                zoneName:
+                                  machineSeed?.meta?.zoneName ||
+                                  machineSeed?.zoneName ||
+                                  "",
+                                machineName:
+                                  machineSeed?.meta?.machineName ||
+                                  machineSeed?.machineName ||
+                                  label,
+                                createdAt:
+                                  machineSeed?.meta?.createdAt ||
+                                  new Date().toISOString(),
+                              }
+                            : null;
 
-                      setDraft((prev) =>
-                        prev
-                          ? (() => {
-                              const focusZone =
-                                t === ELEMENT_TYPES.MACHINE
-                                  ? (prev.elements || []).find(
-                                      (e) =>
-                                        e?.type === ELEMENT_TYPES.ZONE &&
-                                        String(e?.id) ===
-                                          String(
-                                            focusedZoneId ||
-                                              machineSeed?.meta?.zoneId ||
-                                              selectedId ||
-                                              "",
-                                          ),
-                                    ) || null
-                                  : null;
-                              const resolvedZoneName =
-                                t === ELEMENT_TYPES.MACHINE
-                                  ? focusZone?.label ||
-                                    machineSeed?.meta?.zoneName ||
-                                    machineSeed?.zoneName ||
-                                    ""
-                                  : "";
-                              const resolvedZoneId =
-                                t === ELEMENT_TYPES.MACHINE
-                                  ? String(
-                                      focusZone?.id ||
-                                        machineSeed?.meta?.zoneId ||
-                                        focusedZoneId ||
-                                        "",
+                        setDraft((prev) =>
+                          prev
+                            ? (() => {
+                                const focusZone =
+                                  t === ELEMENT_TYPES.MACHINE
+                                    ? (prev.elements || []).find(
+                                        (e) =>
+                                          e?.type === ELEMENT_TYPES.ZONE &&
+                                          String(e?.id) ===
+                                            String(
+                                              focusedZoneId ||
+                                                machineSeed?.meta?.zoneId ||
+                                                selectedId ||
+                                                "",
+                                            ),
+                                      ) || null
+                                    : null;
+                                const resolvedZoneName =
+                                  t === ELEMENT_TYPES.MACHINE
+                                    ? focusZone?.label ||
+                                      machineSeed?.meta?.zoneName ||
+                                      machineSeed?.zoneName ||
+                                      ""
+                                    : "";
+                                const resolvedZoneId =
+                                  t === ELEMENT_TYPES.MACHINE
+                                    ? String(
+                                        focusZone?.id ||
+                                          machineSeed?.meta?.zoneId ||
+                                          focusedZoneId ||
+                                          "",
+                                      )
+                                    : "";
+
+                                const machineW =
+                                  t === ELEMENT_TYPES.MACHINE
+                                    ? finalW
+                                    : undefined;
+                                const machineH =
+                                  t === ELEMENT_TYPES.MACHINE
+                                    ? finalH
+                                    : undefined;
+                                const machineXInZone = focusZone
+                                  ? clamp(
+                                      (Number(pos?.x) || 0.5) - machineW / 2,
+                                      Number(focusZone.x) || 0,
+                                      (Number(focusZone.x) || 0) +
+                                        (Number(focusZone.w) || 0) -
+                                        machineW,
                                     )
-                                  : "";
-
-                              const machineW =
-                                t === ELEMENT_TYPES.MACHINE
-                                  ? finalW
-                                  : undefined;
-                              const machineH =
-                                t === ELEMENT_TYPES.MACHINE
-                                  ? finalH
-                                  : undefined;
-                              const machineXInZone = focusZone
-                                ? clamp(
-                                    (Number(pos?.x) || 0.5) - machineW / 2,
-                                    Number(focusZone.x) || 0,
-                                    (Number(focusZone.x) || 0) +
-                                      (Number(focusZone.w) || 0) -
-                                      machineW,
-                                  )
-                                : finalX;
-                              const machineYInZone = focusZone
-                                ? clamp(
-                                    (Number(pos?.y) || 0.5) - machineH / 2,
-                                    Number(focusZone.y) || 0,
-                                    (Number(focusZone.y) || 0) +
-                                      (Number(focusZone.h) || 0) -
-                                      machineH,
-                                  )
-                                : finalY;
-                              const zoneBounds = getZoneLayoutBounds(
-                                prev.elements || [],
-                              );
-                              const zoneWClamped = clamp(
-                                finalW,
-                                0.02,
-                                zoneBounds.w,
-                              );
-                              const zoneHClamped = clamp(
-                                finalH,
-                                0.02,
-                                zoneBounds.h,
-                              );
-                              const zoneXClamped = clamp(
-                                finalX,
-                                zoneBounds.x,
-                                Math.max(
+                                  : finalX;
+                                const machineYInZone = focusZone
+                                  ? clamp(
+                                      (Number(pos?.y) || 0.5) - machineH / 2,
+                                      Number(focusZone.y) || 0,
+                                      (Number(focusZone.y) || 0) +
+                                        (Number(focusZone.h) || 0) -
+                                        machineH,
+                                    )
+                                  : finalY;
+                                const zoneBounds = getZoneLayoutBounds(
+                                  prev.elements || [],
+                                );
+                                const zoneWClamped = clamp(
+                                  finalW,
+                                  0.02,
+                                  zoneBounds.w,
+                                );
+                                const zoneHClamped = clamp(
+                                  finalH,
+                                  0.02,
+                                  zoneBounds.h,
+                                );
+                                const zoneXClamped = clamp(
+                                  finalX,
                                   zoneBounds.x,
-                                  zoneBounds.x + zoneBounds.w - zoneWClamped,
-                                ),
-                              );
-                              const zoneYClamped = clamp(
-                                finalY,
-                                zoneBounds.y,
-                                Math.max(
+                                  Math.max(
+                                    zoneBounds.x,
+                                    zoneBounds.x + zoneBounds.w - zoneWClamped,
+                                  ),
+                                );
+                                const zoneYClamped = clamp(
+                                  finalY,
                                   zoneBounds.y,
-                                  zoneBounds.y + zoneBounds.h - zoneHClamped,
-                                ),
-                              );
+                                  Math.max(
+                                    zoneBounds.y,
+                                    zoneBounds.y + zoneBounds.h - zoneHClamped,
+                                  ),
+                                );
 
-                              const addedElement = {
-                                id: newId,
-                                type: t,
-                                label,
-                                x:
-                                  (t === ELEMENT_TYPES.ZONE
-                                    ? zoneXClamped
-                                    : t === ELEMENT_TYPES.MACHINE
-                                    ? machineXInZone
-                                    : finalX),
-                                y:
-                                  (t === ELEMENT_TYPES.ZONE
-                                    ? zoneYClamped
-                                    : t === ELEMENT_TYPES.MACHINE
-                                    ? machineYInZone
-                                    : finalY),
-                                ...defaults,
-                                w:
-                                  t === ELEMENT_TYPES.ZONE
-                                    ? zoneWClamped
-                                    : finalW,
-                                h:
-                                  t === ELEMENT_TYPES.ZONE
-                                    ? zoneHClamped
-                                    : finalH,
-                                rotationDeg,
-                                ...(color ? { color } : null),
-                                ...(machineId ? { machineId } : null),
-                                ...(machineId
-                                  ? {
-                                      meta: {
-                                        ...(machineMeta || {}),
-                                        zoneId: resolvedZoneId,
-                                        zoneName: resolvedZoneName,
-                                      },
-                                    }
-                                  : null),
-                                ...(t === ELEMENT_TYPES.WALKWAY
-                                  ? { meta: { source: "left-panel" } }
-                                  : null),
-                              };
+                                const addedElement = {
+                                  id: newId,
+                                  type: t,
+                                  label,
+                                  x:
+                                    t === ELEMENT_TYPES.ZONE
+                                      ? zoneXClamped
+                                      : t === ELEMENT_TYPES.MACHINE
+                                        ? machineXInZone
+                                        : finalX,
+                                  y:
+                                    t === ELEMENT_TYPES.ZONE
+                                      ? zoneYClamped
+                                      : t === ELEMENT_TYPES.MACHINE
+                                        ? machineYInZone
+                                        : finalY,
+                                  ...defaults,
+                                  w:
+                                    t === ELEMENT_TYPES.ZONE
+                                      ? zoneWClamped
+                                      : finalW,
+                                  h:
+                                    t === ELEMENT_TYPES.ZONE
+                                      ? zoneHClamped
+                                      : finalH,
+                                  rotationDeg,
+                                  ...(color ? { color } : null),
+                                  ...(machineId ? { machineId } : null),
+                                  ...(machineId
+                                    ? {
+                                        meta: {
+                                          ...(machineMeta || {}),
+                                          zoneId: resolvedZoneId,
+                                          zoneName: resolvedZoneName,
+                                        },
+                                      }
+                                    : null),
+                                  ...(t === ELEMENT_TYPES.WALKWAY
+                                    ? { meta: { source: "left-panel" } }
+                                    : null),
+                                };
 
-                              let nextElements = (() => {
-                                const list = [...(prev.elements || [])];
-                                if (t === ELEMENT_TYPES.FLOOR) {
-                                  const withoutFloors = list.filter(
-                                    (e) => e?.type !== ELEMENT_TYPES.FLOOR,
-                                  );
-                                  return [addedElement, ...withoutFloors];
-                                }
-                                if (t !== ELEMENT_TYPES.ZONE) {
-                                  list.push(addedElement);
-                                  return list;
-                                }
-                                const beforeZoneId = String(
-                                  pos?.insertBeforeZoneId || "",
-                                ).trim();
-                                if (beforeZoneId) {
-                                  const idx = list.findIndex(
-                                    (e) =>
-                                      e?.type === ELEMENT_TYPES.ZONE &&
-                                      String(e?.id || "") === beforeZoneId,
-                                  );
-                                  if (idx >= 0) {
-                                    list.splice(idx, 0, addedElement);
+                                let nextElements = (() => {
+                                  const list = [...(prev.elements || [])];
+                                  if (t === ELEMENT_TYPES.FLOOR) {
+                                    const withoutFloors = list.filter(
+                                      (e) => e?.type !== ELEMENT_TYPES.FLOOR,
+                                    );
+                                    return [addedElement, ...withoutFloors];
+                                  }
+                                  if (t !== ELEMENT_TYPES.ZONE) {
+                                    list.push(addedElement);
                                     return list;
                                   }
+                                  const beforeZoneId = String(
+                                    pos?.insertBeforeZoneId || "",
+                                  ).trim();
+                                  if (beforeZoneId) {
+                                    const idx = list.findIndex(
+                                      (e) =>
+                                        e?.type === ELEMENT_TYPES.ZONE &&
+                                        String(e?.id || "") === beforeZoneId,
+                                    );
+                                    if (idx >= 0) {
+                                      list.splice(idx, 0, addedElement);
+                                      return list;
+                                    }
+                                  }
+                                  let lastZoneIdx = -1;
+                                  for (let i = 0; i < list.length; i += 1) {
+                                    if (list[i]?.type === ELEMENT_TYPES.ZONE) {
+                                      lastZoneIdx = i;
+                                    }
+                                  }
+                                  if (lastZoneIdx >= 0) {
+                                    list.splice(
+                                      lastZoneIdx + 1,
+                                      0,
+                                      addedElement,
+                                    );
+                                  } else {
+                                    list.push(addedElement);
+                                  }
+                                  return list;
+                                })();
+
+                                if (t === ELEMENT_TYPES.ZONE)
+                                  nextElements =
+                                    clampZonesAndContainedElementsToFloor(
+                                      nextElements,
+                                    );
+
+                                const zones = nextElements.filter(
+                                  (e) => e?.type === ELEMENT_TYPES.ZONE,
+                                );
+                                const machines = nextElements.filter(
+                                  (e) => e?.type === ELEMENT_TYPES.MACHINE,
+                                );
+                                const floors = nextElements.filter(
+                                  (e) => e?.type === ELEMENT_TYPES.FLOOR,
+                                );
+                                let updatedZones = zones;
+                                let updatedFloors = floors;
+
+                                if (t === ELEMENT_TYPES.ZONE) {
+                                  updatedFloors = expandFloorForZones(
+                                    floors,
+                                    zones,
+                                  );
                                 }
-                                let lastZoneIdx = -1;
-                                for (let i = 0; i < list.length; i += 1) {
-                                  if (list[i]?.type === ELEMENT_TYPES.ZONE) {
-                                    lastZoneIdx = i;
+
+                                if (t === ELEMENT_TYPES.MACHINE) {
+                                  const mcx = finalX + finalW / 2;
+                                  const mcy = finalY + finalH / 2;
+                                  const hitZone = zones.find(
+                                    (z) =>
+                                      mcx >= (Number(z?.x) || 0) &&
+                                      mcx <=
+                                        (Number(z?.x) || 0) +
+                                          (Number(z?.w) || 0) &&
+                                      mcy >= (Number(z?.y) || 0) &&
+                                      mcy <=
+                                        (Number(z?.y) || 0) +
+                                          (Number(z?.h) || 0),
+                                  );
+                                  const targetZoneId =
+                                    focusZone?.id || hitZone?.id || "";
+                                  if (targetZoneId) {
+                                    const targetZone = zones.find(
+                                      (z) =>
+                                        String(z.id) === String(targetZoneId),
+                                    );
+                                    const machineCount =
+                                      countMachinesInsideZone(
+                                        machines,
+                                        targetZone,
+                                      );
+                                    updatedZones = resizeZoneByMachineCount(
+                                      zones,
+                                      targetZoneId,
+                                      machineCount,
+                                    );
                                   }
                                 }
-                                if (lastZoneIdx >= 0) {
-                                  list.splice(lastZoneIdx + 1, 0, addedElement);
-                                } else {
-                                  list.push(addedElement);
-                                }
-                                return list;
-                              })();
 
-                              if (t === ELEMENT_TYPES.ZONE)
-                                nextElements =
-                                  clampZonesAndContainedElementsToFloor(
-                                    nextElements,
-                                  );
-
-                              const zones = nextElements.filter(
-                                (e) => e?.type === ELEMENT_TYPES.ZONE,
-                              );
-                              const machines = nextElements.filter(
-                                (e) => e?.type === ELEMENT_TYPES.MACHINE,
-                              );
-                              const floors = nextElements.filter(
-                                (e) => e?.type === ELEMENT_TYPES.FLOOR,
-                              );
-                              let updatedZones = zones;
-                              let updatedFloors = floors;
-
-                              if (t === ELEMENT_TYPES.ZONE) {
-                                updatedFloors = expandFloorForZones(
-                                  floors,
-                                  zones,
+                                const floorById = new Map(
+                                  updatedFloors.map((f) => [String(f.id), f]),
                                 );
-                              }
-
-                              if (t === ELEMENT_TYPES.MACHINE) {
-                                const mcx = finalX + finalW / 2;
-                                const mcy = finalY + finalH / 2;
-                                const hitZone = zones.find(
-                                  (z) =>
-                                    mcx >= (Number(z?.x) || 0) &&
-                                    mcx <=
-                                      (Number(z?.x) || 0) +
-                                        (Number(z?.w) || 0) &&
-                                    mcy >= (Number(z?.y) || 0) &&
-                                    mcy <=
-                                      (Number(z?.y) || 0) +
-                                      (Number(z?.h) || 0),
+                                const zoneById = new Map(
+                                  updatedZones.map((z) => [String(z.id), z]),
                                 );
-                                const targetZoneId =
-                                  focusZone?.id || hitZone?.id || "";
-                                if (targetZoneId) {
-                                  const targetZone = zones.find(
-                                    (z) =>
-                                      String(z.id) === String(targetZoneId),
-                                  );
-                                  const machineCount = countMachinesInsideZone(
-                                    machines,
-                                    targetZone,
-                                  );
-                                  updatedZones = resizeZoneByMachineCount(
-                                    zones,
-                                    targetZoneId,
-                                    machineCount,
-                                  );
+                                const rebuilt = nextElements.map((e) => {
+                                  const id = String(e?.id || "");
+                                  if (
+                                    e?.type === ELEMENT_TYPES.FLOOR &&
+                                    floorById.has(id)
+                                  )
+                                    return floorById.get(id);
+                                  if (
+                                    e?.type === ELEMENT_TYPES.ZONE &&
+                                    zoneById.has(id)
+                                  )
+                                    return zoneById.get(id);
+                                  return e;
+                                });
+
+                                const hadFloor = nextElements.some(
+                                  (e) => e?.type === ELEMENT_TYPES.FLOOR,
+                                );
+                                if (!hadFloor && updatedFloors.length) {
+                                  rebuilt.push(updatedFloors[0]);
                                 }
-                              }
+                                const normalizedElements =
+                                  t === ELEMENT_TYPES.ZONE ||
+                                  t === ELEMENT_TYPES.MACHINE
+                                    ? relayoutMachinesInZones(rebuilt)
+                                    : rebuilt;
 
-                              const floorById = new Map(
-                                updatedFloors.map((f) => [String(f.id), f]),
-                              );
-                              const zoneById = new Map(
-                                updatedZones.map((z) => [String(z.id), z]),
-                              );
-                              const rebuilt = nextElements.map((e) => {
-                                const id = String(e?.id || "");
-                                if (
-                                  e?.type === ELEMENT_TYPES.FLOOR &&
-                                  floorById.has(id)
-                                )
-                                  return floorById.get(id);
-                                if (
-                                  e?.type === ELEMENT_TYPES.ZONE &&
-                                  zoneById.has(id)
-                                )
-                                  return zoneById.get(id);
-                                return e;
-                              });
+                                const shouldResize =
+                                  t === ELEMENT_TYPES.ZONE ||
+                                  t === ELEMENT_TYPES.MACHINE;
+                                const nextPlaneScale = shouldResize
+                                  ? computePlaneScaleFromElements(
+                                      normalizedElements,
+                                    )
+                                  : (prev?.threeD?.planeScale ?? 1);
+                                const planeScale = Math.max(1, nextPlaneScale);
 
-                              const hadFloor = nextElements.some(
-                                (e) => e?.type === ELEMENT_TYPES.FLOOR,
-                              );
-                              if (!hadFloor && updatedFloors.length) {
-                                rebuilt.push(updatedFloors[0]);
-                              }
-                              const normalizedElements =
-                                t === ELEMENT_TYPES.ZONE ||
-                                t === ELEMENT_TYPES.MACHINE
-                                  ? relayoutMachinesInZones(rebuilt)
-                                  : rebuilt;
+                                return {
+                                  ...prev,
+                                  threeD: {
+                                    ...(prev.threeD || {}),
+                                    planeScale,
+                                  },
+                                  elements: normalizedElements,
+                                };
+                              })()
+                            : prev,
+                        );
+                        setSelectedId(newId);
+                        setActiveTool("select");
 
-                              const shouldResize =
-                                t === ELEMENT_TYPES.ZONE ||
-                                t === ELEMENT_TYPES.MACHINE;
-                              const nextPlaneScale = shouldResize
-                                ? computePlaneScaleFromElements(normalizedElements)
-                                : (prev?.threeD?.planeScale ?? 1);
-                              const planeScale = Math.max(1, nextPlaneScale);
+                        // Clear name input after adding floor/zone/walkway
+                        if (
+                          t === ELEMENT_TYPES.FLOOR ||
+                          t === ELEMENT_TYPES.ZONE ||
+                          t === ELEMENT_TYPES.WALKWAY
+                        ) {
+                          setNameInput("");
+                        }
 
-                              return {
+                        if (machineSeed) {
+                          setPendingMachinePlacement(null);
+                          pushToast({
+                            kind: "success",
+                            message:
+                              "Machine placed on the highlighted preview mark.",
+                            ts: Date.now(),
+                          });
+                        } else if (t === ELEMENT_TYPES.ZONE) {
+                          pushToast({
+                            kind: "success",
+                            message:
+                              "Zone added and auto-aligned. Layout condensed to fit all zones.",
+                            ts: Date.now(),
+                          });
+                        } else if (t === ELEMENT_TYPES.WALKWAY) {
+                          pushToast({
+                            kind: "success",
+                            message: "Walkway added.",
+                            ts: Date.now(),
+                          });
+                        } else if (t === ELEMENT_TYPES.FLOOR) {
+                          pushToast({
+                            kind: "success",
+                            message: "Floor added.",
+                            ts: Date.now(),
+                          });
+                        } else if (t === ELEMENT_TYPES.TRANSPORTER) {
+                          pushToast({
+                            kind: "success",
+                            message: "Transporter added.",
+                            ts: Date.now(),
+                          });
+                        }
+                      }
+                    : undefined
+                }
+                zoneRearrangeMode={isFullscreen ? zoneRearrangeMode : false}
+                zoneSwapSourceId={isFullscreen ? zoneSwapSourceId : ""}
+                onZoneSwapPick={isFullscreen ? handleZoneSwapPick : undefined}
+                zoneMergeMode={isFullscreen ? zoneMergeMode : false}
+                zoneMergeSelectedIds={isFullscreen ? zoneMergeSelectedIds : []}
+                onZoneMergePick={isFullscreen ? handleZoneMergePick : undefined}
+                machineRearrangeMode={
+                  isFullscreen ? machineRearrangeMode : false
+                }
+                machineSwapSourceId={isFullscreen ? machineSwapSourceId : ""}
+                onMachineSwapPick={
+                  isFullscreen ? handleMachineSwapPick : undefined
+                }
+                onMoveElement={
+                  isFullscreen
+                    ? (id, patch) => {
+                        setDraft((prev) =>
+                          prev
+                            ? {
                                 ...prev,
-                                threeD: {
-                                  ...(prev.threeD || {}),
-                                  planeScale,
-                                },
-                                elements: normalizedElements,
-                              };
-                            })()
-                          : prev,
-                      );
-                      setSelectedId(newId);
-                      setActiveTool("select");
-
-                      // Clear name input after adding floor/zone/walkway
-                      if (
-                        t === ELEMENT_TYPES.FLOOR ||
-                        t === ELEMENT_TYPES.ZONE ||
-                        t === ELEMENT_TYPES.WALKWAY
-                      ) {
-                        setNameInput("");
+                                elements: (prev.elements || []).map((e) => {
+                                  if (String(e.id) !== String(id)) return e;
+                                  return { ...e, ...patch };
+                                }),
+                              }
+                            : prev,
+                        );
                       }
-
-                      if (machineSeed) {
-                        setPendingMachinePlacement(null);
-                        pushToast({
-                          kind: "success",
-                          message:
-                            "Machine placed on the highlighted preview mark.",
-                          ts: Date.now(),
-                        });
-                      } else if (t === ELEMENT_TYPES.ZONE) {
-                        pushToast({
-                          kind: "success",
-                          message:
-                            "Zone added and auto-aligned. Layout condensed to fit all zones.",
-                          ts: Date.now(),
-                        });
-                      } else if (t === ELEMENT_TYPES.WALKWAY) {
-                        pushToast({
-                          kind: "success",
-                          message: "Walkway added.",
-                          ts: Date.now(),
-                        });
-                      } else if (t === ELEMENT_TYPES.FLOOR) {
-                        pushToast({
-                          kind: "success",
-                          message: "Floor added.",
-                          ts: Date.now(),
-                        });
-                      } else if (t === ELEMENT_TYPES.TRANSPORTER) {
-                        pushToast({
-                          kind: "success",
-                          message: "Transporter added.",
-                          ts: Date.now(),
-                        });
+                    : undefined
+                }
+                onUpdateElement={
+                  isFullscreen
+                    ? (id, patch) => {
+                        setDraft((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                elements: (prev.elements || []).map((e) =>
+                                  String(e.id) === String(id)
+                                    ? { ...e, ...patch }
+                                    : e,
+                                ),
+                              }
+                            : prev,
+                        );
                       }
-                    }
-                  : undefined
-              }
-              zoneRearrangeMode={isFullscreen ? zoneRearrangeMode : false}
-              zoneSwapSourceId={isFullscreen ? zoneSwapSourceId : ""}
-              onZoneSwapPick={isFullscreen ? handleZoneSwapPick : undefined}
-              zoneMergeMode={isFullscreen ? zoneMergeMode : false}
-              zoneMergeSelectedIds={isFullscreen ? zoneMergeSelectedIds : []}
-              onZoneMergePick={isFullscreen ? handleZoneMergePick : undefined}
-              machineRearrangeMode={
-                isFullscreen ? machineRearrangeMode : false
-              }
-              machineSwapSourceId={isFullscreen ? machineSwapSourceId : ""}
-              onMachineSwapPick={
-                isFullscreen ? handleMachineSwapPick : undefined
-              }
-              onMoveElement={
-                isFullscreen
-                  ? (id, patch) => {
-                      setDraft((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              elements: (prev.elements || []).map((e) => {
-                                if (String(e.id) !== String(id)) return e;
-                                return { ...e, ...patch };
-                              }),
-                            }
-                          : prev,
-                      );
-                    }
-                  : undefined
-              }
-              onUpdateElement={
-                isFullscreen
-                  ? (id, patch) => {
-                      setDraft((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              elements: (prev.elements || []).map((e) =>
-                                String(e.id) === String(id)
-                                  ? { ...e, ...patch }
-                                  : e,
-                              ),
-                            }
-                          : prev,
-                      );
-                    }
-                  : undefined
-              }
-            />
+                    : undefined
+                }
+              />
             ) : (
               <DepartmentFloor3DViewer
                 modelUrl={

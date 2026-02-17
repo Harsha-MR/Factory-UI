@@ -44,7 +44,7 @@ function computeDepartmentSummary(department) {
     idle: 0,
     warning: 0,
     offline: 0,
-    maintenance: 0,
+    // maintenance: 0, // TEMP commented
     critical: 0,
   }
 
@@ -75,10 +75,10 @@ function computeDepartmentSummary(department) {
         counts.offline++
         counts.critical++
         break
-      case 'MAINTENANCE':
-        counts.maintenance++
-        counts.critical++
-        break
+      // case 'MAINTENANCE': // TEMP commented
+      //   counts.maintenance++
+      //   counts.critical++
+      //   break
       default:
         break
     }

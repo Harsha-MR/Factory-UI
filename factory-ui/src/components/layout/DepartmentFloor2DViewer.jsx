@@ -23,7 +23,7 @@ function statusTint(status) {
   const s = String(status || "").toUpperCase();
   if (s === "DOWN") return "bg-red-500/40";
   if (s === "IDLE") return "bg-yellow-400/45";
-  if (s === "MAINTENANCE") return "bg-purple-500/40";
+  // if (s === "MAINTENANCE") return "bg-purple-500/40"; // TEMP commented
   if (s === "OFF" || s === "OFFLINE") return "bg-gray-500/42";
   return "bg-green-500/40";
 }
@@ -54,14 +54,14 @@ function statusTone(status) {
       border: "border-orange-500/75",
     };
   }
-  if (s === "MAINTENANCE") {
-    return {
-      glow: "bg-purple-500/34",
-      badge: "bg-purple-500",
-      nameBg: "bg-purple-900/85",
-      border: "border-purple-500/75",
-    };
-  }
+  // if (s === "MAINTENANCE") {
+  //   return {
+  //     glow: "bg-purple-500/34",
+  //     badge: "bg-purple-500",
+  //     nameBg: "bg-purple-900/85",
+  //     border: "border-purple-500/75",
+  //   };
+  // }
   if (s === "OFF" || s === "OFFLINE") {
     return {
       glow: "bg-gray-500/36",
@@ -91,6 +91,7 @@ function machineImageByStatus() {
 }
 
 function isVisibleByStatus(status, machineStatusVisibility) {
+  if (String(status || "").toUpperCase() === "MAINTENANCE") return false;
   if (!machineStatusVisibility || machineStatusVisibility.ALL) return true;
   const key = String(status || "RUNNING").toUpperCase();
   if (key === "OFFLINE") return !!machineStatusVisibility.OFF;

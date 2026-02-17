@@ -49,7 +49,7 @@ export function InstancedMachines({ machines, planeSize, floorY, fullScreen, onM
     if (s === "DOWN") return "#ef4444";
     if (s === "IDLE") return "#eab308";
     if (s === "WARNING") return "#f59e0b";
-    if (s === "MAINTENANCE") return "#a855f7";
+    // if (s === "MAINTENANCE") return "#a855f7"; // TEMP commented
     if (s === "OFFLINE") return "#94a3b8";
     return "#22c55e"; // RUNNING
   };
