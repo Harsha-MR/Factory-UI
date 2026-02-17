@@ -979,6 +979,7 @@ export default function Department3DLayoutPage() {
   // TEMP: feature switches for staged rollout. Set to false to re-enable.
   const TEMP_DISABLE_ADD_MACHINE = true;
   const TEMP_DISABLE_ADD_TRANSPORTER = true;
+  const TEMP_DISABLE_ADD_ZONE = true;
   const TEMP_DISABLE_COMBINE_ZONES = true;
   const TEMP_DISABLE_LAYOUT_HISTORY = true;
 
@@ -1093,9 +1094,13 @@ export default function Department3DLayoutPage() {
   }, [deptResult, departmentId]);
 
   useEffect(() => {
+    if (TEMP_DISABLE_LAYOUT_HISTORY) {
+      setLayoutView("current");
+      return;
+    }
     const v = location.state?.layoutView;
     if (v === "previous" || v === "current") setLayoutView(v);
-  }, [location.state?.layoutView]);
+  }, [location.state?.layoutView, TEMP_DISABLE_LAYOUT_HISTORY]);
 
   useEffect(() => {
     if (!departmentId) return;
@@ -1118,7 +1123,9 @@ export default function Department3DLayoutPage() {
         setLayoutVersions(versions);
 
         const initialView =
-          requestedLayoutView === "previous" ? "previous" : "current";
+          !TEMP_DISABLE_LAYOUT_HISTORY && requestedLayoutView === "previous"
+            ? "previous"
+            : "current";
         setLayoutView(initialView);
 
         const base =
@@ -1142,7 +1149,7 @@ export default function Department3DLayoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [departmentId, requestedLayoutView]);
+  }, [departmentId, requestedLayoutView, TEMP_DISABLE_LAYOUT_HISTORY]);
 
   useEffect(() => {
     if (!layoutCtx?.departmentId) return;
@@ -1389,11 +1396,34 @@ export default function Department3DLayoutPage() {
     }
   };
 
-  const onSave = () => {
+  const onSave = async () => {
     if (!draft) return;
     const payload = normalizeLayoutForEditing(draft);
     setDraft(payload);
-    saveDepartmentCustomLayout(layoutCtx, payload);
+    try {
+      const saved = await saveDepartmentCustomLayout(layoutCtx, payload);
+      if (saved && typeof saved === "object") {
+        setLayoutVersions({
+          current: saved.current || payload,
+          previous: saved.previous || null,
+        });
+        setDeptResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                customLayout: saved.current || payload,
+              }
+            : prev,
+        );
+      }
+    } catch {
+      pushToast({
+        kind: "error",
+        message: "Save failed. Check login/session and try again.",
+        ts: Date.now(),
+      });
+      return;
+    }
     setLayoutView("current");
     // Show toast immediately when saving
     pushToast({
@@ -2141,6 +2171,7 @@ export default function Department3DLayoutPage() {
     !!pendingMachinePlacement;
   const blockedAddTool =
     (TEMP_DISABLE_ADD_MACHINE && activeTool === "add:machine") ||
+    (TEMP_DISABLE_ADD_ZONE && activeTool === "add:zone") ||
     (TEMP_DISABLE_ADD_TRANSPORTER && activeTool === "add:transporter");
   const effectiveActiveTool = blockedAddTool ? "select" : activeTool;
   const viewerActiveTool = isFullscreen
@@ -2596,6 +2627,7 @@ export default function Department3DLayoutPage() {
                   </svg>
                 </button>
 
+                {!TEMP_DISABLE_ADD_ZONE ? (
                 <button
                   type="button"
                   className={
@@ -2630,6 +2662,7 @@ export default function Department3DLayoutPage() {
                     />
                   </svg>
                 </button>
+                ) : null}
 
                 {!TEMP_DISABLE_ADD_TRANSPORTER ? (
                   <button
@@ -2962,6 +2995,7 @@ export default function Department3DLayoutPage() {
                     Add floor
                   </button>
 
+                  {!TEMP_DISABLE_ADD_ZONE ? (
                   <button
                     type="button"
                     className={
@@ -2976,6 +3010,7 @@ export default function Department3DLayoutPage() {
                   >
                     Add zone
                   </button>
+                  ) : null}
 
                   <button
                     type="button"
@@ -3853,11 +3888,23 @@ export default function Department3DLayoutPage() {
                 }
                 onAddElement={
                   isFullscreen
-                    ? (type, pos) => {
-                        const t = String(type);
-                        if (
-                          TEMP_DISABLE_ADD_MACHINE &&
-                          t === ELEMENT_TYPES.MACHINE
+                  ? (type, pos) => {
+                      const t = String(type);
+                      if (
+                        TEMP_DISABLE_ADD_ZONE &&
+                        t === ELEMENT_TYPES.ZONE
+                      ) {
+                        pushToast({
+                          kind: "info",
+                          message: "Add zone is temporarily disabled.",
+                          ts: Date.now(),
+                        });
+                        setActiveTool("select");
+                        return;
+                      }
+                      if (
+                        TEMP_DISABLE_ADD_MACHINE &&
+                        t === ELEMENT_TYPES.MACHINE
                         ) {
                           pushToast({
                             kind: "info",

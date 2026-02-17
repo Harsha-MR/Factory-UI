@@ -43,12 +43,8 @@ function normalizeStoredBundle(raw) {
 }
 
 function canUseDevApi() {
-  try {
-    // Treat the API as the primary storage in all modes.
-    return true
-  } catch {
-    return false
-  }
+  // Treat the API as the primary storage in all modes.
+  return true
 }
 
 function writeBundleToLocalStorage(ctx, bundle) {
@@ -136,47 +132,54 @@ export async function fetchDepartmentCustomLayoutVersions(ctx) {
   return getDepartmentCustomLayoutVersions(ctx);
 }
 
-export function saveDepartmentCustomLayout(ctx, layout) {
+export async function saveDepartmentCustomLayout(ctx, layout) {
   const nextCurrent = sanitizeDepartmentLayout({
     ...layout,
     updatedAt: new Date().toISOString(),
   });
+  const localOnlyBundle = {
+    current: nextCurrent,
+    previous: getDepartmentCustomLayoutVersions(ctx)?.current || null,
+  };
   if (!canUseDevApi()) {
     // console.warn('[layoutStorage] API not available, skipping save');
-    return;
+    writeBundleToLocalStorage(ctx, localOnlyBundle);
+    return localOnlyBundle;
   }
   try {
     const url = new URL('/api/layouts', window.location.origin);
     url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
     url.searchParams.set('plantId', String(ctx?.plantId || ''));
     url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
-    // console.log('[layoutStorage] Saving layout to MongoDB:', { 
-    //   url: url.toString(), 
-    //   context: ctx,
-    //   elements: nextCurrent?.elements?.length 
-    //  });
-    void fetch(url.toString(), {
+
+    const res = await fetch(url.toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ layout: nextCurrent }),
-    })
-      .then(res => {
-        if (res.ok) {
-          // console.log('[layoutStorage] ✅ Layout saved successfully to MongoDB');
-          return res.json();
-        } else {
-          // console.error('[layoutStorage] ❌ Failed to save layout:', res.status, res.statusText);
-          return res.json().then(err => console.error('[layoutStorage] Error details:', err));
-        }
-      })
-      .catch(err => {
-        console.error('[layoutStorage] ❌ Network error saving layout:', err);
-      });
+    });
+
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const err = await res.json();
+        detail = err?.error ? `: ${err.error}` : '';
+      } catch {
+        // ignore JSON parse errors
+      }
+      throw new Error(`Failed to save layout (${res.status})${detail}`);
+    }
+
+    const json = await res.json();
+    const bundle = normalizeStoredBundle(json);
+    writeBundleToLocalStorage(ctx, bundle);
+    return bundle;
   } catch (err) {
-    console.error('[layoutStorage] ❌ Exception saving layout:', err);
+    // Fallback for demo/offline/auth-expired scenarios: keep latest layout locally.
+    console.error('[layoutStorage] Exception saving layout (falling back to local):', err);
+    writeBundleToLocalStorage(ctx, localOnlyBundle);
+    return localOnlyBundle;
   }
 }
-
 export function deleteDepartmentCustomLayout(ctx) {
   if (!canUseDevApi()) return;
   try {
@@ -189,3 +192,4 @@ export function deleteDepartmentCustomLayout(ctx) {
     // ignore
   }
 }
+

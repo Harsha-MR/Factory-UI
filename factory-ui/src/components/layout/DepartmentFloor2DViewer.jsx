@@ -78,6 +78,18 @@ function statusTone(status) {
   };
 }
 
+// TEMP: hide status color visibility in 2D editor without affecting data/logic.
+const HIDE_STATUS_COLOR_VISIBILITY = true;
+
+function neutralTone() {
+  return {
+    border: "border-slate-300/90",
+    glow: "bg-transparent",
+    badge: "bg-transparent",
+    nameBg: "bg-slate-800/85",
+  };
+}
+
 function compactMachineLabel(name) {
   const raw = String(name || "").trim();
   if (!raw) return "";
@@ -175,7 +187,10 @@ export default function DepartmentFloor2DViewer({
       (Array.isArray(elements) ? elements : []).filter((el) => {
         if (el?.type !== ELEMENT_TYPES.MACHINE) return true;
         const meta = machineMetaById?.[String(el.machineId || "")];
-        return isVisibleByStatus(meta?.status || "RUNNING", machineStatusVisibility);
+        return isVisibleByStatus(
+          meta?.status || "RUNNING",
+          machineStatusVisibility,
+        );
       }),
     [elements, machineMetaById, machineStatusVisibility],
   );
@@ -313,7 +328,9 @@ export default function DepartmentFloor2DViewer({
     }
 
     const row = rows[rowIndex];
-    row.items.sort((a, b) => (Number(a.rect?.x) || 0) - (Number(b.rect?.x) || 0));
+    row.items.sort(
+      (a, b) => (Number(a.rect?.x) || 0) - (Number(b.rect?.x) || 0),
+    );
     for (const it of row.items) {
       const centerX = (Number(it.rect?.x) || 0) + (Number(it.rect?.w) || 0) / 2;
       if (pointer.x <= centerX) return it.id;
@@ -400,7 +417,9 @@ export default function DepartmentFloor2DViewer({
 
   const machinesByZone = (() => {
     const grouped = new Map();
-    const machines = renderElements.filter((e) => e?.type === ELEMENT_TYPES.MACHINE);
+    const machines = renderElements.filter(
+      (e) => e?.type === ELEMENT_TYPES.MACHINE,
+    );
     for (const m of machines) {
       const z = findZoneForElement(m);
       if (!z) continue;
@@ -523,7 +542,9 @@ export default function DepartmentFloor2DViewer({
     }
 
     if (drawState) {
-      setDrawState((prev) => (prev ? { ...prev, current: { x: n.x, y: n.y } } : prev));
+      setDrawState((prev) =>
+        prev ? { ...prev, current: { x: n.x, y: n.y } } : prev,
+      );
     }
 
     if (dragState) {
@@ -596,12 +617,7 @@ export default function DepartmentFloor2DViewer({
         Math.abs(start.y - current.y),
       );
 
-      const mapped = fromViewRect(
-        x,
-        y,
-        clamp01(w),
-        clamp01(h),
-      );
+      const mapped = fromViewRect(x, y, clamp01(w), clamp01(h));
 
       onAddElement(drawState.type, {
         x: mapped.x,
@@ -609,7 +625,9 @@ export default function DepartmentFloor2DViewer({
         w: mapped.w,
         h: mapped.h,
         rotationDeg: 0,
-        ...(drawState.type === ELEMENT_TYPES.ZONE ? { color: "dark-green" } : null),
+        ...(drawState.type === ELEMENT_TYPES.ZONE
+          ? { color: "dark-green" }
+          : null),
       });
     }
     setDragState(null);
@@ -644,9 +662,7 @@ export default function DepartmentFloor2DViewer({
       <div
         ref={boardRef}
         className={
-          fullScreen
-            ? "relative h-full w-full"
-            : "relative h-full w-full"
+          fullScreen ? "relative h-full w-full" : "relative h-full w-full"
         }
         onPointerMove={onCanvasPointerMove}
         onPointerUp={onCanvasPointerUp}
@@ -657,7 +673,8 @@ export default function DepartmentFloor2DViewer({
             onFocusZoneChange?.("");
             return;
           }
-          if (!fullScreen || !addType || typeof onAddElement !== "function") return;
+          if (!fullScreen || !addType || typeof onAddElement !== "function")
+            return;
           const n = normFromClient(e.clientX, e.clientY);
           if (!n) return;
           setPointerCaptureId(e.pointerId);
@@ -682,9 +699,7 @@ export default function DepartmentFloor2DViewer({
               x: mapped.x,
               y: mapped.y,
               rotationDeg: 0,
-              ...(insertBeforeZoneId
-                ? { insertBeforeZoneId }
-                : null),
+              ...(insertBeforeZoneId ? { insertBeforeZoneId } : null),
             });
           }
         }}
@@ -699,362 +714,417 @@ export default function DepartmentFloor2DViewer({
         />
 
         {renderElements.map((el) => {
-        if (
-          focusedZone &&
-          el?.type === ELEMENT_TYPES.ZONE &&
-          String(el?.id) !== String(focusedZone?.id)
-        ) {
-          return null;
-        }
-        if (
-          focusedZone &&
-          el?.type !== ELEMENT_TYPES.ZONE &&
-          el?.type !== ELEMENT_TYPES.MACHINE &&
-          el?.type !== ELEMENT_TYPES.TRANSPORTER &&
-          el?.type !== ELEMENT_TYPES.WALKWAY &&
-          el?.type !== ELEMENT_TYPES.FLOOR
-        ) {
-          return null;
-        }
-        if (
-          focusedZone &&
-          el?.type === ELEMENT_TYPES.MACHINE &&
-          String(findZoneForElement(el)?.id || "") !== String(focusedZone.id)
-        ) {
-          return null;
-        }
-        if (
-          focusedZone &&
-          el?.type !== ELEMENT_TYPES.ZONE &&
-          el?.type !== ELEMENT_TYPES.MACHINE &&
-          !isInsideZone(el, focusedZone)
-        ) {
-          return null;
-        }
-
-        let rect = toViewRect(el);
-        const containerZone = findZoneForElement(el);
-        if (
-          containerZone &&
-          el?.type === ELEMENT_TYPES.MACHINE
-        ) {
-          // Reserve a top header strip in each zone and auto-grid machines in the body.
-          const zoneRect = toViewRect(containerZone);
-          const headerH = Math.min(0.08, Math.max(0.035, zoneRect.h * 0.15));
-          const bodyPad = Math.max(0.004, zoneRect.w * 0.01);
-          const bodyX = zoneRect.x + bodyPad;
-          const bodyY = zoneRect.y + headerH + bodyPad;
-          const bodyW = Math.max(0.02, zoneRect.w - bodyPad * 2);
-          const bodyH = Math.max(0.02, zoneRect.h - headerH - bodyPad * 2);
-          const zid = String(containerZone.id);
-          const zoneMachines = machinesByZone.get(zid) || [];
-          const machineIndex = zoneMachines.findIndex(
-            (m) => String(m?.id) === String(el?.id),
-          );
-          const total = Math.max(1, zoneMachines.length);
-          // Keep compact grid balanced in all-zones view so icon stays readable.
-          const cols = focusedZone
-            ? 10
-            : Math.min(8, Math.max(6, total));
-          const rows = Math.max(3, Math.ceil(total / cols));
-          const gapX = Math.max(0.002, bodyW * (focusedZone ? 0.01 : 0.016));
-          const gapY = Math.max(0.002, bodyH * (focusedZone ? 0.02 : 0.026));
-          const cellW = Math.max(0.01, (bodyW - gapX * (cols - 1)) / cols);
-          const cellH = Math.max(0.01, (bodyH - gapY * (rows - 1)) / rows);
-          const col = Math.max(0, machineIndex) % cols;
-          const row = Math.floor(Math.max(0, machineIndex) / cols);
-          const itemPad = Math.max(0.001, Math.min(cellW, cellH) * (focusedZone ? 0.08 : 0.05));
-          rect = {
-            x: clamp01(bodyX + col * (cellW + gapX) + itemPad),
-            y: clamp01(bodyY + row * (cellH + gapY) + itemPad),
-            w: Math.max(0.01, clamp01(cellW - itemPad * 2)),
-            h: Math.max(0.01, clamp01(cellH - itemPad * 2)),
-          };
-        }
-        const left = `${rect.x * 100}%`;
-        const top = `${rect.y * 100}%`;
-        const width = `${rect.w * 100}%`;
-        const height = `${rect.h * 100}%`;
-        const rotation = Number(el?.rotationDeg) || 0;
-        const isSelected = String(selectedId) === String(el?.id);
-
-        if (el?.type === ELEMENT_TYPES.FLOOR) {
-          return (
-            <div
-              key={String(el.id)}
-              className={
-                zoneCount > 0
-                  ? "pointer-events-none absolute rounded-md border border-slate-300/80 bg-gradient-to-br from-slate-100/55 to-slate-200/55"
-                  : "pointer-events-none absolute rounded-md border border-slate-400 bg-gradient-to-br from-slate-100 to-slate-200"
-              }
-              style={{ left, top, width, height, transform: `rotate(${rotation}deg)` }}
-            />
-          );
-        }
-
-        if (el?.type === ELEMENT_TYPES.ZONE) {
-          const isMergeSelected =
-            zoneMergeMode &&
-            Array.isArray(zoneMergeSelectedIds) &&
-            zoneMergeSelectedIds.some(
-              (id) => String(id) === String(el?.id || ""),
-            );
-          const isSwapSource =
-            zoneRearrangeMode &&
-            String(zoneSwapSourceId || "") === String(el?.id || "");
-          return (
-            <button
-              key={String(el.id)}
-              type="button"
-              className={
-                isMergeSelected
-                  ? `absolute z-[6] overflow-hidden rounded-lg border-2 border-violet-600 bg-violet-200/35 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
-                  : isSwapSource
-                  ? `absolute z-[6] overflow-hidden rounded-lg border-2 border-sky-600 bg-sky-100/35 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
-                  : isSelected
-                  ? `absolute z-[5] overflow-hidden rounded-lg border-2 border-sky-500 bg-emerald-100/10 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
-                  : `absolute z-[5] overflow-hidden rounded-lg border border-emerald-400/70 bg-emerald-100/10 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
-              }
-              style={{ left, top, width, height, transform: `rotate(${rotation}deg)` }}
-              onPointerDown={(e) => {
-                if (!fullScreen) return;
-                e.stopPropagation();
-                if (zoneMergeMode && typeof onZoneMergePick === "function") {
-                  onZoneMergePick(String(el.id));
-                  return;
-                }
-                if (zoneRearrangeMode && typeof onZoneSwapPick === "function") {
-                  onZoneSwapPick(String(el.id));
-                  return;
-                }
-                // Always focus the clicked zone in fullscreen editor so it opens wide.
-                if (isAddMode && !isMachineAddMode) return;
-                onFocusZoneChange?.(String(el.id));
-                onSelectElement?.(String(el.id));
-              }}
-            >
-              <div className="absolute inset-x-0 top-0 z-[30] h-7 border-b border-emerald-400/70 bg-emerald-200/100 px-2">
-                <div className="truncate text-xs font-semibold leading-7 text-emerald-950">
-                  {el.label || "Zone"}
-                </div>
-              </div>
-            </button>
-          );
-        }
-
-        if (el?.type === ELEMENT_TYPES.WALKWAY) {
-          return (
-            <button
-              key={String(el.id)}
-              type="button"
-              className={
-                isSelected
-                  ? `absolute z-[2] rounded-md border-2 border-sky-500 bg-slate-800/80 ${isAddMode ? "pointer-events-none" : ""}`
-                  : `absolute z-[2] rounded-md border border-slate-600 bg-slate-800/65 ${isAddMode ? "pointer-events-none" : ""}`
-              }
-              style={{
-                left,
-                top,
-                width,
-                height,
-                transform: `rotate(${rotation}deg)`,
-              }}
-              onPointerDown={(e) => {
-                if (!fullScreen || isAddMode) return;
-                e.stopPropagation();
-                onSelectElement?.(String(el.id));
-                const n = normFromClient(e.clientX, e.clientY);
-                if (!n) return;
-                const w = rect.w;
-                const h = rect.h;
-                const x = rect.x;
-                const y = rect.y;
-                setDragState({
-                  id: String(el.id),
-                  w,
-                  h,
-                  offsetX: n.x - x,
-                  offsetY: n.y - y,
-                });
-              }}
-            />
-          );
-        }
-
-        if (el?.type === ELEMENT_TYPES.TRANSPORTER) {
-          return (
-            <button
-              key={String(el.id)}
-              type="button"
-              className={
-                isSelected
-                  ? `absolute z-[3] flex items-center justify-center rounded-lg border-2 border-sky-500 bg-white/90 ${isAddMode ? "pointer-events-none" : ""}`
-                  : `absolute z-[3] flex items-center justify-center rounded-lg border border-slate-400 bg-white/80 ${isAddMode ? "pointer-events-none" : ""}`
-              }
-              style={{ left, top, width, height, transform: `rotate(${rotation}deg)` }}
-              onPointerDown={(e) => {
-                if (!fullScreen || isAddMode) return;
-                e.stopPropagation();
-                onSelectElement?.(String(el.id));
-                const n = normFromClient(e.clientX, e.clientY);
-                if (!n) return;
-                const w = rect.w;
-                const h = rect.h;
-                const x = rect.x;
-                const y = rect.y;
-                setDragState({
-                  id: String(el.id),
-                  w,
-                  h,
-                  offsetX: n.x - x,
-                  offsetY: n.y - y,
-                });
-              }}
-            >
-              <TransporterIcon className="h-5 w-5 text-slate-700" />
-            </button>
-          );
-        }
-
-        if (el?.type === ELEMENT_TYPES.MACHINE && showMachineMarkers) {
-          const machineId = String(el.machineId || "");
-          const meta = machineMetaById?.[machineId];
-          const status = meta?.status || "RUNNING";
-          const name = machineDisplayName(el, machineMetaById);
-          const compactZoneView = !focusedZone;
-          const tone = statusTone(status);
-          const compactName = compactMachineLabel(name);
-          const oee = meta ? computeMachineOeePct(meta) : null;
-          return (
-            <button
-              key={String(el.id)}
-              type="button"
-              className={
-                (isAddMode || zoneRearrangeMode || zoneMergeMode)
-                  ? "pointer-events-none absolute z-[20] rounded-md"
-                  : 
-                machineRearrangeMode &&
-                String(machineSwapSourceId || "") === String(el?.id || "")
-                  ? `absolute z-[20] rounded-md ring-2 ring-indigo-500/95 ${isAddMode ? "pointer-events-none" : ""}`
-                  : isSelected
-                  ? `absolute z-[20] rounded-md ring-2 ring-sky-500/90 ${isAddMode ? "pointer-events-none" : ""}`
-                  : `absolute z-[20] rounded-md ${isAddMode ? "pointer-events-none" : ""}`
-              }
-              style={{ left, top, width, height, transform: `rotate(${rotation}deg)` }}
-              onPointerDown={(e) => {
-                if (isAddMode) return;
-                e.stopPropagation();
-                if (machineRearrangeMode && typeof onMachineSwapPick === "function") {
-                  onMachineSwapPick(String(el.id));
-                  return;
-                }
-                if (fullScreen) {
-                  onSelectElement?.(String(el.id));
-                  return;
-                }
-                if (typeof onOpenMachineDetails === "function" && machineId) {
-                  onOpenMachineDetails(machineId);
-                }
-              }}
-              onMouseEnter={(e) => {
-                if (isAddMode) return;
-                const rect = containerRef.current?.getBoundingClientRect();
-                if (!rect) return;
-                setHover({
-                  id: String(el.id),
-                  name,
-                  status,
-                  oee,
-                  x: e.clientX - rect.left,
-                  y: e.clientY - rect.top,
-                });
-              }}
-              onMouseMove={(e) => {
-                if (isAddMode) return;
-                const rect = containerRef.current?.getBoundingClientRect();
-                if (!rect) return;
-                setHover((prev) =>
-                  prev
-                    ? { ...prev, x: e.clientX - rect.left, y: e.clientY - rect.top }
-                    : prev,
-                );
-              }}
-              onMouseLeave={() => setHover(null)}
-            >
-              <div className={`relative h-full w-full overflow-hidden rounded-sm border ${tone.border}`}>
-                <div className={`absolute inset-[2%] rounded-md ${tone.glow}`} />
-                <div className={`absolute inset-x-0 top-0 ${compactZoneView ? "h-0.5" : "h-1"} ${statusTint(status)}`} />
-                <img
-                  src={machineImageByStatus()}
-                  alt="Machine"
-                  className={`pointer-events-none absolute inset-0 m-auto object-contain drop-shadow-[0_2px_2px_rgba(0,0,0,0.32)] ${
-                    compactZoneView ? "h-[95%] w-[95%]" : "h-[98%] w-[98%]"
-                  }`}
-                />
-                <div className={`absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full ${tone.badge}`} />
-                {compactZoneView ? (
-                  <div className={`absolute inset-x-0.5 bottom-0.5 truncate rounded px-0.5 py-[1px] text-center text-[6px] font-semibold leading-tight text-white ${tone.nameBg}`}>
-                    {compactName}
-                  </div>
-                ) : (
-                  <div className={`absolute inset-x-1 bottom-0.5 rounded px-1 py-[1px] text-center text-[8px] font-semibold leading-tight text-white ${tone.nameBg}`}>
-                    {name}
-                  </div>
-                )}
-              </div>
-              {showMachineLabels ? null : null}
-            </button>
-          );
-        }
-
-        return null;
-      })}
-
-      {drawState ? (
-        <div
-          className={
-            drawState.type === ELEMENT_TYPES.WALKWAY
-              ? "pointer-events-none absolute rounded-md border border-slate-700 bg-slate-700/35"
-              : drawState.type === ELEMENT_TYPES.FLOOR
-                ? "pointer-events-none absolute rounded-md border border-slate-500 bg-slate-300/45"
-                : "pointer-events-none absolute rounded-lg border border-emerald-500 bg-emerald-300/35"
+          if (
+            focusedZone &&
+            el?.type === ELEMENT_TYPES.ZONE &&
+            String(el?.id) !== String(focusedZone?.id)
+          ) {
+            return null;
           }
-          style={{
-            left: `${Math.min(drawState.start.x, drawState.current.x) * 100}%`,
-            top: `${Math.min(drawState.start.y, drawState.current.y) * 100}%`,
-            width: `${Math.abs(drawState.start.x - drawState.current.x) * 100}%`,
-            height: `${Math.abs(drawState.start.y - drawState.current.y) * 100}%`,
-          }}
-        />
-      ) : null}
+          if (
+            focusedZone &&
+            el?.type !== ELEMENT_TYPES.ZONE &&
+            el?.type !== ELEMENT_TYPES.MACHINE &&
+            el?.type !== ELEMENT_TYPES.TRANSPORTER &&
+            el?.type !== ELEMENT_TYPES.WALKWAY &&
+            el?.type !== ELEMENT_TYPES.FLOOR
+          ) {
+            return null;
+          }
+          if (
+            focusedZone &&
+            el?.type === ELEMENT_TYPES.MACHINE &&
+            String(findZoneForElement(el)?.id || "") !== String(focusedZone.id)
+          ) {
+            return null;
+          }
+          if (
+            focusedZone &&
+            el?.type !== ELEMENT_TYPES.ZONE &&
+            el?.type !== ELEMENT_TYPES.MACHINE &&
+            !isInsideZone(el, focusedZone)
+          ) {
+            return null;
+          }
 
-      {isAddPointTool && hoverNorm ? (
-        <div
-          className="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-500 bg-cyan-300/35"
-          style={{ left: `${hoverNorm.x * 100}%`, top: `${hoverNorm.y * 100}%` }}
-        />
-      ) : null}
+          let rect = toViewRect(el);
+          const containerZone = findZoneForElement(el);
+          if (containerZone && el?.type === ELEMENT_TYPES.MACHINE) {
+            // Reserve a top header strip in each zone and auto-grid machines in the body.
+            const zoneRect = toViewRect(containerZone);
+            const headerH = Math.min(0.08, Math.max(0.035, zoneRect.h * 0.15));
+            const bodyPad = Math.max(0.004, zoneRect.w * 0.01);
+            const bodyX = zoneRect.x + bodyPad;
+            const bodyY = zoneRect.y + headerH + bodyPad;
+            const bodyW = Math.max(0.02, zoneRect.w - bodyPad * 2);
+            const bodyH = Math.max(0.02, zoneRect.h - headerH - bodyPad * 2);
+            const zid = String(containerZone.id);
+            const zoneMachines = machinesByZone.get(zid) || [];
+            const machineIndex = zoneMachines.findIndex(
+              (m) => String(m?.id) === String(el?.id),
+            );
+            const total = Math.max(1, zoneMachines.length);
+            // Keep compact grid balanced in all-zones view so icon stays readable.
+            const cols = focusedZone ? 10 : Math.min(8, Math.max(6, total));
+            const rows = Math.max(3, Math.ceil(total / cols));
+            const gapX = Math.max(0.002, bodyW * (focusedZone ? 0.01 : 0.016));
+            const gapY = Math.max(0.002, bodyH * (focusedZone ? 0.02 : 0.026));
+            const cellW = Math.max(0.01, (bodyW - gapX * (cols - 1)) / cols);
+            const cellH = Math.max(0.01, (bodyH - gapY * (rows - 1)) / rows);
+            const col = Math.max(0, machineIndex) % cols;
+            const row = Math.floor(Math.max(0, machineIndex) / cols);
+            const itemPad = Math.max(
+              0.001,
+              Math.min(cellW, cellH) * (focusedZone ? 0.08 : 0.05),
+            );
+            rect = {
+              x: clamp01(bodyX + col * (cellW + gapX) + itemPad),
+              y: clamp01(bodyY + row * (cellH + gapY) + itemPad),
+              w: Math.max(0.01, clamp01(cellW - itemPad * 2)),
+              h: Math.max(0.01, clamp01(cellH - itemPad * 2)),
+            };
+          }
+          const left = `${rect.x * 100}%`;
+          const top = `${rect.y * 100}%`;
+          const width = `${rect.w * 100}%`;
+          const height = `${rect.h * 100}%`;
+          const rotation = Number(el?.rotationDeg) || 0;
+          const isSelected = String(selectedId) === String(el?.id);
 
-      {hover ? (
-        <div
-          className="pointer-events-none absolute z-20 rounded-md border bg-white/95 px-2 py-1 text-[11px] text-slate-700 shadow"
-          style={{ left: hover.x + 12, top: hover.y + 12 }}
-        >
-          <div className="font-semibold text-slate-900">{hover.name}</div>
-          <div>
-            Status: {hover.status} | OEE:{" "}
-            {hover.oee == null ? "-" : `${hover.oee.toFixed(1)}%`}
+          if (el?.type === ELEMENT_TYPES.FLOOR) {
+            return (
+              <div
+                key={String(el.id)}
+                className={
+                  zoneCount > 0
+                    ? "pointer-events-none absolute rounded-md border border-slate-300/80 bg-gradient-to-br from-slate-100/55 to-slate-200/55"
+                    : "pointer-events-none absolute rounded-md border border-slate-400 bg-gradient-to-br from-slate-100 to-slate-200"
+                }
+                style={{
+                  left,
+                  top,
+                  width,
+                  height,
+                  transform: `rotate(${rotation}deg)`,
+                }}
+              />
+            );
+          }
+
+          if (el?.type === ELEMENT_TYPES.ZONE) {
+            const isMergeSelected =
+              zoneMergeMode &&
+              Array.isArray(zoneMergeSelectedIds) &&
+              zoneMergeSelectedIds.some(
+                (id) => String(id) === String(el?.id || ""),
+              );
+            const isSwapSource =
+              zoneRearrangeMode &&
+              String(zoneSwapSourceId || "") === String(el?.id || "");
+            return (
+              <button
+                key={String(el.id)}
+                type="button"
+                className={
+                  isMergeSelected
+                    ? `absolute z-[6] overflow-hidden rounded-lg border-2 border-violet-600 bg-violet-200/35 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
+                    : isSwapSource
+                      ? `absolute z-[6] overflow-hidden rounded-lg border-2 border-sky-600 bg-sky-100/35 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
+                      : isSelected
+                        ? `absolute z-[5] overflow-hidden rounded-lg border-2 border-sky-500 bg-emerald-100/10 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
+                        : `absolute z-[5] overflow-hidden rounded-lg border border-emerald-400/70 bg-emerald-100/10 text-left ${isAddMode && !isMachineAddMode ? "pointer-events-none" : ""}`
+                }
+                style={{
+                  left,
+                  top,
+                  width,
+                  height,
+                  transform: `rotate(${rotation}deg)`,
+                }}
+                onPointerDown={(e) => {
+                  if (!fullScreen) return;
+                  e.stopPropagation();
+                  if (zoneMergeMode && typeof onZoneMergePick === "function") {
+                    onZoneMergePick(String(el.id));
+                    return;
+                  }
+                  if (
+                    zoneRearrangeMode &&
+                    typeof onZoneSwapPick === "function"
+                  ) {
+                    onZoneSwapPick(String(el.id));
+                    return;
+                  }
+                  // Always focus the clicked zone in fullscreen editor so it opens wide.
+                  if (isAddMode && !isMachineAddMode) return;
+                  onFocusZoneChange?.(String(el.id));
+                  onSelectElement?.(String(el.id));
+                }}
+              >
+                <div className="absolute inset-x-0 top-0 z-[30] h-7 border-b border-emerald-400/70 bg-emerald-200/100 px-2">
+                  <div className="truncate text-xs font-semibold leading-7 text-emerald-950">
+                    {el.label || "Zone"}
+                  </div>
+                </div>
+              </button>
+            );
+          }
+
+          if (el?.type === ELEMENT_TYPES.WALKWAY) {
+            return (
+              <button
+                key={String(el.id)}
+                type="button"
+                className={
+                  isSelected
+                    ? `absolute z-[2] rounded-md border-2 border-sky-500 bg-slate-800/80 ${isAddMode ? "pointer-events-none" : ""}`
+                    : `absolute z-[2] rounded-md border border-slate-600 bg-slate-800/65 ${isAddMode ? "pointer-events-none" : ""}`
+                }
+                style={{
+                  left,
+                  top,
+                  width,
+                  height,
+                  transform: `rotate(${rotation}deg)`,
+                }}
+                onPointerDown={(e) => {
+                  if (!fullScreen || isAddMode) return;
+                  e.stopPropagation();
+                  onSelectElement?.(String(el.id));
+                  const n = normFromClient(e.clientX, e.clientY);
+                  if (!n) return;
+                  const w = rect.w;
+                  const h = rect.h;
+                  const x = rect.x;
+                  const y = rect.y;
+                  setDragState({
+                    id: String(el.id),
+                    w,
+                    h,
+                    offsetX: n.x - x,
+                    offsetY: n.y - y,
+                  });
+                }}
+              />
+            );
+          }
+
+          if (el?.type === ELEMENT_TYPES.TRANSPORTER) {
+            return (
+              <button
+                key={String(el.id)}
+                type="button"
+                className={
+                  isSelected
+                    ? `absolute z-[3] flex items-center justify-center rounded-lg border-2 border-sky-500 bg-white/90 ${isAddMode ? "pointer-events-none" : ""}`
+                    : `absolute z-[3] flex items-center justify-center rounded-lg border border-slate-400 bg-white/80 ${isAddMode ? "pointer-events-none" : ""}`
+                }
+                style={{
+                  left,
+                  top,
+                  width,
+                  height,
+                  transform: `rotate(${rotation}deg)`,
+                }}
+                onPointerDown={(e) => {
+                  if (!fullScreen || isAddMode) return;
+                  e.stopPropagation();
+                  onSelectElement?.(String(el.id));
+                  const n = normFromClient(e.clientX, e.clientY);
+                  if (!n) return;
+                  const w = rect.w;
+                  const h = rect.h;
+                  const x = rect.x;
+                  const y = rect.y;
+                  setDragState({
+                    id: String(el.id),
+                    w,
+                    h,
+                    offsetX: n.x - x,
+                    offsetY: n.y - y,
+                  });
+                }}
+              >
+                <TransporterIcon className="h-5 w-5 text-slate-700" />
+              </button>
+            );
+          }
+
+          if (el?.type === ELEMENT_TYPES.MACHINE && showMachineMarkers) {
+            const machineId = String(el.machineId || "");
+            const meta = machineMetaById?.[machineId];
+            const status = meta?.status || "RUNNING";
+            const name = machineDisplayName(el, machineMetaById);
+            const compactZoneView = !focusedZone;
+            const tone = HIDE_STATUS_COLOR_VISIBILITY
+              ? neutralTone()
+              : statusTone(status);
+            const compactName = compactMachineLabel(name);
+            const oee = meta ? computeMachineOeePct(meta) : null;
+            return (
+              <button
+                key={String(el.id)}
+                type="button"
+                className={
+                  isAddMode || zoneRearrangeMode || zoneMergeMode
+                    ? "pointer-events-none absolute z-[20] rounded-md"
+                    : machineRearrangeMode &&
+                        String(machineSwapSourceId || "") ===
+                          String(el?.id || "")
+                      ? `absolute z-[20] rounded-md ring-2 ring-indigo-500/95 ${isAddMode ? "pointer-events-none" : ""}`
+                      : isSelected
+                        ? `absolute z-[20] rounded-md ring-2 ring-sky-500/90 ${isAddMode ? "pointer-events-none" : ""}`
+                        : `absolute z-[20] rounded-md ${isAddMode ? "pointer-events-none" : ""}`
+                }
+                style={{
+                  left,
+                  top,
+                  width,
+                  height,
+                  transform: `rotate(${rotation}deg)`,
+                }}
+                onPointerDown={(e) => {
+                  if (isAddMode) return;
+                  e.stopPropagation();
+                  if (
+                    machineRearrangeMode &&
+                    typeof onMachineSwapPick === "function"
+                  ) {
+                    onMachineSwapPick(String(el.id));
+                    return;
+                  }
+                  if (fullScreen) {
+                    onSelectElement?.(String(el.id));
+                    return;
+                  }
+                  if (typeof onOpenMachineDetails === "function" && machineId) {
+                    onOpenMachineDetails(machineId);
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  if (isAddMode) return;
+                  const rect = containerRef.current?.getBoundingClientRect();
+                  if (!rect) return;
+                  setHover({
+                    id: String(el.id),
+                    name,
+                    status,
+                    oee,
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
+                  });
+                }}
+                onMouseMove={(e) => {
+                  if (isAddMode) return;
+                  const rect = containerRef.current?.getBoundingClientRect();
+                  if (!rect) return;
+                  setHover((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          x: e.clientX - rect.left,
+                          y: e.clientY - rect.top,
+                        }
+                      : prev,
+                  );
+                }}
+                onMouseLeave={() => setHover(null)}
+              >
+                <div
+                  className={`relative h-full w-full overflow-hidden rounded-sm border ${tone.border}`}
+                >
+                  {!HIDE_STATUS_COLOR_VISIBILITY ? (
+                    <div
+                      className={`absolute inset-[2%] rounded-md ${tone.glow}`}
+                    />
+                  ) : null}
+                  {!HIDE_STATUS_COLOR_VISIBILITY ? (
+                    <div
+                      className={`absolute inset-x-0 top-0 ${compactZoneView ? "h-0.5" : "h-1"} ${statusTint(status)}`}
+                    />
+                  ) : null}
+                  <img
+                    src={machineImageByStatus()}
+                    alt="Machine"
+                    className={`pointer-events-none absolute inset-0 m-auto object-contain drop-shadow-[0_2px_2px_rgba(0,0,0,0.32)] ${
+                      compactZoneView ? "h-[95%] w-[95%]" : "h-[98%] w-[98%]"
+                    }`}
+                  />
+                  {!HIDE_STATUS_COLOR_VISIBILITY ? (
+                    <div
+                      className={`absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full ${tone.badge}`}
+                    />
+                  ) : null}
+                  {compactZoneView ? (
+                    <div
+                      className={`absolute inset-x-0.5 bottom-0.5 truncate rounded px-0.5 py-[1px] text-center text-[6px] font-semibold leading-tight text-white ${tone.nameBg}`}
+                    >
+                      {compactName}
+                    </div>
+                  ) : (
+                    <div
+                      className={`absolute inset-x-1 bottom-0.5 rounded px-1 py-[1px] text-center text-[8px] font-semibold leading-tight text-white ${tone.nameBg}`}
+                    >
+                      {name}
+                    </div>
+                  )}
+                </div>
+                {showMachineLabels ? null : null}
+              </button>
+            );
+          }
+
+          return null;
+        })}
+
+        {drawState ? (
+          <div
+            className={
+              drawState.type === ELEMENT_TYPES.WALKWAY
+                ? "pointer-events-none absolute rounded-md border border-slate-700 bg-slate-700/35"
+                : drawState.type === ELEMENT_TYPES.FLOOR
+                  ? "pointer-events-none absolute rounded-md border border-slate-500 bg-slate-300/45"
+                  : "pointer-events-none absolute rounded-lg border border-emerald-500 bg-emerald-300/35"
+            }
+            style={{
+              left: `${Math.min(drawState.start.x, drawState.current.x) * 100}%`,
+              top: `${Math.min(drawState.start.y, drawState.current.y) * 100}%`,
+              width: `${Math.abs(drawState.start.x - drawState.current.x) * 100}%`,
+              height: `${Math.abs(drawState.start.y - drawState.current.y) * 100}%`,
+            }}
+          />
+        ) : null}
+
+        {isAddPointTool && hoverNorm ? (
+          <div
+            className="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-500 bg-cyan-300/35"
+            style={{
+              left: `${hoverNorm.x * 100}%`,
+              top: `${hoverNorm.y * 100}%`,
+            }}
+          />
+        ) : null}
+
+        {hover ? (
+          <div
+            className="pointer-events-none absolute z-20 rounded-md border bg-white/95 px-2 py-1 text-[11px] text-slate-700 shadow"
+            style={{ left: hover.x + 12, top: hover.y + 12 }}
+          >
+            <div className="font-semibold text-slate-900">{hover.name}</div>
+            <div>
+              Status: {hover.status} | OEE:{" "}
+              {hover.oee == null ? "-" : `${hover.oee.toFixed(1)}%`}
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {!renderElements.length ? (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="rounded-lg border bg-white/85 px-3 py-2 text-xs text-slate-600">
-            No layout elements yet.
+        {!renderElements.length ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="rounded-lg border bg-white/85 px-3 py-2 text-xs text-slate-600">
+              No layout elements yet.
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
       </div>
     </div>
   );
