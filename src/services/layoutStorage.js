@@ -1,0 +1,191 @@
+const STORAGE_PREFIX = 'factory-ui:dept-layout'
+
+
+function getAuthHeaders() {
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('factory-ui:token') : '';
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+function buildKey({ factoryId, plantId, departmentId }) {
+  const dept = String(departmentId || '').trim()
+  if (!dept) throw new Error('departmentId is required')
+
+  const f = factoryId ? String(factoryId).trim() : ''
+  const p = plantId ? String(plantId).trim() : ''
+
+  // Prefer a scoped key when context is available (avoids collisions).
+  if (f && p) return `${STORAGE_PREFIX}:${f}:${p}:${dept}`
+  return `${STORAGE_PREFIX}:${dept}`
+}
+
+function safeJsonParse(text) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+function normalizeStoredBundle(raw) {
+  // Backward compatible:
+  // - old schema: a layout object {version,elements,...}
+  // - new schema: { current: <layout>, previous: <layout> }
+  if (!raw || typeof raw !== 'object') return { current: null, previous: null }
+
+  const looksLikeLayout = Array.isArray(raw.elements) || typeof raw.version !== 'undefined'
+  if (looksLikeLayout) {
+    return { current: sanitizeDepartmentLayout(raw), previous: null }
+  }
+
+  const current = raw.current ? sanitizeDepartmentLayout(raw.current) : null
+  const previous = raw.previous ? sanitizeDepartmentLayout(raw.previous) : null
+  return { current, previous }
+}
+
+function canUseDevApi() {
+  try {
+    // Treat the API as the primary storage in all modes.
+    return true
+  } catch {
+    return false
+  }
+}
+
+function writeBundleToLocalStorage(ctx, bundle) {
+  if (typeof localStorage === 'undefined') return
+  const key = buildKey(ctx)
+  const safe = {
+    current: bundle?.current ? sanitizeDepartmentLayout(bundle.current) : null,
+    previous: bundle?.previous ? sanitizeDepartmentLayout(bundle.previous) : null,
+  }
+  localStorage.setItem(key, JSON.stringify(safe))
+}
+
+export function sanitizeDepartmentLayout(raw) {
+  if (!raw || typeof raw !== 'object') return null
+
+  const version = Number(raw.version || 1)
+  // IMPORTANT: All elements including floor with modelUrl are preserved
+  // This ensures predefined floors (floor(1x2).glb, etc.) are saved to and loaded from MongoDB
+  const elements = Array.isArray(raw.elements) ? raw.elements.filter(Boolean) : []
+
+  const background = raw.background && typeof raw.background === 'object'
+    ? {
+        type: raw.background.type === 'url' ? 'url' : 'dataUrl',
+        src: String(raw.background.src || '').trim() || '',
+      }
+    : null
+
+  const assets = raw.assets && typeof raw.assets === 'object'
+    ? {
+        machineIcon: raw.assets.machineIcon ? String(raw.assets.machineIcon) : undefined,
+        transporterIcon: raw.assets.transporterIcon ? String(raw.assets.transporterIcon) : undefined,
+      }
+    : {}
+
+  const threeD = raw.threeD && typeof raw.threeD === 'object'
+    ? {
+        floorModelUrl: raw.threeD.floorModelUrl ? String(raw.threeD.floorModelUrl) : undefined,
+        floorModelScale: Number.isFinite(Number(raw.threeD.floorModelScale))
+          ? Math.max(0.01, Math.min(50, Number(raw.threeD.floorModelScale)))
+          : undefined,
+        floorModelAutoRotate: !!raw.threeD.floorModelAutoRotate,
+      }
+    : null
+
+  return {
+    version,
+    background: background?.src ? background : null,
+    assets,
+    threeD,
+    elements, // Preserved with all properties including modelUrl for floor elements
+    updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
+  }
+}
+
+export function getDepartmentCustomLayout(ctx) {
+  if (typeof localStorage === 'undefined') return null
+  const key = buildKey(ctx)
+  const raw = safeJsonParse(localStorage.getItem(key))
+  return normalizeStoredBundle(raw).current
+}
+
+export function getDepartmentCustomLayoutVersions(ctx) {
+  if (typeof localStorage === 'undefined') return { current: null, previous: null }
+  const key = buildKey(ctx)
+  const raw = safeJsonParse(localStorage.getItem(key))
+  return normalizeStoredBundle(raw)
+}
+
+export async function fetchDepartmentCustomLayoutVersions(ctx) {
+  if (!canUseDevApi()) return getDepartmentCustomLayoutVersions(ctx);
+  try {
+    const url = new URL('/api/layouts', window.location.origin);
+    url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
+    url.searchParams.set('plantId', String(ctx?.plantId || ''));
+    url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json', ...getAuthHeaders() } });
+    if (res.ok) {
+      const json = await res.json();
+      const bundle = normalizeStoredBundle(json);
+      return bundle;
+    }
+  } catch {
+    // ignore and fall back
+  }
+  return getDepartmentCustomLayoutVersions(ctx);
+}
+
+export function saveDepartmentCustomLayout(ctx, layout) {
+  const nextCurrent = sanitizeDepartmentLayout({
+    ...layout,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!canUseDevApi()) {
+    // console.warn('[layoutStorage] API not available, skipping save');
+    return;
+  }
+  try {
+    const url = new URL('/api/layouts', window.location.origin);
+    url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
+    url.searchParams.set('plantId', String(ctx?.plantId || ''));
+    url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
+    // console.log('[layoutStorage] Saving layout to MongoDB:', { 
+    //   url: url.toString(), 
+    //   context: ctx,
+    //   elements: nextCurrent?.elements?.length 
+    //  });
+    void fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ layout: nextCurrent }),
+    })
+      .then(res => {
+        if (res.ok) {
+          // console.log('[layoutStorage] ✅ Layout saved successfully to MongoDB');
+          return res.json();
+        } else {
+          // console.error('[layoutStorage] ❌ Failed to save layout:', res.status, res.statusText);
+          return res.json().then(err => console.error('[layoutStorage] Error details:', err));
+        }
+      })
+      .catch(err => {
+        console.error('[layoutStorage] ❌ Network error saving layout:', err);
+      });
+  } catch (err) {
+    console.error('[layoutStorage] ❌ Exception saving layout:', err);
+  }
+}
+
+export function deleteDepartmentCustomLayout(ctx) {
+  if (!canUseDevApi()) return;
+  try {
+    const url = new URL('/api/layouts', window.location.origin);
+    url.searchParams.set('factoryId', String(ctx?.factoryId || ''));
+    url.searchParams.set('plantId', String(ctx?.plantId || ''));
+    url.searchParams.set('departmentId', String(ctx?.departmentId || ''));
+    void fetch(url.toString(), { method: 'DELETE', headers: getAuthHeaders() }).catch(() => {});
+  } catch {
+    // ignore
+  }
+}
