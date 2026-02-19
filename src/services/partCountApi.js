@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-const PART_COUNT_API_URL = import.meta.env.VITE_PART_COUNT_API_URL || process.env.PART_COUNT_API_URL;
-const PART_COUNT_API_KEY = import.meta.env.VITE_PART_COUNT_API_KEY || process.env.PART_COUNT_API_KEY;
+const PART_COUNT_API_URL = import.meta.env.VITE_PART_COUNT_API_URL;
+const PART_COUNT_API_KEY = import.meta.env.VITE_PART_COUNT_API_KEY;
 
 /**
  * Fetch hourly part count data for a specific machine

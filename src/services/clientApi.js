@@ -1,10 +1,10 @@
 import axios from 'axios'
 
 // Client API Configuration
-const CLIENT_API_BASE_URL = import.meta.env.VITE_CLIENT_API_BASE_URL || process.env.CLIENT_API_BASE_URL;
-const MACHINE_API_BASE_URL = import.meta.env.VITE_MACHINE_API_BASE_URL || process.env.MACHINE_API_BASE_URL;
-const CLIENT_API_TOKEN = import.meta.env.VITE_CLIENT_API_TOKEN || process.env.CLIENT_API_TOKEN;
-const MACHINE_API_KEY = import.meta.env.VITE_MACHINE_API_KEY || process.env.MACHINE_API_KEY;
+const CLIENT_API_BASE_URL = import.meta.env.VITE_CLIENT_API_BASE_URL;
+const MACHINE_API_BASE_URL = import.meta.env.VITE_MACHINE_API_BASE_URL;
+const CLIENT_API_TOKEN = import.meta.env.VITE_CLIENT_API_TOKEN;
+const MACHINE_API_KEY = import.meta.env.VITE_MACHINE_API_KEY;
 
 /**
  * Fetch all customers from client API
