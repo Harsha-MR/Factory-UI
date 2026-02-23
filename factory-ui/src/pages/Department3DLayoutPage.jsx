@@ -2272,7 +2272,8 @@ export default function Department3DLayoutPage() {
           <div className="flex flex-wrap items-center gap-2">
             {isFullscreen ? (
               // Fullscreen mode: Reset, Save to DB, Current, Previous, Exit
-              <>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   className={neutralBtnClass}
@@ -2451,20 +2452,19 @@ export default function Department3DLayoutPage() {
                     </button>
                   </div>
                 ) : null}
-                <div className="flex flex-col items-end gap-1">
-                  <button
-                    type="button"
-                    className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-800"
-                    onClick={toggleFullscreen}
-                    title="Exit fullscreen"
-                  >
-                    Exit
-                  </button>
-                  <div className="rounded-md border border-slate-300 bg-white/90 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm">
-                    Floor: {activeFloorModeLabel}
-                  </div>
+                <button
+                  type="button"
+                  className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-800"
+                  onClick={toggleFullscreen}
+                  title="Exit fullscreen"
+                >
+                  Exit
+                </button>
                 </div>
-              </>
+                <div className="rounded-md border border-slate-300 bg-white/90 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm">
+                  Floor: {activeFloorModeLabel}
+                </div>
+              </div>
             ) : (
               // Non-fullscreen mode: Back to Dashboard, Current, Previous, Full Screen
               <>

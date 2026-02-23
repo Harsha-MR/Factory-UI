@@ -27,7 +27,6 @@ function statusTint(status) {
   // if (s === "OFF" || s === "OFFLINE") return "bg-gray-500/42"; // TEMP commented
   return "bg-green-500/40";
 }
-
 function statusTone(status) {
   const s = String(status || "").toUpperCase();
   if (s === "DOWN") {
