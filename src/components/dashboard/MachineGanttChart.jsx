@@ -333,6 +333,7 @@ export default function MachineGanttChart({ overallStatus, shiftList }) {
           <path d="M16 7v10" />
         </svg>
         <span>Machine Status Timeline</span>
+        
       </div>
 
       <div className="p-4" ref={containerRef}>
