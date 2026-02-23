@@ -1100,14 +1100,14 @@ export default function Department3DLayoutPage() {
                     Previous
                   </button>
                 </div> */}
-                <button
+                {/* <button
                   type="button"
                   className={neutralBtnClass}
                   onClick={toggleFullscreen}
                   title="Enter fullscreen"
                 >
                   Customize Layout
-                </button>
+                </button> */}
                 <button
                   type="button"
                   className={neutralBtnClass}

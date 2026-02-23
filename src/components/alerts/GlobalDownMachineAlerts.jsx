@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getMachinesSnapshot } from '../../services/mockApi'
+import { getMachinesSnapshot, getFactories } from '../../services/mockApi'
 
 const SNOOZE_MS = 60_000
 const POLL_MS = 5_000
@@ -15,6 +15,23 @@ function formatMsg(item) {
   return `${factoryLabel} • ${plantLabel} • ${deptLabel} • ${machineLabel} is DOWN`
 }
 
+/**
+ * Get the current customer ID
+ * For demo: uses the first factory ID as customer ID
+ * In production: should get from user's auth context
+ */
+async function getCurrentCustomerId() {
+  try {
+    const factories = await getFactories()
+    // Return the first factory ID as the customer ID
+    // In a real multi-tenant system, this would come from the logged-in user's profile
+    return factories?.[0]?.id || null
+  } catch (error) {
+    console.error('Failed to get customer ID:', error)
+    return null
+  }
+}
+
 function sameMachine(a, b) {
   return String(a?.machine?.id || '') === String(b?.machine?.id || '')
 }
@@ -24,6 +41,7 @@ export default function GlobalDownMachineAlerts() {
   const downItemsRef = useRef([])
   const [index, setIndex] = useState(0)
   const [animate, setAnimate] = useState(false)
+  const [currentCustomerId, setCurrentCustomerId] = useState(null)
 
   const [nowMs, setNowMs] = useState(0)
 
@@ -32,6 +50,25 @@ export default function GlobalDownMachineAlerts() {
   useEffect(() => {
     downItemsRef.current = downItems
   }, [downItems])
+
+  // Get current customer ID on mount
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCustomerId() {
+      const customerId = await getCurrentCustomerId()
+      if (!cancelled) {
+        setCurrentCustomerId(customerId)
+        console.log('🏭 GlobalDownMachineAlerts: Current customer ID:', customerId)
+      }
+    }
+
+    loadCustomerId()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Clock tick so snoozed alerts can reappear without relying on impure calls in render.
   useEffect(() => {
@@ -73,6 +110,9 @@ export default function GlobalDownMachineAlerts() {
   }, [])
 
   useEffect(() => {
+    // Don't poll until we have a customer ID
+    if (!currentCustomerId) return
+
     let cancelled = false
 
     async function tick() {
@@ -80,7 +120,12 @@ export default function GlobalDownMachineAlerts() {
         const snapshot = await getMachinesSnapshot()
         if (cancelled) return
 
-        const nextDown = snapshot.filter((x) => String(x?.machine?.status || '').toUpperCase() === 'DOWN')
+        // Filter by current customer ID and DOWN status
+        const nextDown = snapshot.filter((x) => {
+          const factoryId = String(x?.factory?.id || '')
+          const status = String(x?.machine?.status || '').toUpperCase()
+          return factoryId === currentCustomerId && status === 'DOWN'
+        })
 
         // Keep list stable-ish (so ticker doesn't jump around):
         // 1) preserve previous ordering where possible
@@ -109,7 +154,7 @@ export default function GlobalDownMachineAlerts() {
       cancelled = true
       window.clearInterval(id)
     }
-  }, [])
+  }, [currentCustomerId])
 
   // Drive carousel index.
   useEffect(() => {
