@@ -2,9 +2,7 @@ import { Outlet } from "react-router-dom";
 import Header from "./header.jsx";
 import Footer from "./footer.jsx";
 import GlobalDownMachineAlerts from "./alerts/GlobalDownMachineAlerts.jsx";
-import { useLocation } from "react-router-dom";
-
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export default function AppShell() {
   const navigate = useNavigate();
@@ -26,8 +24,6 @@ export default function AppShell() {
     <div className="flex min-h-screen flex-col bg-slate-950 text-gray-900">
       <GlobalDownMachineAlerts />
       {!hideHeader && <Header />}
-
-      {/* REMOVE TOP/BOTTOM PADDING HERE */}
       <main className="flex-1 pt-0 pb-0">
         <div className="app-container">
           <Outlet />

@@ -283,7 +283,7 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
   }, [machine?.deviceId, machine?.deviceName, machine?.id, context?.customerId, context?.customer?.id])
 
   // Auto-refresh all data every 60 seconds to keep modal showing live data
-  useEffect(() => {
+   useEffect(() => {
     const deviceID = machine?.deviceId || machine?.deviceName || machine?.id
     const custID = context?.customerId || context?.customer?.id || 'GPBUM'
     
@@ -419,12 +419,12 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <button
+      { /* <button
         type="button"
         className="absolute inset-0 bg-black/40 "
         aria-label="Close"
         onClick={onClose}
-      />
+      /> */}
 
       <div
         role="dialog"
@@ -519,8 +519,8 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
                 <div className="p-3">
                   <div className="rounded-lg border bg-slate-50 px-3 py-3 text-sm text-slate-700">
                     <div>
-                      <span className="mt-0.5 text-slate font-semibold">Status Since : </span>
-                      <span className="mt-0.5">{updatedAtText}</span>
+                      <span className="mt-0.5 text-slate font-semibold">Current Shift: </span>
+                      {/* <span className="mt-0.5">{updatedAtText}</span> */}
                     </div>
                    
 
