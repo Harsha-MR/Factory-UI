@@ -58,6 +58,11 @@ export function isAuthenticated() {
     return false;
   }
   
+  // Demo mode: accept demo tokens without expiration check
+  if (token.startsWith('demo.')) {
+    return true;
+  }
+  
   // Check if token is expired
   if (isTokenExpired(token)) {
     clearAuth();

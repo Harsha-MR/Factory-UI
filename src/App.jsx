@@ -22,8 +22,12 @@ export default function App() {
   const isAuthRoute = ['/login', '/register'].includes(location.pathname);
 
   // Auto-set demo user on mount if not on auth routes
+  // Create a token that won't expire for 100 years (demo purpose)
   if (!isAuthRoute && !localStorage.getItem('factory-ui:token')) {
-    localStorage.setItem('factory-ui:token', 'demo-token');
+    const futureExp = Math.floor(Date.now() / 1000) + (100 * 365 * 24 * 60 * 60); // 100 years from now
+    const demoPayload = { exp: futureExp, userId: 'demo', email: 'demo@company.com' };
+    const demoToken = 'demo.' + btoa(JSON.stringify(demoPayload)) + '.demo';
+    localStorage.setItem('factory-ui:token', demoToken);
     localStorage.setItem('user', JSON.stringify({ id: 'demo', name: 'Demo User', email: 'demo@company.com', role: 'User' }));
   }
 
