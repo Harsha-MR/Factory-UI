@@ -429,7 +429,7 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
       <div
         role="dialog"
         aria-modal="true"
-        className="relative mx-auto flex h-[calc(100vh-2rem)] w-[calc(100%-1.5rem)] max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl lg:h-[98vh]"
+        className="relative mx-auto flex h-[calc(100vh-2rem)] w-[calc(100%-1.5rem)] max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl lg:h-[96vh]"
       >
         <div className="flex items-start justify-between gap-4 border-b p-4">
           <div>
