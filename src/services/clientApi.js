@@ -333,6 +333,72 @@ export async function getMachineById(customerId, deviceId) {
   }
 }
 /**
+ * Fetch live machine card data for all machines in a department
+ * @param {string} custId - Customer ID
+ * @param {Array} machines - Array of machine objects with deviceId
+ * @returns {Promise<Array>} Array of machine data with live status and metrics
+ */
+export async function fetchDepartmentMachinesLiveData(custId, machines) {
+  if (!machines || !Array.isArray(machines) || machines.length === 0) {
+    return []
+  }
+
+  try {
+    console.log(`🔄 Fetching live data for ${machines.length} machines in department (custId: ${custId})`)
+    
+    // Fetch machine card data for all machines in parallel
+    const machinePromises = machines.map(async (machine) => {
+      try {
+        const deviceId = machine.deviceId || machine.id
+        const response = await axios.post(`${MACHINE_API_BASE_URL}/machineCard`, {
+          custID: custId,
+          deviceID: deviceId
+        }, {
+          headers: {
+            'x-functions-key': MACHINE_API_KEY,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        const metrics = response.data
+        
+        // Return updated machine object with live data
+        return {
+          ...machine,
+          id: machine.id,
+          deviceId: deviceId,
+          status: mapMachineStatus(metrics.status),
+          efficiency: metrics.oee || 0,
+          oee: metrics.oee || 0,
+          availability: metrics.availability || 0,
+          performance: metrics.performance || 0,
+          quality: metrics.quality || 0,
+          partCount: metrics.Ai_partcount || 0,
+          totalEnergy: metrics.total_energy || 0,
+          powerUnitCost: metrics.powerUnitCost || 0,
+          updatedAt: new Date().toISOString(),
+          // Keep original properties
+          name: machine.name || metrics.deviceName,
+          deviceName: machine.deviceName || metrics.deviceName,
+        }
+      } catch (error) {
+        console.error(`❌ Error fetching data for machine ${machine.id}:`, error)
+        // Return original machine data if API call fails
+        return machine
+      }
+    })
+    
+    const results = await Promise.all(machinePromises)
+    console.log(`✅ Successfully fetched live data for ${results.length} machines`)
+    return results
+  } catch (error) {
+    console.error('❌ Error fetching department machines live data:', error)
+    // Return original machines if batch fetch fails
+    return machines
+  }
+}
+
+/**
  * Fetch hourly OEE data for a department
  * @param {string} custId - Customer ID
  * @param {string} date - Date in YYYY-MM-DD format
