@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef2f7"/>
+      <stop offset="1" stop-color="#d9e1eb"/>
+    </linearGradient>
+    <linearGradient id="roof" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="door" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c7d2e2"/>
+      <stop offset="1" stop-color="#94a3b8"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="14" y="18" width="68" height="62" rx="10" fill="url(#body)" stroke="#475569" stroke-width="3"/>
+  <rect x="14" y="18" width="68" height="13" rx="10" fill="url(#roof)"/>
+  <rect x="28" y="35" width="40" height="30" rx="4" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+  <rect x="32" y="39" width="16" height="22" rx="2" fill="url(#door)" stroke="#64748b" stroke-width="1.5"/>
+  <rect x="51" y="39" width="13" height="9" rx="1.5" fill="#1f2937"/>
+  <circle cx="57.5" cy="56" r="4" fill="#111827"/>
+  <rect x="22" y="69" width="52" height="5" rx="2.5" fill="#94a3b8"/>
+  <rect x="10" y="79" width="10" height="5" rx="1" fill="#64748b"/>
+  <rect x="76" y="79" width="10" height="5" rx="1" fill="#64748b"/>
+</svg>
