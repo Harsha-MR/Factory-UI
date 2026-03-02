@@ -1,0 +1,5 @@
+{
+  "css.validate": false,
+  "css.lint.unknownAtRules": "ignore",
+  "editor.aiStats.enabled": false
+}

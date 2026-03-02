@@ -3,6 +3,7 @@ import { clampPct, formatRelativeTime, formatTimestamp } from './utils'
 import HourlyPartCountChart from './HourlyPartCountChart'
 import StatusDurationChart from './StatusDurationChart'
 import MachineGanttChart from './MachineGanttChart'
+import DowntimeParetoChart from './DowntimeParetoChart'
 import { fetchHourlyPartCount, getLastNDates } from '../../services/partCountApi'
 import { fetchMachineDetails } from '../../services/clientApi'
 
@@ -63,6 +64,165 @@ function formatDuration(seconds) {
   return `${h}h ${String(m).padStart(2, '0')}m`
 }
 
+function toMinutes(raw) {
+  if (raw == null) return 0
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0
+  const value = String(raw).trim()
+  if (!value) return 0
+  if (/^\d+(\.\d+)?$/.test(value)) return Number(value)
+  const hhmmss = value.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/)
+  if (hhmmss) {
+    const h = Number(hhmmss[1] || 0)
+    const m = Number(hhmmss[2] || 0)
+    const s = Number(hhmmss[3] || 0)
+    return h * 60 + m + s / 60
+  }
+  // Supports strings like "300h 00m", "2h 30m", "45m", "30s"
+  const hMatch = value.match(/(\d+(?:\.\d+)?)\s*h/i)
+  const mMatch = value.match(/(\d+(?:\.\d+)?)\s*m/i)
+  const sMatch = value.match(/(\d+(?:\.\d+)?)\s*s/i)
+  if (hMatch || mMatch || sMatch) {
+    const h = Number(hMatch?.[1] || 0)
+    const m = Number(mMatch?.[1] || 0)
+    const s = Number(sMatch?.[1] || 0)
+    return h * 60 + m + s / 60
+  }
+  return 0
+}
+
+function toSeconds(raw, numericUnit = 'seconds') {
+  if (raw == null) return NaN
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    if (numericUnit === 'hours') return raw * 3600
+    if (numericUnit === 'minutes') return raw * 60
+    return raw
+  }
+  const value = String(raw).trim()
+  if (!value) return NaN
+  if (/^\d+(\.\d+)?$/.test(value)) {
+    const n = Number(value)
+    if (numericUnit === 'hours') return n * 3600
+    if (numericUnit === 'minutes') return n * 60
+    return n
+  }
+  const hhmmss = value.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/)
+  if (hhmmss) {
+    const h = Number(hhmmss[1] || 0)
+    const m = Number(hhmmss[2] || 0)
+    const s = Number(hhmmss[3] || 0)
+    return h * 3600 + m * 60 + s
+  }
+  return toMinutes(value) * 60
+}
+
+function extractDowntimeParetoData(source) {
+  if (!source || typeof source !== 'object') return []
+  const candidateKeys = [
+    'downtimePareto',
+    'downtime_pareto',
+    'downTimePareto',
+    'downtimeReasons',
+    'downTimeReasons',
+    'reasonWiseDowntime',
+    'reason_wise_downtime',
+    'downtimeReasonWise',
+    'downtime_reason_wise',
+    'downtime_reason',
+    'down_reasons',
+    'breakdownReasons',
+    'downReasons',
+    'lossReasons',
+    'pareto',
+    'paretoData',
+    'pareto_data',
+  ]
+
+  let raw = null
+  for (const key of candidateKeys) {
+    if (Array.isArray(source[key]) || (source[key] && typeof source[key] === 'object')) {
+      raw = source[key]
+      break
+    }
+  }
+
+  // Also check one common nested location from some APIs.
+  if (!raw && source.data && typeof source.data === 'object') {
+    for (const key of candidateKeys) {
+      if (Array.isArray(source.data[key]) || (source.data[key] && typeof source.data[key] === 'object')) {
+        raw = source.data[key]
+        break
+      }
+    }
+  }
+
+  // IMPORTANT: Do NOT auto-fallback to any random array.
+  // That caused unrelated charts (same output across different machines).
+  if (!raw) return []
+
+  // Some APIs return { reasonA: minutes, reasonB: minutes } objects.
+  if (!Array.isArray(raw) && typeof raw === 'object') {
+    raw = Object.entries(raw).map(([reason, value]) => ({ reason, minutes: value }))
+  }
+  if (!Array.isArray(raw)) return []
+
+  const mapped = raw
+    .map((item) => {
+      const reason =
+        item?.reason ||
+        item?.reasonName ||
+        item?.name ||
+        item?.label ||
+        item?.cause ||
+        item?.downtimeReason ||
+        item?.reason_code ||
+        item?.reasonCode ||
+        'Unknown'
+
+      const rawDuration =
+        item?.minutes ??
+        item?.duration ??
+        item?.downtime ??
+        item?.downTime ??
+        item?.value ??
+        item?.total ??
+        item?.time ??
+        (item?.seconds != null ? Number(item.seconds) / 60 : null)
+      const minutes = toMinutes(rawDuration)
+
+      return {
+        reason: String(reason),
+        minutes: Math.max(0, Number(minutes || 0)),
+      }
+    })
+    .filter((x) => x.minutes > 0)
+
+  if (mapped.length === 0) return []
+
+  // Merge duplicate reasons (including repeated "Unknown").
+  const merged = new Map()
+  for (const row of mapped) {
+    const key = String(row.reason || 'Unknown').trim() || 'Unknown'
+    const prev = merged.get(key) || 0
+    merged.set(key, prev + row.minutes)
+  }
+
+  const normalized = Array.from(merged.entries()).map(([reason, minutes]) => ({
+    reason,
+    minutes,
+  }))
+
+  normalized.sort((a, b) => b.minutes - a.minutes)
+  const total = normalized.reduce((s, x) => s + x.minutes, 0) || 1
+  let running = 0
+  return normalized.map((x) => {
+    running += x.minutes
+    return {
+      ...x,
+      cumulativePct: (running / total) * 100,
+    }
+  })
+}
+
 function statusBadge(status) {
   if (status === 'DOWN') return { cls: 'bg-red-600 text-white', label: 'DOWN' }
   if (status === 'IDLE') return { cls: 'bg-yellow-500 text-white', label: 'IDLE' }
@@ -113,7 +273,14 @@ function DonutGauge({ valuePct }) {
   )
 }
 
-export default function MachineDetailsModal({ machine, context, fetchedAt, onClose }) {
+export default function MachineDetailsModal({
+  machine,
+  context,
+  fetchedAt,
+  onClose,
+  machineOptions = [],
+  onSelectMachine,
+}) {
   const [hourlyData, setHourlyData] = useState(null)
   const [loadingHourlyData, setLoadingHourlyData] = useState(false)
   const [fullMachineData, setFullMachineData] = useState(null)
@@ -121,6 +288,7 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
   const [ganttData, setGanttData] = useState(null)
   const [loadingGanttData, setLoadingGanttData] = useState(false)
   const [lastRefreshTime, setLastRefreshTime] = useState(new Date().toISOString())
+  const [showDowntimePareto, setShowDowntimePareto] = useState(false)
   const [, setTick] = useState(0) // Force re-render for live time updates
 
   // Debug: Log machine and context objects
@@ -343,6 +511,7 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
   const { cls: statusCls, label: statusLabel } = statusBadge(status)
 
   const time = machine?.timeMetrics || {}
+  const liveTime = fullMachineData?.timeMetrics || {}
   const prod = machine?.productionMetrics || {}
   const shift = machine?.shiftInfo || {}
 
@@ -415,10 +584,52 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
   }
 
 
+  const rawDowntimeParetoData = extractDowntimeParetoData(fullMachineData || {})
+
+  // Prefer live API downtime from fullMachineData, then fallback to route machine data.
+  const liveBreakdownSec = toSeconds(liveTime?.breakdownTime, 'seconds')
+  const liveDownSec = toSeconds(liveTime?.downTime, 'seconds')
+  const liveOffSec = toSeconds(fullMachineData?.total_off, 'hours')
+  const routeBreakdownSec = toSeconds(time?.breakdownTime, 'seconds')
+  const routeDownSec = toSeconds(time?.downTime, 'seconds')
+  const chartBreakdownMinutes = Array.isArray(ganttData?.chart_data)
+    ? ganttData.chart_data
+        .filter((x) => {
+          const s = String(x?.status || '').toLowerCase()
+          return s === 'breakdown' || s === 'down' || s === 'downtime'
+        })
+        .reduce((sum, x) => sum + toMinutes(x?.duration), 0)
+    : 0
+  const chartBreakdownSec = chartBreakdownMinutes * 60
+
+  const downtimeSeconds = Number.isFinite(liveBreakdownSec) && liveBreakdownSec >= 0
+    ? liveBreakdownSec
+    : Number.isFinite(liveDownSec) && liveDownSec >= 0
+      ? liveDownSec
+      : Number.isFinite(liveOffSec) && liveOffSec >= 0
+        ? liveOffSec
+        : Number.isFinite(chartBreakdownSec) && chartBreakdownSec >= 0
+          ? chartBreakdownSec
+        : Number.isFinite(routeBreakdownSec) && routeBreakdownSec >= 0
+          ? routeBreakdownSec
+          : Number.isFinite(routeDownSec) && routeDownSec >= 0
+            ? routeDownSec
+            : 0
+  const hasDowntime = downtimeSeconds > 0
+  const downtimeParetoData =
+    hasDowntime && rawDowntimeParetoData.length === 0
+      ? [{ reason: 'Unclassified', minutes: downtimeSeconds / 60, cumulativePct: 100 }]
+      : rawDowntimeParetoData
+  const downtimeLabel = `Downtime ${formatDuration(downtimeSeconds)}`
+
+  useEffect(() => {
+    if (!hasDowntime) setShowDowntimePareto(false)
+  }, [hasDowntime])
+
   if (!machine) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
       { /* <button
         type="button"
         className="absolute inset-0 bg-black/40 "
@@ -429,7 +640,7 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
       <div
         role="dialog"
         aria-modal="true"
-        className="relative mx-auto flex h-[calc(100vh-2rem)] w-[calc(100%-1.5rem)] max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl lg:h-[96vh]"
+        className="pointer-events-auto relative mx-auto flex h-[calc(100vh-2rem)] w-[calc(100%-1.5rem)] max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl lg:h-[96vh]"
       >
         <div className="flex items-start justify-between gap-4 border-b p-4">
           <div>
@@ -447,6 +658,22 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
           </div>
 
           <div className="flex items-center gap-2">
+            {Array.isArray(machineOptions) && machineOptions.length > 1 && typeof onSelectMachine === 'function' ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-600 whitespace-nowrap">Machine</span>
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
+                  value={String(machine?.id || '')}
+                  onChange={(e) => onSelectMachine?.(e.target.value)}
+                >
+                  {machineOptions.map((m) => (
+                    <option key={String(m.id)} value={String(m.id)}>
+                      {m.name || m.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             {/* <button
               type="button"
               className="rounded-md border bg-white p-2 text-slate-500 hover:bg-slate-50"
@@ -545,6 +772,15 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
                         </span>
                       </div>
                     )}
+                    {hasDowntime ? (
+                      <div className="mt-3 inline-flex items-center gap-2 rounded bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 8v4l3 3" />
+                          <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        <span>Downtime (Live): {formatDuration(downtimeSeconds)}</span>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -599,7 +835,14 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
               <MachineGanttChart 
                 overallStatus={ganttData.overall_status} 
                 shiftList={shiftList}
+                onDowntimeClick={hasDowntime ? () => setShowDowntimePareto((v) => !v) : undefined}
+                downtimeLabel={hasDowntime ? downtimeLabel : ''}
               />
+              {hasDowntime && showDowntimePareto ? (
+                <div className="mt-3">
+                  <DowntimeParetoChart data={downtimeParetoData} />
+                </div>
+              ) : null}
             </div>
           ) : loadingGanttData ? (
             <div className="mb-3 rounded-xl border bg-white p-8">

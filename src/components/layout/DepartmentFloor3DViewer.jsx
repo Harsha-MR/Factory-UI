@@ -21,10 +21,12 @@ import {
   useGLTF,
 } from "@react-three/drei";
 import {
+  BackSide,
   Box3,
   BoxGeometry,
   Color,
   Frustum,
+  MeshBasicMaterial,
   Matrix4,
   MOUSE,
   Plane,
@@ -144,17 +146,18 @@ function computeMachineOeePct(machine) {
 }
 
 function machineModelUrlForStatus(status, fullScreen = false) {
-  // Use generic machine.glb in fullscreen for consistent appearance
-  if (fullScreen) return "/models/machine.glb";
+  // Previous behavior (kept for quick rollback):
+  // if (fullScreen) return "/models/machine.glb";
+  // const s = String(status || "").toUpperCase();
+  // if (s === "DOWN") return "/models/machine-down.glb";
+  // if (s === "IDLE") return "/models/machine-idle.glb";
+  // if (s === "MAINTENANCE") return "/models/machine-maintenence.glb";
+  // if (s === "OFFLINE") return "/models/machine-off.glb";
+  // if (s === "RUNNING") return "/models/machine-running.glb";
+  // return "/models/machine.glb";
 
-  // Use status-based models in preview mode for visual status indication
-  const s = String(status || "").toUpperCase();
-  if (s === "DOWN") return "/models/machine-down.glb";
-  if (s === "IDLE") return "/models/machine-idle.glb";
-  if (s === "MAINTENANCE") return "/models/machine-maintenence.glb";
-  if (s === "OFFLINE") return "/models/machine-off.glb";
-  if (s === "RUNNING") return "/models/machine-running.glb";
-  // Default to RUNNING for unknown/other states.
+  // Keep machine body realistic/neutral in all modes.
+  // Status color is shown only via the top indicator accent.
   return "/models/machine.glb";
 }
 
@@ -350,7 +353,12 @@ function CameraTracker({ onCameraMove }) {
   return null;
 }
 
-const PlacedGLB = memo(function PlacedGLB({ url, fitW = 0, fitD = 0 }) {
+const PlacedGLB = memo(function PlacedGLB({
+  url,
+  fitW = 0,
+  fitD = 0,
+  statusBorderColor = null,
+}) {
   const { scene } = useGLTF(url);
 
   const measured = useMemo(() => scene.clone(true), [scene]);
@@ -389,12 +397,188 @@ const PlacedGLB = memo(function PlacedGLB({ url, fitW = 0, fitD = 0 }) {
     }
   }, [measured, fitW, fitD]);
 
-  // No tint color - use status-specific models directly for better performance
+  // Base machine render (neutral body)
   const cloned = useMemo(() => scene.clone(true), [scene]);
+  const silhouetteOverlay = useMemo(() => {
+    if (!statusBorderColor) return null;
+
+    const overlay = scene.clone(true);
+    const edgeColor = new Color(statusBorderColor);
+    const meshCandidates = [];
+    const modelBox = new Box3().setFromObject(overlay);
+    const modelSize = new Vector3();
+    modelBox.getSize(modelSize);
+    const topYThreshold = modelBox.max.y - Math.max(0.000001, modelSize.y) * 0.32;
+
+    overlay.traverse((child) => {
+      if (!child?.isMesh || !child.geometry) return;
+      const bbox = new Box3().setFromObject(child);
+      const size = new Vector3();
+      bbox.getSize(size);
+      const volume = Math.max(0, size.x * size.y * size.z);
+      const centerY = (bbox.min.y + bbox.max.y) * 0.5;
+      meshCandidates.push({ child, volume, centerY });
+    });
+
+    const maxVolume = meshCandidates.reduce(
+      (max, item) => (item.volume > max ? item.volume : max),
+      0,
+    );
+    const minOuterVolume = maxVolume * 0.15;
+
+    meshCandidates.forEach(({ child, volume, centerY }) => {
+      // Keep top machine parts untouched (testing requirement).
+      const isTopRegion = centerY >= topYThreshold;
+      const isOuterShell = volume >= minOuterVolume && !isTopRegion;
+      if (!isOuterShell) {
+        if (Array.isArray(child.material)) {
+          child.material = child.material.map((m) => {
+            if (!m) return m;
+            const mat = m.clone ? m.clone() : m;
+            mat.transparent = true;
+            mat.opacity = 0;
+            mat.depthWrite = false;
+            mat.colorWrite = false;
+            return mat;
+          });
+        } else if (child.material) {
+          const mat = child.material.clone ? child.material.clone() : child.material;
+          mat.transparent = true;
+          mat.opacity = 0;
+          mat.depthWrite = false;
+          mat.colorWrite = false;
+          child.material = mat;
+        }
+        return;
+      }
+
+      const outlineMaterial = new MeshBasicMaterial({
+        color: edgeColor,
+        side: BackSide,
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false,
+        toneMapped: false,
+      });
+      child.material = Array.isArray(child.material)
+        ? child.material.map(() => outlineMaterial.clone())
+        : outlineMaterial;
+    });
+
+    return overlay;
+  }, [scene, statusBorderColor]);
+
+  const borderOverlay = useMemo(() => {
+    if (!statusBorderColor) return null;
+    // Testing-only: disable top-part status fill
+    return null;
+    const overlay = scene.clone(true);
+    const edgeColor = new Color(statusBorderColor);
+    const meshCandidates = [];
+    const modelBox = new Box3().setFromObject(overlay);
+    const modelSize = new Vector3();
+    modelBox.getSize(modelSize);
+    const modelTopY = modelBox.max.y;
+    const modelHeight = Math.max(0.000001, modelSize.y);
+
+    overlay.traverse((child) => {
+      if (!child?.isMesh || !child.geometry) return;
+      const bbox = new Box3().setFromObject(child);
+      const size = new Vector3();
+      bbox.getSize(size);
+      const volume = Math.max(0, size.x * size.y * size.z);
+      const centerY = (bbox.min.y + bbox.max.y) * 0.5;
+
+      meshCandidates.push({ child, volume, centerY });
+    });
+
+    const maxVolume = meshCandidates.reduce(
+      (max, item) => (item.volume > max ? item.volume : max),
+      0,
+    );
+    const minOuterVolume = maxVolume * 0.15;
+    const topYThreshold = modelTopY - modelHeight * 0.35;
+    const topDarkCandidates = meshCandidates.filter(
+      ({ centerY }) => centerY >= topYThreshold,
+    );
+    const selectedCandidates =
+      topDarkCandidates.length > 0
+        ? topDarkCandidates
+        : meshCandidates.filter(({ volume }) => volume >= minOuterVolume);
+
+    // Hide the full overlay first, then reveal only the chosen accent area.
+    meshCandidates.forEach(({ child }) => {
+      if (Array.isArray(child.material)) {
+        child.material = child.material.map((m) => {
+          if (!m) return m;
+          const mat = m.clone ? m.clone() : m;
+          mat.transparent = true;
+          mat.opacity = 0;
+          mat.depthWrite = false;
+          mat.colorWrite = false;
+          return mat;
+        });
+      } else if (child.material) {
+        const mat = child.material.clone ? child.material.clone() : child.material;
+        mat.transparent = true;
+        mat.opacity = 0;
+        mat.depthWrite = false;
+        mat.colorWrite = false;
+        child.material = mat;
+      }
+    });
+
+    // Fill the selected top-black part with status color.
+    selectedCandidates.forEach(({ child }) => {
+      if (Array.isArray(child.material)) {
+        child.material = child.material.map((m) => {
+          if (!m) return m;
+          const mat = m.clone ? m.clone() : m;
+          mat.transparent = false;
+          mat.opacity = 1;
+          mat.depthWrite = true;
+          mat.colorWrite = true;
+          if (mat.map) mat.map = null;
+          if (mat.emissiveMap) mat.emissiveMap = null;
+          if (mat.color) mat.color.copy(edgeColor);
+          if (mat.emissive) {
+            mat.emissive.copy(edgeColor);
+            mat.emissiveIntensity = 0.18;
+          }
+          return mat;
+        });
+      } else if (child.material) {
+        const mat = child.material.clone ? child.material.clone() : child.material;
+        mat.transparent = false;
+        mat.opacity = 1;
+        mat.depthWrite = true;
+        mat.colorWrite = true;
+        if (mat.map) mat.map = null;
+        if (mat.emissiveMap) mat.emissiveMap = null;
+        if (mat.color) mat.color.copy(edgeColor);
+        if (mat.emissive) {
+          mat.emissive.copy(edgeColor);
+          mat.emissiveIntensity = 0.18;
+        }
+        child.material = mat;
+      }
+    });
+
+    return overlay;
+  }, [scene, statusBorderColor]);
 
   return (
     <group position={[0, yOffset, 0]}>
       <primitive object={cloned} scale={[fitScale, fitScale, fitScale]} />
+      {silhouetteOverlay ? (
+        <primitive
+          object={silhouetteOverlay}
+          scale={[fitScale * 1.012, fitScale * 1.012, fitScale * 1.012]}
+        />
+      ) : null}
+      {borderOverlay ? (
+        <primitive object={borderOverlay} scale={[fitScale, fitScale, fitScale]} />
+      ) : null}
     </group>
   );
 });
@@ -593,16 +777,25 @@ const MachineElement = memo(
           <Suspense
             fallback={<FallbackMarker selected={isSelected || isDragging} />}
           >
-            {url ? <PlacedGLB url={url} fitW={fitW} fitD={fitD} /> : null}
+            {url ? (
+              <PlacedGLB
+                url={url}
+                fitW={fitW}
+                fitD={fitD}
+                statusBorderColor={
+                  el?.type === ELEMENT_TYPES.MACHINE ? markerColor : null
+                }
+              />
+            ) : null}
           </Suspense>
         </ErrorBoundary>
 
         <mesh position={[0, 0.08, 0]}>
           <boxGeometry args={[0.25, 0.16, 0.25]} />
           <meshStandardMaterial
-            color={
-              isSelected ? "#0ea5e9" : isDragging ? "#0ea5e9" : markerColor
-            }
+            // Previous behavior (kept for rollback):
+            // color={isSelected ? "#0ea5e9" : isDragging ? "#0ea5e9" : markerColor}
+            color={isSelected || isDragging ? "#0ea5e9" : "#111827"}
             transparent
             opacity={url ? 0.05 : 1}
           />
@@ -619,7 +812,9 @@ const MachineElement = memo(
             <Text
               position={[0, 0.65, 0]}
               fontSize={0.14}
-              color={fullScreen ? "#ffffff" : markerColor}
+              // Previous behavior (kept for rollback):
+              // color={fullScreen ? "#ffffff" : markerColor}
+              color="#ffffff"
               outlineWidth={0.012}
               outlineColor="#000000"
               anchorX="center"

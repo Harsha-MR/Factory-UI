@@ -6,7 +6,12 @@ import { useEffect, useRef, useState } from 'react'
  * @param {Array} overallStatus - Array of status objects from API response
  * @param {Array} shiftList - Array of shift timings to mark on the chart
  */
-export default function MachineGanttChart({ overallStatus, shiftList }) {
+export default function MachineGanttChart({
+  overallStatus,
+  shiftList,
+  onDowntimeClick,
+  downtimeLabel = 'Downtime',
+}) {
   const containerRef = useRef(null)
   const [tooltip, setTooltip] = useState(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 50 })
@@ -333,7 +338,19 @@ export default function MachineGanttChart({ overallStatus, shiftList }) {
           <path d="M16 7v10" />
         </svg>
         <span>Machine Status Timeline</span>
-        
+        {typeof onDowntimeClick === 'function' ? (
+          <button
+            type="button"
+            className="ml-auto inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            onClick={onDowntimeClick}
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 8v4l3 3" />
+              <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            {downtimeLabel}
+          </button>
+        ) : null}
       </div>
 
       <div className="p-4" ref={containerRef}>

@@ -672,6 +672,11 @@ export default function Department3DLayoutPage() {
             deptResult?.department?.name || `Department ${departmentId}`,
           plant: deptResult?.plant?.name || plantName,
           customerId: deptResult?.factory?.id || "GPBUM",
+          machines: Object.values(machineMetaById || {}).map((x) => ({
+            id: String(x?.id || ""),
+            name: x?.name || String(x?.id || ""),
+            status: x?.status || "UNKNOWN",
+          })),
         },
         fetchedAt: deptResult?.meta?.fetchedAt || "",
       },

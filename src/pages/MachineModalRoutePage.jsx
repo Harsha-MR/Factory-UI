@@ -25,6 +25,7 @@ export default function MachineModalRoutePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fallbackMachine, setFallbackMachine] = useState(null)
+  const [fallbackMachines, setFallbackMachines] = useState([])
   const [fallbackFetchedAt, setFallbackFetchedAt] = useState('')
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function MachineModalRoutePage() {
         if (cancelled) return
 
         const all = flattenMachinesFromDepartment(result?.department)
+        setFallbackMachines(all)
         const found = all.find((m) => String(m?.id) === String(machineId)) || null
         setFallbackMachine(found)
         setFallbackFetchedAt(result?.meta?.fetchedAt || '')
@@ -58,6 +60,16 @@ export default function MachineModalRoutePage() {
 
   const machine = stateMachine || fallbackMachine
   const fetchedAt = stateFetchedAt || fallbackFetchedAt
+  const machineOptions = useMemo(() => {
+    const fromContext = Array.isArray(stateContext?.machines) ? stateContext.machines : []
+    const fromFallback = Array.isArray(fallbackMachines) ? fallbackMachines : []
+    const source = fromContext.length > 0 ? fromContext : fromFallback
+    return source.map((m) => ({
+      id: String(m?.id || ''),
+      name: m?.name || String(m?.id || ''),
+      status: m?.status || 'UNKNOWN',
+    })).filter((m) => m.id)
+  }, [stateContext, fallbackMachines])
 
   const close = () => {
     // If this modal was opened from a page using backgroundLocation, go back.
@@ -67,6 +79,25 @@ export default function MachineModalRoutePage() {
     }
     // Direct URL entry: fall back to department page.
     navigate(`/departments/${departmentId}/layout-3d`)
+  }
+
+  const onSelectMachine = (nextMachineId) => {
+    const nextId = String(nextMachineId || '')
+    if (!nextId || nextId === String(machineId || '')) return
+    const selected = machineOptions.find((m) => String(m.id) === nextId) || { id: nextId, name: nextId, status: 'UNKNOWN' }
+
+    navigate(`/departments/${departmentId}/machines/${nextId}`, {
+      replace: true,
+      state: {
+        ...(location.state || {}),
+        machine: selected,
+        context: {
+          ...(modalContext || {}),
+          machines: machineOptions,
+        },
+        fetchedAt,
+      },
+    })
   }
 
   const modalContext = useMemo(() => {
@@ -81,6 +112,8 @@ export default function MachineModalRoutePage() {
         context={modalContext}
         fetchedAt={fetchedAt}
         onClose={close}
+        machineOptions={machineOptions}
+        onSelectMachine={onSelectMachine}
       />
     )
   }
@@ -92,6 +125,8 @@ export default function MachineModalRoutePage() {
         context={modalContext}
         fetchedAt={fetchedAt}
         onClose={close}
+        machineOptions={machineOptions}
+        onSelectMachine={onSelectMachine}
       />
     )
   }
@@ -102,6 +137,8 @@ export default function MachineModalRoutePage() {
       context={modalContext}
       fetchedAt={fetchedAt}
       onClose={close}
+      machineOptions={machineOptions}
+      onSelectMachine={onSelectMachine}
     />
   )
 }
