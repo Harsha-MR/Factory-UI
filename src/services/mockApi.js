@@ -287,15 +287,15 @@ async function loadSeed() {
 
     seedPromise = (async () => {
       try {
-        console.log('🔄 Fetching customer hierarchy from API...')
+        console.log('Fetching customer hierarchy from API...')
         const customers = await fetchCustomerHierarchy()
-        console.log('✅ Customer data fetched:', customers)
+        console.log('Customer data fetched:', customers)
         // Transform customers to factories structure
         seedCache = transformCustomersToFactories(customers)
-        console.log('✅ Transformed to factories structure:', seedCache)
+        console.log('Transformed to factories structure:', seedCache)
         return seedCache
       } catch (error) {
-        console.error('❌ Failed to load client API data:', error)
+        console.error('Failed to load client API data:', error)
         // Fallback to mock data if client API fails
         return loadMockSeed()
       }

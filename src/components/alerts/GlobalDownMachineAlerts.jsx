@@ -59,7 +59,7 @@ export default function GlobalDownMachineAlerts() {
       const customerId = await getCurrentCustomerId()
       if (!cancelled) {
         setCurrentCustomerId(customerId)
-        console.log('🏭 GlobalDownMachineAlerts: Current customer ID:', customerId)
+        console.log('GlobalDownMachineAlerts: Current customer ID:', customerId)
       }
     }
 

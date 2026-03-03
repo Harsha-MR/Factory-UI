@@ -4,7 +4,7 @@ import HourlyPartCountChart from './HourlyPartCountChart'
 import StatusDurationChart from './StatusDurationChart'
 import MachineGanttChart from './MachineGanttChart'
 import DowntimeParetoChart from './DowntimeParetoChart'
-import { fetchHourlyPartCount, getLastNDates } from '../../services/partCountApi'
+import { fetchHourlyPartCount, fetchMachineDowntimeReasons, getLastNDates } from '../../services/partCountApi'
 import { fetchMachineDetails } from '../../services/clientApi'
 
 function clamp01(n) {
@@ -115,6 +115,36 @@ function toSeconds(raw, numericUnit = 'seconds') {
   return toMinutes(value) * 60
 }
 
+function extractDowntimeDurationSeconds(source) {
+  if (!source || typeof source !== 'object') return 0
+
+  const parseDuration = (raw) => {
+    const sec = toSeconds(raw, 'hours')
+    return Number.isFinite(sec) && sec > 0 ? sec : 0
+  }
+
+  // Common K2 shape: { data: [{ downtimeDuration, downtimeData, ... }] }
+  if (Array.isArray(source.data)) {
+    let totalSec = 0
+    for (const row of source.data) {
+      totalSec += parseDuration(
+        row?.downtimeDuration ??
+        row?.downtime_duration ??
+        row?.totalDowntime ??
+        row?.total_downtime
+      )
+    }
+    if (totalSec > 0) return totalSec
+  }
+
+  return parseDuration(
+    source?.downtimeDuration ??
+    source?.downtime_duration ??
+    source?.totalDowntime ??
+    source?.total_downtime
+  )
+}
+
 function extractDowntimeParetoData(source) {
   if (!source || typeof source !== 'object') return []
   const candidateKeys = [
@@ -137,35 +167,70 @@ function extractDowntimeParetoData(source) {
     'pareto_data',
   ]
 
-  let raw = null
-  for (const key of candidateKeys) {
-    if (Array.isArray(source[key]) || (source[key] && typeof source[key] === 'object')) {
-      raw = source[key]
-      break
-    }
+  const rawChunks = []
+  const looksLikeReasonRow = (row) => {
+    if (!row || typeof row !== 'object') return false
+    const hasReasonField =
+      row.reason != null ||
+      row.reasonName != null ||
+      row.name != null ||
+      row.label != null ||
+      row.cause != null ||
+      row.downtimeReason != null ||
+      row.reason_code != null ||
+      row.reasonCode != null
+    const hasDurationField =
+      row.minutes != null ||
+      row.duration != null ||
+      row.downtime != null ||
+      row.downTime != null ||
+      row.value != null ||
+      row.total != null ||
+      row.time != null ||
+      row.seconds != null
+    return hasReasonField && hasDurationField
   }
 
-  // Also check one common nested location from some APIs.
-  if (!raw && source.data && typeof source.data === 'object') {
+  const collectRaw = (container) => {
+    if (!container || typeof container !== 'object') return
     for (const key of candidateKeys) {
-      if (Array.isArray(source.data[key]) || (source.data[key] && typeof source.data[key] === 'object')) {
-        raw = source.data[key]
-        break
+      const value = container[key]
+      if (Array.isArray(value) || (value && typeof value === 'object')) {
+        rawChunks.push(value)
+        return
       }
     }
   }
 
-  // IMPORTANT: Do NOT auto-fallback to any random array.
-  // That caused unrelated charts (same output across different machines).
-  if (!raw) return []
+  // Top-level keys
+  collectRaw(source)
 
-  // Some APIs return { reasonA: minutes, reasonB: minutes } objects.
-  if (!Array.isArray(raw) && typeof raw === 'object') {
-    raw = Object.entries(raw).map(([reason, value]) => ({ reason, minutes: value }))
+  // Nested data object
+  if (source.data && typeof source.data === 'object' && !Array.isArray(source.data)) {
+    collectRaw(source.data)
   }
-  if (!Array.isArray(raw)) return []
 
-  const mapped = raw
+  // Nested data array (common in K2 endpoints: { data: [ ... ] })
+  if (Array.isArray(source.data)) {
+    if (source.data.some(looksLikeReasonRow)) {
+      rawChunks.push(source.data)
+    }
+    for (const row of source.data) {
+      collectRaw(row)
+    }
+  }
+
+  if (rawChunks.length === 0) return []
+
+  const normalizedRows = rawChunks.flatMap((raw) => {
+    if (Array.isArray(raw)) return raw
+    if (raw && typeof raw === 'object') {
+      return Object.entries(raw).map(([reason, value]) => ({ reason, minutes: value }))
+    }
+    return []
+  })
+
+  const mapped = normalizedRows
     .map((item) => {
       const reason =
         item?.reason ||
@@ -287,14 +352,15 @@ export default function MachineDetailsModal({
   const [loadingMachineData, setLoadingMachineData] = useState(false)
   const [ganttData, setGanttData] = useState(null)
   const [loadingGanttData, setLoadingGanttData] = useState(false)
+  const [downtimeReasonsData, setDowntimeReasonsData] = useState(null)
   const [lastRefreshTime, setLastRefreshTime] = useState(new Date().toISOString())
   const [showDowntimePareto, setShowDowntimePareto] = useState(false)
   const [, setTick] = useState(0) // Force re-render for live time updates
 
   // Debug: Log machine and context objects
   useEffect(() => {
-    console.log('🔍 Machine object:', machine)
-    console.log('🔍 Context object:', context)
+    console.log('Machine object:', machine)
+    console.log('Context object:', context)
   }, [machine, context])
 
   // Update "Status Since" display every 5 seconds
@@ -312,7 +378,7 @@ export default function MachineDetailsModal({
     const custID = context?.customerId || context?.customer?.id || 'GPBUM'
     
     if (!deviceID || !custID) {
-      console.log('⚠️ Missing deviceID or custID for machine details')
+      console.log(' Missing deviceID or custID for machine details')
       return
     }
     
@@ -321,15 +387,15 @@ export default function MachineDetailsModal({
     ;(async () => {
       try {
         setLoadingMachineData(true)
-        console.log('🔍 Fetching full machine details:', { custID, deviceID })
+        console.log('Fetching full machine details:', { custID, deviceID })
         const data = await fetchMachineDetails(custID, deviceID)
         
         if (!cancelled) {
-          console.log('✅ Full machine data loaded:', data)
+          console.log('Full machine data loaded:', data)
           setFullMachineData(data)
         }
       } catch (error) {
-        console.error('❌ Failed to fetch machine details:', error)
+        console.error(' Failed to fetch machine details:', error)
       } finally {
         if (!cancelled) {
           setLoadingMachineData(false)
@@ -356,18 +422,18 @@ export default function MachineDetailsModal({
     const deviceID = machine?.deviceId || machine?.deviceName || machine?.id
     const custID = context?.customerId || context?.customer?.id || 'GPBUM'
     
-    console.log('🔍 Extracted for hourly data:', { deviceID, custID, machineId: machine?.id, machineName: machine?.name })
-    console.log('🔍 Full machine object:', machine)
-    console.log('🔍 Full context object:', context)
+    console.log('Extracted for hourly data:', { deviceID, custID, machineId: machine?.id, machineName: machine?.name })
+    console.log('Full machine object:', machine)
+    console.log('Full context object:', context)
     
     if (!deviceID) {
-      console.log('⚠️ No deviceID found for hourly part count')
-      console.log('⚠️ Available machine properties:', Object.keys(machine || {}))
+      console.log('No deviceID found for hourly part count')
+      console.log('Available machine properties:', Object.keys(machine || {}))
       return
     }
     
     if (!custID || custID === 'GPBUM') {
-      console.log('⚠️ Using fallback custID: GPBUM')
+      console.log('Using fallback custID: GPBUM')
     }
     
     let cancelled = false
@@ -376,19 +442,19 @@ export default function MachineDetailsModal({
       try {
         setLoadingHourlyData(true)
         const dates = getLastNDates(3)
-        console.log('🔍 Fetching hourly data for:', { custID, deviceID, dates })
+        console.log('Fetching hourly data for:', { custID, deviceID, dates })
         const data = await fetchHourlyPartCount(custID, deviceID, dates)
         
         if (!cancelled) {
-          console.log('✅ Hourly data loaded:', data)
-          console.log('✅ Has partcountDetails?', !!data?.partcountDetails)
-          console.log('✅ Hour array:', data?.partcountDetails?.hour)
-          console.log('✅ Partcount array:', data?.partcountDetails?.partcount)
+          console.log(' Hourly data loaded:', data)
+          console.log(' Has partcountDetails?', !!data?.partcountDetails)
+          console.log(' Hour array:', data?.partcountDetails?.hour)
+          console.log(' Partcount array:', data?.partcountDetails?.partcount)
           setHourlyData(data)
         }
       } catch (error) {
-        console.error('❌ Failed to fetch hourly part count:', error)
-        console.error('❌ Error details:', error.response?.data || error.message)
+        console.error(' Failed to fetch hourly part count:', error)
+        console.error(' Error details:', error.response?.data || error.message)
         // Silently fail - chart is optional enhancement
       } finally {
         if (!cancelled) {
@@ -408,7 +474,7 @@ export default function MachineDetailsModal({
     const custID = context?.customerId || context?.customer?.id || 'GUK7F'
     
     if (!deviceID || !custID) {
-      console.log('⚠️ Missing deviceID or custID for gantt chart')
+      console.log(' Missing deviceID or custID for gantt chart')
       return
     }
     
@@ -431,13 +497,13 @@ export default function MachineDetailsModal({
         const data = await response.json()
         
         if (!cancelled) {
-          console.log('✅ Gantt chart data loaded:', data)
-          console.log('✅ Has overall_status?', !!data?.overall_status)
-          console.log('✅ overall_status length:', data?.overall_status?.length)
+          console.log('Gantt chart data loaded:', data)
+          console.log('Has overall_status?', !!data?.overall_status)
+          console.log('overall_status length:', data?.overall_status?.length)
           setGanttData(data)
         }
       } catch (error) {
-        console.error('❌ Failed to fetch gantt chart data:', error)
+        console.error('Failed to fetch gantt chart data:', error)
       } finally {
         if (!cancelled) {
           setLoadingGanttData(false)
@@ -445,6 +511,34 @@ export default function MachineDetailsModal({
       }
     })()
     
+    return () => {
+      cancelled = true
+    }
+  }, [machine?.deviceId, machine?.deviceName, machine?.id, context?.customerId, context?.customer?.id])
+
+  // Fetch downtime reason-wise data for pareto chart
+  useEffect(() => {
+    const deviceID = machine?.deviceId || machine?.deviceName || machine?.id
+    const custID = context?.customerId || context?.customer?.id || 'GPBUM'
+
+    if (!deviceID || !custID) {
+      return
+    }
+
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const dates = getLastNDates(3)
+        const data = await fetchMachineDowntimeReasons(custID, deviceID, dates)
+        if (!cancelled) {
+          setDowntimeReasonsData(data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch downtime reasons:', error)
+      }
+    })()
+
     return () => {
       cancelled = true
     }
@@ -484,17 +578,22 @@ export default function MachineDetailsModal({
         
         if (ganttResponse.ok) {
           const ganttDataResult = await ganttResponse.json()
-          console.log('✅ Auto-refresh gantt data:', ganttDataResult)
-          console.log('✅ Has overall_status?', !!ganttDataResult?.overall_status)
+          console.log('Auto-refresh gantt data:', ganttDataResult)
+          console.log('Has overall_status?', !!ganttDataResult?.overall_status)
           setGanttData(ganttDataResult)
         }
         
+        // Refresh downtime reasons
+        const downtimeDates = getLastNDates(3)
+        const downtimeDataResult = await fetchMachineDowntimeReasons(custID, deviceID, downtimeDates)
+        setDowntimeReasonsData(downtimeDataResult)
+
         // Update refresh timestamp
         setLastRefreshTime(new Date().toISOString())
         
-        console.log('✅ Auto-refresh completed')
+        console.log('Auto-refresh completed')
       } catch (error) {
-        console.error('❌ Auto-refresh failed:', error)
+        console.error('Auto-refresh failed:', error)
         // Silently fail for auto-refresh
       }
     }
@@ -547,8 +646,8 @@ export default function MachineDetailsModal({
   // Find current shift from Shift_List based on current time
   const shiftList = fullMachineData?.Shift_List || fullMachineData?.shiftList || machine?.Shift_List || machine?.shiftList || []
   let currentShift = null
-  console.log('🔍 Shift_List:', shiftList)
-  console.log('🔍 Full machine data:', fullMachineData)
+  console.log('Shift_List:', shiftList)
+  console.log('Full machine data:', fullMachineData)
   if (Array.isArray(shiftList) && shiftList.length > 0) {
     const now = new Date()
     console.log('🕐 Current time:', now.toLocaleTimeString())
@@ -570,21 +669,20 @@ export default function MachineDetailsModal({
         end.setDate(end.getDate() + 1)
       }
       
-      console.log(`🔍 Checking ${shift.shiftName}: ${start.toLocaleTimeString()} - ${end.toLocaleTimeString()}, Match: ${now >= start && now < end}`)
+      console.log(`Checking ${shift.shiftName}: ${start.toLocaleTimeString()} - ${end.toLocaleTimeString()}, Match: ${now >= start && now < end}`)
       
       if (now >= start && now < end) {
         currentShift = shift
-        console.log('✅ Current shift found:', currentShift)
+        console.log('Current shift found:', currentShift)
         break
       }
     }
   }
   if (!currentShift) {
-    console.log('⚠️ No matching shift found for current time')
+    console.log('No matching shift found for current time')
   }
 
 
-  const rawDowntimeParetoData = extractDowntimeParetoData(fullMachineData || {})
 
   // Prefer live API downtime from fullMachineData, then fallback to route machine data.
   const liveBreakdownSec = toSeconds(liveTime?.breakdownTime, 'seconds')
@@ -602,29 +700,75 @@ export default function MachineDetailsModal({
     : 0
   const chartBreakdownSec = chartBreakdownMinutes * 60
 
-  const downtimeSeconds = Number.isFinite(liveBreakdownSec) && liveBreakdownSec >= 0
-    ? liveBreakdownSec
-    : Number.isFinite(liveDownSec) && liveDownSec >= 0
-      ? liveDownSec
-      : Number.isFinite(liveOffSec) && liveOffSec >= 0
-        ? liveOffSec
-        : Number.isFinite(chartBreakdownSec) && chartBreakdownSec >= 0
-          ? chartBreakdownSec
-        : Number.isFinite(routeBreakdownSec) && routeBreakdownSec >= 0
-          ? routeBreakdownSec
-          : Number.isFinite(routeDownSec) && routeDownSec >= 0
-            ? routeDownSec
-            : 0
-  const hasDowntime = downtimeSeconds > 0
-  const downtimeParetoData =
-    hasDowntime && rawDowntimeParetoData.length === 0
-      ? [{ reason: 'Unclassified', minutes: downtimeSeconds / 60, cumulativePct: 100 }]
-      : rawDowntimeParetoData
-  const downtimeLabel = `Downtime ${formatDuration(downtimeSeconds)}`
+  // Prefer current timeline/period downtime first, then fallback to machine-card totals.
+  let downtimeSource = 'none'
+  let downtimeSeconds = 0
+  if (Number.isFinite(chartBreakdownSec) && chartBreakdownSec > 0) {
+    downtimeSource = 'gantt.chart_data.breakdown'
+    downtimeSeconds = chartBreakdownSec
+  } else if (Number.isFinite(liveBreakdownSec) && liveBreakdownSec > 0) {
+    downtimeSource = 'machineCard.timeMetrics.breakdownTime'
+    downtimeSeconds = liveBreakdownSec
+  } else if (Number.isFinite(liveDownSec) && liveDownSec > 0) {
+    downtimeSource = 'machineCard.timeMetrics.downTime'
+    downtimeSeconds = liveDownSec
+  } else if (Number.isFinite(routeBreakdownSec) && routeBreakdownSec > 0) {
+    downtimeSource = 'route.machine.timeMetrics.breakdownTime'
+    downtimeSeconds = routeBreakdownSec
+  } else if (Number.isFinite(routeDownSec) && routeDownSec > 0) {
+    downtimeSource = 'route.machine.timeMetrics.downTime'
+    downtimeSeconds = routeDownSec
+  } else if (Number.isFinite(liveOffSec) && liveOffSec > 0) {
+    downtimeSource = 'machineCard.total_off(hours)'
+    downtimeSeconds = liveOffSec
+  }
+  const apiDowntimeParetoData = useMemo(
+    () => extractDowntimeParetoData(downtimeReasonsData),
+    [downtimeReasonsData]
+  )
+  const downtimeReasonsDurationSec = useMemo(
+    () => extractDowntimeDurationSeconds(downtimeReasonsData),
+    [downtimeReasonsData]
+  )
+  const inferredDowntimeSeconds =
+    apiDowntimeParetoData.reduce((sum, item) => sum + Number(item?.minutes || 0), 0) * 60
+  const hasDowntimeReasonsPayload =
+    !!downtimeReasonsData && typeof downtimeReasonsData === 'object'
+  const effectiveDowntimeSeconds = hasDowntimeReasonsPayload
+    ? Math.max(0, downtimeReasonsDurationSec, inferredDowntimeSeconds)
+    : (downtimeSeconds > 0 ? downtimeSeconds : 0)
+  const hasDowntime = Number.isFinite(effectiveDowntimeSeconds) && effectiveDowntimeSeconds > 0
+  const downtimeDisplay = formatDuration(effectiveDowntimeSeconds)
+  const hasHmsDisplay = /[hms]/i.test(String(downtimeDisplay))
+  // Show pareto only for reason-wise data from APIs.
+  // Do not synthesize a single fallback "Downtime" bar from aggregate time.
+  const downtimeParetoData = apiDowntimeParetoData
+  const downtimeLabel = `Downtime ${downtimeDisplay}`
+  const hasReasonWisePareto = apiDowntimeParetoData.length > 0
+  const canShowPareto = hasDowntime && hasHmsDisplay && hasReasonWisePareto
 
   useEffect(() => {
-    if (!hasDowntime) setShowDowntimePareto(false)
-  }, [hasDowntime])
+    setShowDowntimePareto(false)
+  }, [machine?.id])
+
+  useEffect(() => {
+    // Temporary debug to validate live downtime source/value per machine
+    console.log('[Downtime Debug]', {
+      machineId: machine?.id,
+      machineName: machine?.name,
+      source: downtimeSource,
+      seconds: effectiveDowntimeSeconds,
+      formatted: downtimeDisplay,
+      chartBreakdownSec,
+      liveBreakdownSec,
+      liveDownSec,
+      liveOffSec,
+      downtimeReasonsDurationSec,
+      hasDowntimeReasonsPayload,
+      hasReasonWiseData: apiDowntimeParetoData.length > 0,
+      canShowPareto,
+    })
+  }, [machine?.id, machine?.name, downtimeSource, effectiveDowntimeSeconds, downtimeDisplay, chartBreakdownSec, liveBreakdownSec, liveDownSec, liveOffSec, downtimeReasonsDurationSec, hasDowntimeReasonsPayload, apiDowntimeParetoData, canShowPareto])
 
   if (!machine) return null
 
@@ -772,15 +916,25 @@ export default function MachineDetailsModal({
                         </span>
                       </div>
                     )}
-                    {hasDowntime ? (
-                      <div className="mt-3 inline-flex items-center gap-2 rounded bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
+                    <button
+                      type="button"
+                      className={`mt-3 inline-flex items-center gap-2 rounded px-2 py-1 text-xs font-semibold ${
+                        canShowPareto
+                          ? 'bg-red-50 text-red-700 hover:bg-red-100'
+                          : 'cursor-not-allowed bg-slate-100 text-slate-500'
+                      }`}
+                      disabled={!canShowPareto}
+                      onClick={() => {
+                        if (!canShowPareto) return
+                        setShowDowntimePareto((v) => !v)
+                      }}
+                    >
                         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M12 8v4l3 3" />
                           <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
-                        <span>Downtime (Live): {formatDuration(downtimeSeconds)}</span>
-                      </div>
-                    ) : null}
+                        <span>{`Downtime (Live): ${downtimeDisplay}`}</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -835,10 +989,13 @@ export default function MachineDetailsModal({
               <MachineGanttChart 
                 overallStatus={ganttData.overall_status} 
                 shiftList={shiftList}
-                onDowntimeClick={hasDowntime ? () => setShowDowntimePareto((v) => !v) : undefined}
-                downtimeLabel={hasDowntime ? downtimeLabel : ''}
+                onDowntimeClick={() => {
+                  if (!canShowPareto) return
+                  setShowDowntimePareto((v) => !v)
+                }}
+                downtimeLabel={downtimeLabel}
               />
-              {hasDowntime && showDowntimePareto ? (
+              {canShowPareto && showDowntimePareto ? (
                 <div className="mt-3">
                   <DowntimeParetoChart data={downtimeParetoData} />
                 </div>
@@ -857,6 +1014,12 @@ export default function MachineDetailsModal({
           ) : ganttData ? (
             <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <p className="text-sm text-amber-800">Timeline data is not available. Check console for API response.</p>
+            </div>
+          ) : null}
+
+          {canShowPareto && showDowntimePareto && !(ganttData && ganttData.overall_status && ganttData.overall_status.length > 0) ? (
+            <div className="mb-3">
+              <DowntimeParetoChart data={downtimeParetoData} />
             </div>
           ) : null}
 

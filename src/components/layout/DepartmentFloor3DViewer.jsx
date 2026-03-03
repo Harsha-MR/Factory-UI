@@ -21,12 +21,10 @@ import {
   useGLTF,
 } from "@react-three/drei";
 import {
-  BackSide,
   Box3,
   BoxGeometry,
   Color,
   Frustum,
-  MeshBasicMaterial,
   Matrix4,
   MOUSE,
   Plane,
@@ -401,77 +399,12 @@ const PlacedGLB = memo(function PlacedGLB({
   const cloned = useMemo(() => scene.clone(true), [scene]);
   const silhouetteOverlay = useMemo(() => {
     if (!statusBorderColor) return null;
-
-    const overlay = scene.clone(true);
-    const edgeColor = new Color(statusBorderColor);
-    const meshCandidates = [];
-    const modelBox = new Box3().setFromObject(overlay);
-    const modelSize = new Vector3();
-    modelBox.getSize(modelSize);
-    const topYThreshold = modelBox.max.y - Math.max(0.000001, modelSize.y) * 0.32;
-
-    overlay.traverse((child) => {
-      if (!child?.isMesh || !child.geometry) return;
-      const bbox = new Box3().setFromObject(child);
-      const size = new Vector3();
-      bbox.getSize(size);
-      const volume = Math.max(0, size.x * size.y * size.z);
-      const centerY = (bbox.min.y + bbox.max.y) * 0.5;
-      meshCandidates.push({ child, volume, centerY });
-    });
-
-    const maxVolume = meshCandidates.reduce(
-      (max, item) => (item.volume > max ? item.volume : max),
-      0,
-    );
-    const minOuterVolume = maxVolume * 0.15;
-
-    meshCandidates.forEach(({ child, volume, centerY }) => {
-      // Keep top machine parts untouched (testing requirement).
-      const isTopRegion = centerY >= topYThreshold;
-      const isOuterShell = volume >= minOuterVolume && !isTopRegion;
-      if (!isOuterShell) {
-        if (Array.isArray(child.material)) {
-          child.material = child.material.map((m) => {
-            if (!m) return m;
-            const mat = m.clone ? m.clone() : m;
-            mat.transparent = true;
-            mat.opacity = 0;
-            mat.depthWrite = false;
-            mat.colorWrite = false;
-            return mat;
-          });
-        } else if (child.material) {
-          const mat = child.material.clone ? child.material.clone() : child.material;
-          mat.transparent = true;
-          mat.opacity = 0;
-          mat.depthWrite = false;
-          mat.colorWrite = false;
-          child.material = mat;
-        }
-        return;
-      }
-
-      const outlineMaterial = new MeshBasicMaterial({
-        color: edgeColor,
-        side: BackSide,
-        transparent: true,
-        opacity: 0.95,
-        depthWrite: false,
-        toneMapped: false,
-      });
-      child.material = Array.isArray(child.material)
-        ? child.material.map(() => outlineMaterial.clone())
-        : outlineMaterial;
-    });
-
-    return overlay;
+    // Disabled: do not tint full body / side shell.
+    return null;
   }, [scene, statusBorderColor]);
 
   const borderOverlay = useMemo(() => {
     if (!statusBorderColor) return null;
-    // Testing-only: disable top-part status fill
-    return null;
     const overlay = scene.clone(true);
     const edgeColor = new Color(statusBorderColor);
     const meshCandidates = [];
@@ -487,24 +420,88 @@ const PlacedGLB = memo(function PlacedGLB({
       const size = new Vector3();
       bbox.getSize(size);
       const volume = Math.max(0, size.x * size.y * size.z);
+      const sx = Number(size.x) || 0;
+      const sy = Number(size.y) || 0;
+      const sz = Number(size.z) || 0;
+      const centerX = (bbox.min.x + bbox.max.x) * 0.5;
       const centerY = (bbox.min.y + bbox.max.y) * 0.5;
+      const centerZ = (bbox.min.z + bbox.max.z) * 0.5;
 
-      meshCandidates.push({ child, volume, centerY });
+      const mats = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+      const validMats = mats.filter((m) => m && m.color);
+      const luminance =
+        validMats.length > 0
+          ? validMats.reduce((sum, m) => {
+              const c = m.color;
+              return sum + (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b);
+            }, 0) / validMats.length
+          : 1;
+
+      meshCandidates.push({
+        child,
+        volume,
+        sx,
+        sy,
+        sz,
+        centerX,
+        centerY,
+        centerZ,
+        luminance,
+      });
     });
 
     const maxVolume = meshCandidates.reduce(
       (max, item) => (item.volume > max ? item.volume : max),
       0,
     );
-    const minOuterVolume = maxVolume * 0.15;
-    const topYThreshold = modelTopY - modelHeight * 0.35;
-    const topDarkCandidates = meshCandidates.filter(
-      ({ centerY }) => centerY >= topYThreshold,
+    const modelMinY = modelBox.min.y;
+    const modelMinX = modelBox.min.x;
+    const modelMaxX = modelBox.max.x;
+    const modelMinZ = modelBox.min.z;
+    const modelMaxZ = modelBox.max.z;
+    const modelMidX = (modelBox.min.x + modelBox.max.x) * 0.5;
+    const modelMidZ = (modelBox.min.z + modelBox.max.z) * 0.5;
+    const modelWidth = Math.max(0.000001, modelSize.x);
+    const modelDepth = Math.max(0.000001, modelSize.z);
+
+    // Top-notch-only status tint: pick exactly one highest dark centered mesh.
+    const topBandMinY = modelMinY + modelHeight * 0.66;
+    const topCandidates = meshCandidates.filter(
+      ({ centerY, centerX, centerZ, volume, sx, sz, luminance }) => {
+        if (volume < maxVolume * 0.0008) return false;
+        if (centerY < topBandMinY) return false;
+        if (luminance > 0.6) return false;
+        const compactTop = sx <= modelWidth * 0.75 && sz <= modelDepth * 0.75;
+        const nearCenterX = Math.abs(centerX - modelMidX) <= modelWidth * 0.45;
+        return compactTop && nearCenterX && nearCenterZ;
+      },
     );
-    const selectedCandidates =
-      topDarkCandidates.length > 0
-        ? topDarkCandidates
-        : meshCandidates.filter(({ volume }) => volume >= minOuterVolume);
+
+    const selectedCandidates = topCandidates.length
+      ? [
+          topCandidates.slice().sort((a, b) => {
+            const aTop = a.centerY / modelHeight;
+            const bTop = b.centerY / modelHeight;
+            const aDark = 1 - a.luminance;
+            const bDark = 1 - b.luminance;
+            const aCenter =
+              1 -
+              (Math.abs(a.centerX - modelMidX) / modelWidth +
+                Math.abs(a.centerZ - modelMidZ) / modelDepth) *
+                0.5;
+            const bCenter =
+              1 -
+              (Math.abs(b.centerX - modelMidX) / modelWidth +
+                Math.abs(b.centerZ - modelMidZ) / modelDepth) *
+                0.5;
+            const aScore = aTop * 0.5 + aDark * 0.35 + aCenter * 0.15;
+            const bScore = bTop * 0.5 + bDark * 0.35 + bCenter * 0.15;
+            return bScore - aScore;
+          })[0],
+        ]
+      : [];
 
     // Hide the full overlay first, then reveal only the chosen accent area.
     meshCandidates.forEach(({ child }) => {
@@ -519,7 +516,9 @@ const PlacedGLB = memo(function PlacedGLB({
           return mat;
         });
       } else if (child.material) {
-        const mat = child.material.clone ? child.material.clone() : child.material;
+        const mat = child.material.clone
+          ? child.material.clone()
+          : child.material;
         mat.transparent = true;
         mat.opacity = 0;
         mat.depthWrite = false;
@@ -528,7 +527,7 @@ const PlacedGLB = memo(function PlacedGLB({
       }
     });
 
-    // Fill the selected top-black part with status color.
+    // Fill only selected top notch with status color.
     selectedCandidates.forEach(({ child }) => {
       if (Array.isArray(child.material)) {
         child.material = child.material.map((m) => {
@@ -548,7 +547,9 @@ const PlacedGLB = memo(function PlacedGLB({
           return mat;
         });
       } else if (child.material) {
-        const mat = child.material.clone ? child.material.clone() : child.material;
+        const mat = child.material.clone
+          ? child.material.clone()
+          : child.material;
         mat.transparent = false;
         mat.opacity = 1;
         mat.depthWrite = true;
@@ -577,7 +578,10 @@ const PlacedGLB = memo(function PlacedGLB({
         />
       ) : null}
       {borderOverlay ? (
-        <primitive object={borderOverlay} scale={[fitScale, fitScale, fitScale]} />
+        <primitive
+          object={borderOverlay}
+          scale={[fitScale, fitScale, fitScale]}
+        />
       ) : null}
     </group>
   );
@@ -665,30 +669,34 @@ const FallbackMarker = memo(function FallbackMarker({ selected }) {
 });
 
 // Anchor point indicators for precise positioning in move mode
-const AnchorPoints = memo(function AnchorPoints({ width, depth, yOffset = 0.15 }) {
+const AnchorPoints = memo(function AnchorPoints({
+  width,
+  depth,
+  yOffset = 0.15,
+}) {
   const anchorRadius = 0.08;
   const anchorColor = "#fbbf24"; // Amber color for visibility
-  
+
   // Calculate positions: 4 corners + center
   const halfW = width / 2;
   const halfD = depth / 2;
-  
+
   const positions = [
-    [0, yOffset, 0],           // Center
+    [0, yOffset, 0], // Center
     [-halfW, yOffset, -halfD], // Top-left
-    [halfW, yOffset, -halfD],  // Top-right
-    [-halfW, yOffset, halfD],  // Bottom-left
-    [halfW, yOffset, halfD],   // Bottom-right
+    [halfW, yOffset, -halfD], // Top-right
+    [-halfW, yOffset, halfD], // Bottom-left
+    [halfW, yOffset, halfD], // Bottom-right
   ];
-  
+
   return (
     <group>
       {positions.map((pos, i) => (
         <mesh key={i} position={pos}>
           <sphereGeometry args={[anchorRadius, 8, 8]} />
-          <meshBasicMaterial 
-            color={anchorColor} 
-            transparent 
+          <meshBasicMaterial
+            color={anchorColor}
+            transparent
             opacity={i === 0 ? 0.9 : 0.7}
             depthTest={false}
           />
@@ -696,9 +704,9 @@ const AnchorPoints = memo(function AnchorPoints({ width, depth, yOffset = 0.15 }
       ))}
       {/* Corner connections - visual guide */}
       <lineSegments position={[0, yOffset, 0]}>
-        <edgesGeometry 
-          attach="geometry" 
-          args={[new BoxGeometry(width, 0.01, depth)]} 
+        <edgesGeometry
+          attach="geometry"
+          args={[new BoxGeometry(width, 0.01, depth)]}
         />
         <lineBasicMaterial color={anchorColor} opacity={0.5} transparent />
       </lineSegments>
@@ -746,7 +754,7 @@ const MachineElement = memo(
     const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2);
     const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2);
     const pos = normToPlane(cx, cy, effectivePlaneSize);
-    
+
     // Show anchor points only when selected in move mode (not on hover)
     const showAnchorPoints = isSelected && isMoveMode && allowEdit;
 
@@ -828,7 +836,7 @@ const MachineElement = memo(
         ) : null}
 
         {/* Removed 3D Billboard tooltip - now using HTML overlay for better performance and fixed sizing */}
-        
+
         {/* Show anchor points when selected in move mode */}
         {showAnchorPoints ? (
           <AnchorPoints width={0.35} depth={0.35} yOffset={0.25} />
@@ -1030,7 +1038,6 @@ export default function DepartmentFloor3DViewer({
       "/models/walkway.glb",
       "/models/machine-maintenence.glb",
       "/models/machine-off.glb",
-      
     ];
 
     // Preload all models in parallel
@@ -1065,7 +1072,7 @@ export default function DepartmentFloor3DViewer({
   const [loading, setLoading] = useState(!fullScreen);
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 10, z: 0 });
   const [hoveredTooltipPosition, setHoveredTooltipPosition] = useState(null);
-  
+
   const containerRef = useRef(null);
   const [draggingId, setDraggingId] = useState("");
   const [hoverNorm, setHoverNorm] = useState(null);
@@ -1324,7 +1331,11 @@ export default function DepartmentFloor3DViewer({
   // Disable controls (pan/zoom) while adding or dragging zones/walkways
   // CRITICAL: Disable orbit controls during dragging or when in move mode to keep screen static
   const controlsEnabled =
-    !isOverlayAddToolActive && !isTransforming && !isAddDrawing && !draggingId && !isMoveMode;
+    !isOverlayAddToolActive &&
+    !isTransforming &&
+    !isAddDrawing &&
+    !draggingId &&
+    !isMoveMode;
 
   useEffect(() => {
     const cam = cameraRef.current;
@@ -1547,7 +1558,10 @@ export default function DepartmentFloor3DViewer({
     // Re-enable camera only if current mode allows it.
     // (When adding Zone/Walkway or in Move mode, OrbitControls should remain disabled.)
     setOrbitEnabledNow(
-      !isOverlayAddToolActive && !isTransforming && !isAddDrawing && !isMoveMode,
+      !isOverlayAddToolActive &&
+        !isTransforming &&
+        !isAddDrawing &&
+        !isMoveMode,
     );
   };
 
@@ -1608,24 +1622,24 @@ export default function DepartmentFloor3DViewer({
   // Camera reset effect - reset camera to initial position when trigger changes
   useEffect(() => {
     if (cameraResetTrigger === 0) return; // Skip initial mount
-    
+
     const camera = cameraRef.current;
     const controls = orbitRef.current;
     if (!camera || !controls) return;
-    
+
     const [cx, cy, cz] = cameraPosition;
     camera.position.set(cx, cy, cz);
     camera.lookAt(0, effectiveFloorY, 0);
-    
+
     // Reset orbit controls target
     if (controls.target) {
       controls.target.set(0, effectiveFloorY, 0);
     }
-    
-    if (typeof controls.update === 'function') {
+
+    if (typeof controls.update === "function") {
       controls.update();
     }
-    
+
     setCameraPos({ x: cx, y: cy, z: cz });
   }, [cameraResetTrigger, cameraPosition, effectiveFloorY]);
 
@@ -1857,7 +1871,7 @@ export default function DepartmentFloor3DViewer({
                     allowEdit
                       ? () => {
                           stopDragging();
-                            setCursor(idleCursor);
+                          setCursor(idleCursor);
                           setOrbitEnabledNow(
                             !isOverlayAddToolActive &&
                               !isTransforming &&
@@ -1912,7 +1926,7 @@ export default function DepartmentFloor3DViewer({
                       <Edges color={isSelected ? "#fdba74" : "#94a3b8"} />
                     </mesh>
                   ) : null}
-                  
+
                   {/* Show anchor points when selected in move mode */}
                   {isMoveMode && isSelected && id !== "__default_floor__" ? (
                     <AnchorPoints width={w} depth={d} yOffset={0.1} />
@@ -2071,7 +2085,7 @@ export default function DepartmentFloor3DViewer({
                     <Edges color="#ffffff" />
                   )}
                 </mesh>
-                
+
                 {/* Show anchor points when selected in move mode */}
                 {isMoveMode && isSelected ? (
                   <AnchorPoints width={w} depth={d} yOffset={0.1} />
@@ -2402,7 +2416,7 @@ export default function DepartmentFloor3DViewer({
                   />
                   <Edges color={isSelected ? "#fdba74" : "#ffffff"} />
                 </mesh>
-                
+
                 {/* Show anchor points when selected in move mode */}
                 {isMoveMode && isSelected ? (
                   <AnchorPoints width={w} depth={d} yOffset={0.1} />
@@ -2599,7 +2613,7 @@ export default function DepartmentFloor3DViewer({
                         }
                         e.stopPropagation();
                         if (isTransforming) return;
-                        
+
                         // Always select the element first
                         if (typeof onSelectElement === "function")
                           onSelectElement(String(el.id));
@@ -2622,8 +2636,12 @@ export default function DepartmentFloor3DViewer({
                               );
                               const wNorm = clamp01(Number(el.w) || 0.12);
                               const hNorm = clamp01(Number(el.h) || 0.12);
-                              const cx = clamp01((Number(el.x) || 0.5) + wNorm / 2);
-                              const cy = clamp01((Number(el.y) || 0.5) + hNorm / 2);
+                              const cx = clamp01(
+                                (Number(el.x) || 0.5) + wNorm / 2,
+                              );
+                              const cy = clamp01(
+                                (Number(el.y) || 0.5) + hNorm / 2,
+                              );
                               draggingOffsetRef.current = {
                                 x: cx - pointerNorm.x,
                                 y: cy - pointerNorm.y,
@@ -2695,10 +2713,11 @@ export default function DepartmentFloor3DViewer({
                     if (!allowEdit) return;
                     if (isAddMode) return;
                     e.stopPropagation();
-                    
+
                     // Show cursor based on selection state in move mode
                     if (isMoveMode && !isAddMode) {
-                      const isThisSelected = selectedId && String(selectedId) === elId;
+                      const isThisSelected =
+                        selectedId && String(selectedId) === elId;
                       setCursor(isThisSelected ? "grab" : idleCursor);
                     } else {
                       setCursor("pointer");
@@ -2720,15 +2739,16 @@ export default function DepartmentFloor3DViewer({
                 const createPointerEnterHandler = useCallback(
                   (machineId, canOpenDetails, allowEdit, elId) => (e) => {
                     e.stopPropagation();
-                    
+
                     // Set cursor based on context
                     if (allowEdit && isMoveMode && !isAddMode) {
-                      const isThisSelected = selectedId && String(selectedId) === elId;
+                      const isThisSelected =
+                        selectedId && String(selectedId) === elId;
                       setCursor(isThisSelected ? "grab" : idleCursor);
                     } else if (canOpenDetails) {
                       setCursor("pointer");
                     }
-                    
+
                     if (!canOpenDetails) return;
                     setHoveredMachineId((prev) =>
                       prev === machineId ? prev : machineId,
@@ -2883,7 +2903,10 @@ export default function DepartmentFloor3DViewer({
                         allowEdit,
                       )}
                       onPointerUp={createPointerUpHandler(allowEdit)}
-                      onPointerOver={createPointerOverHandler(allowEdit, String(el.id))}
+                      onPointerOver={createPointerOverHandler(
+                        allowEdit,
+                        String(el.id),
+                      )}
                       onPointerOut={createPointerOutHandler(allowEdit)}
                       onPointerEnter={createPointerEnterHandler(
                         machineId,

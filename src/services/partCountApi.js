@@ -2,6 +2,8 @@ import axios from 'axios'
 
 const PART_COUNT_API_URL = import.meta.env.VITE_PART_COUNT_API_URL;
 const PART_COUNT_API_KEY = import.meta.env.VITE_PART_COUNT_API_KEY;
+const DOWNTIME_API_URL = import.meta.env.VITE_DOWNTIME_API_URL;
+const DOWNTIME_API_KEY = import.meta.env.VITE_DOWNTIME_API_KEY;
 
 /**
  * Fetch hourly part count data for a specific machine
@@ -18,7 +20,7 @@ export async function fetchHourlyPartCount(custID, deviceID, dates) {
       date: dates
     }
     
-    console.log('📊 Fetching hourly part count with payload:', payload)
+    console.log(' Fetching hourly part count with payload:', payload)
     
     const response = await axios.post(
       PART_COUNT_API_URL,
@@ -31,15 +33,48 @@ export async function fetchHourlyPartCount(custID, deviceID, dates) {
       }
     )
     
-    console.log('✅ Hourly part count response:', response.data)
+    console.log('Hourly part count response:', response.data)
     
     // Return the first entry (today's data)
     const todayData = response.data?.data?.[0] || null
-    console.log('📈 Using today\'s data:', todayData)
+    console.log('Using today\'s data:', todayData)
     
     return todayData
   } catch (error) {
-    console.error('❌ Error fetching hourly part count:', error)
+    console.error(' Error fetching hourly part count:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetch machine downtime reasons for a specific machine.
+ * @param {string} custID - Customer ID
+ * @param {string} deviceID - Device/Machine ID
+ * @param {string[]} dates - Array of dates in YYYY-MM-DD format
+ * @returns {Promise<Object|Array|null>} Raw downtime reasons API payload
+ */
+export async function fetchMachineDowntimeReasons(custID, deviceID, dates) {
+  try {
+    const payload = {
+      custID,
+      deviceID,
+      date: dates,
+    }
+
+    const response = await axios.post(
+      DOWNTIME_API_URL,
+      payload,
+      {
+        headers: {
+          'x-functions-key': DOWNTIME_API_KEY,
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+
+    return response?.data ?? null
+  } catch (error) {
+    console.error('Error fetching machine downtime reasons:', error)
     throw error
   }
 }
@@ -63,6 +98,6 @@ export function getLastNDates(days = 3) {
     dates.push(`${year}-${month}-${day}`)
   }
   
-  console.log('📅 Generated dates:', dates)
+  console.log('Generated dates:', dates)
   return dates
 }

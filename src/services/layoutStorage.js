@@ -162,18 +162,18 @@ export function saveDepartmentCustomLayout(ctx, layout) {
     })
       .then(res => {
         if (res.ok) {
-          // console.log('[layoutStorage] ✅ Layout saved successfully to MongoDB');
+          // console.log('[layoutStorage] Layout saved successfully to MongoDB');
           return res.json();
         } else {
-          // console.error('[layoutStorage] ❌ Failed to save layout:', res.status, res.statusText);
+          // console.error('[layoutStorage] Failed to save layout:', res.status, res.statusText);
           return res.json().then(err => console.error('[layoutStorage] Error details:', err));
         }
       })
       .catch(err => {
-        console.error('[layoutStorage] ❌ Network error saving layout:', err);
+        console.error('[layoutStorage] Network error saving layout:', err);
       });
   } catch (err) {
-    console.error('[layoutStorage] ❌ Exception saving layout:', err);
+    console.error('[layoutStorage] Exception saving layout:', err);
   }
 }
 

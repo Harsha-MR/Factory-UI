@@ -145,9 +145,9 @@ export async function transformCustomerData(customers, fetchMachineMetrics = fal
         // Fetch real-time metrics if requested
         if (fetchMachineMetrics) {
           try {
-            console.log(`🔍 Fetching metrics for device ${device.deviceId} (custId: ${custId})...`)
+            console.log(`Fetching metrics for device ${device.deviceId} (custId: ${custId})...`)
             const metrics = await fetchMachineDetails(custId, device.deviceId)
-            console.log(`✅ Metrics fetched for ${device.deviceName}:`, {
+            console.log(` Metrics fetched for ${device.deviceName}:`, {
               status: metrics.status,
               oee: metrics.oee,
               availability: metrics.availability,
