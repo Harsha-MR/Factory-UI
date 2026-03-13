@@ -365,7 +365,7 @@ export default function DepartmentLayoutPage() {
 
                   <label className="flex items-center gap-2 text-xs text-slate-600">
                     <input
-                      type="checkbox"
+                      type="cd f  "
                       checked={autoRotateEnabled}
                       onChange={(e) => setAutoRotateEnabled(e.target.checked)}
                     />
