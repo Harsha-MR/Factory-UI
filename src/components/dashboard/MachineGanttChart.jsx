@@ -217,10 +217,11 @@ export default function MachineGanttChart({ overallStatus, shiftList }) {
 
       if (shiftStartSeconds >= visibleTimeRange.start && shiftStartSeconds <= visibleTimeRange.end) {
         const position = ((shiftStartSeconds - visibleTimeRange.start) / visibleDuration) * 100
+        const shiftTime = shift.startTime && shift.endTime ? ` (${shift.startTime} - ${shift.endTime})` : ''
         markers.push({
           time: shiftStartSeconds,
           position,
-          label: shift.shiftName || shift.name || 'Shift',
+          label: `${shift.shiftName || shift.name || 'Shift'}${shiftTime}`,
         })
       }
     })

@@ -555,7 +555,16 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
               {/* OEE */}
               <div className="rounded-xl border bg-white">
                 <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5 text-sm font-semibold text-slate-700">
-                  <span>OEE</span>
+                  <div className="flex items-center gap-2">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0" />
+                      <path d="M12 7v5l3 3" />
+                      <path d="M3.6 9h16.8" strokeLinecap="round" />
+                      <path d="M3.6 15h16.8" strokeLinecap="round" />
+                      <circle cx="12" cy="12" r="2" fill="currentColor" />
+                    </svg>
+                    <span>OEE</span>
+                  </div>
                   <div className="text-xs text-slate-500">Updated: {updatedAtFull}</div>
                 </div>
 

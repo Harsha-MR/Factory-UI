@@ -89,7 +89,7 @@ export default function DepartmentLayoutPage() {
     }
   }, [departmentId])
 
-  // Auto-refresh every 5 seconds
+  // Auto-refresh every 60 seconds
   useEffect(() => {
     if (!departmentId) return
     if (editingLayout) return
@@ -102,7 +102,7 @@ export default function DepartmentLayoutPage() {
       } catch {
         // keep last known data
       }
-    }, 5000)
+    }, 60000)
 
     return () => {
       cancelled = true
@@ -365,7 +365,7 @@ export default function DepartmentLayoutPage() {
 
                   <label className="flex items-center gap-2 text-xs text-slate-600">
                     <input
-                      type="checkbox"
+                      type="cd f  "
                       checked={autoRotateEnabled}
                       onChange={(e) => setAutoRotateEnabled(e.target.checked)}
                     />
@@ -436,7 +436,7 @@ export default function DepartmentLayoutPage() {
           </div>
 
           <div className="mt-3 text-xs text-gray-500">
-            Auto-refresh is enabled (updates every 5 seconds){editingLayout ? ' — paused while editing layout.' : '.'}
+            Auto-refresh is enabled (updates every 60 seconds){editingLayout ? ' — paused while editing layout.' : '.'}
           </div>
         </div>
       </div>

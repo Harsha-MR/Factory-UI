@@ -16,7 +16,10 @@ import {
   getDepartmentLayout,
   refreshDepartmentMachines,
 } from "../services/mockApi";
-import { fetchDepartmentHourlyOEE } from "../services/clientApi";
+import { 
+  fetchDepartmentHourlyOEE,
+  fetchDepartmentMachinesLiveData 
+} from "../services/clientApi";
 
 import DepartmentFloor3DViewer from "../components/layout/DepartmentFloor3DViewer";
 import { createDefaultLayoutForDepartment } from "../components/layout/defaultLayout";
@@ -266,6 +269,8 @@ export default function Department3DLayoutPage() {
   const [deptResult, setDeptResult] = useState(null);
   // console.log("Department Results:", deptResult);
   const [draft, setDraft] = useState(null);
+  const [liveMachineData, setLiveMachineData] = useState(null);
+  const [previousMachineStatuses, setPreviousMachineStatuses] = useState(new Map());
   const [showMachineMarkers, setShowMachineMarkers] = useState(true);
   const [showMachineLabels, setShowMachineLabels] = useState(true);
   const [oeeSummary, setOeeSummary] = useState(null);
@@ -336,32 +341,102 @@ export default function Department3DLayoutPage() {
 
     try {
       setRefreshing(true);
+      console.log('🔄 Refreshing department data for:', departmentId);
 
       // Use optimized refresh endpoint that skips custom layout fetching
       // This is significantly faster and reduces server load for periodic refreshes
       const result = await refreshDepartmentMachines(departmentId);
+      console.log('✅ Refresh API call completed:', result);
 
-      // Update department result with fresh machine data
+      // Fetch live machine data from K2 API for all machines in the department
+      const custId = deptResult?.factory?.id || 'GPBUM';
+      const allMachines = [];
+      
+      // Collect all machines from all zones
+      if (result?.department?.zones) {
+        result.department.zones.forEach(zone => {
+          if (zone.machines && Array.isArray(zone.machines)) {
+            allMachines.push(...zone.machines);
+          }
+        });
+      }
+      
+      console.log(`📡 Fetching live data for ${allMachines.length} machines from K2 API...`);
+      const liveMachines = await fetchDepartmentMachinesLiveData(custId, allMachines);
+      console.log('✅ Live machine data fetched:', liveMachines);
+      
+      // Store live machine data for status change detection
+      setLiveMachineData(liveMachines);
+
+      // Update department result with fresh machine data from live API
       // Preserves existing factory/plant info from initial load
-      setDeptResult((prevResult) => ({
-        ...prevResult,
-        department: result.department,
-        summary: result.summary,
-        meta: result.meta,
-      }));
+      setDeptResult((prevResult) => {
+        console.log('📊 Updating deptResult with live machine data');
+        
+        // Create a map for quick lookup of live machine data
+        const liveMachineMap = new Map(
+          liveMachines.map(m => [m.id || m.deviceId, m])
+        );
+        
+        // Merge live data with department zones
+        const updatedDepartment = {
+          ...result.department,
+          zones: result.department.zones.map(zone => ({
+            ...zone,
+            machines: zone.machines.map(machine => {
+              const liveData = liveMachineMap.get(machine.id || machine.deviceId);
+              return liveData ? { ...machine, ...liveData } : machine;
+            })
+          }))
+        };
+        
+        return {
+          ...prevResult,
+          department: updatedDepartment,
+          summary: result.summary,
+          meta: result.meta,
+        };
+      });
 
       // Update draft with new machine data while preserving user's layout customizations
       // This ensures real-time status updates without disrupting the 3D visualization
-      if (draft && result?.department) {
-        setDraft((prev) => mergeLayoutWithDepartment(prev, result.department));
-      }
+      setDraft((prev) => {
+        if (!prev) {
+          console.log('⚠️ Draft is null, skipping merge');
+          return prev;
+        }
+        if (result?.department) {
+          console.log('🔀 Merging layout with updated department data');
+          
+          // Create updated department with live data
+          const liveMachineMap = new Map(
+            liveMachines.map(m => [m.id || m.deviceId, m])
+          );
+          
+          const updatedDepartment = {
+            ...result.department,
+            zones: result.department.zones.map(zone => ({
+              ...zone,
+              machines: zone.machines.map(machine => {
+                const liveData = liveMachineMap.get(machine.id || machine.deviceId);
+                return liveData ? { ...machine, ...liveData } : machine;
+              })
+            }))
+          };
+          
+          return mergeLayoutWithDepartment(prev, updatedDepartment);
+        }
+        return prev;
+      });
+      
+      console.log('✅ Department data refresh completed successfully');
     } catch (e) {
-      console.error("Failed to refresh department data:", e);
+      console.error("❌ Failed to refresh department data:", e);
       // Silently fail for auto-refresh to avoid interrupting user experience
     } finally {
       setRefreshing(false);
     }
-  }, [departmentId, draft]);
+  }, [departmentId, deptResult?.factory?.id]);
 
   const openFloorDialog = () => {
     setNameInput("");
@@ -415,6 +490,33 @@ export default function Department3DLayoutPage() {
           result?.customLayout ||
           createDefaultLayoutForDepartment(result?.department);
         setDraft(mergeLayoutWithDepartment(base, result?.department));
+        
+        // Fetch initial live machine data from K2 API
+        const custId = result?.factory?.id || 'GPBUM';
+        const allMachines = [];
+        
+        if (result?.department?.zones) {
+          result.department.zones.forEach(zone => {
+            if (zone.machines && Array.isArray(zone.machines)) {
+              allMachines.push(...zone.machines);
+            }
+          });
+        }
+        
+        console.log(`🚀 Initial load: Fetching live data for ${allMachines.length} machines...`);
+        const liveMachines = await fetchDepartmentMachinesLiveData(custId, allMachines);
+        console.log('✅ Initial live machine data loaded:', liveMachines);
+        
+        setLiveMachineData(liveMachines);
+        
+        // Initialize previous statuses
+        const initialStatuses = new Map();
+        liveMachines.forEach(machine => {
+          const machineId = machine.id || machine.deviceId;
+          initialStatuses.set(machineId, machine.status);
+        });
+        setPreviousMachineStatuses(initialStatuses);
+        console.log('📋 Initialized machine statuses:', Array.from(initialStatuses.entries()));
       } catch (e) {
         if (!cancelled) setError(e?.message || "Failed to load department");
       } finally {
@@ -480,15 +582,73 @@ export default function Department3DLayoutPage() {
 
   // Auto-refresh department data every 60 seconds (only in non-fullscreen mode)
   useEffect(() => {
-    if (isFullscreen) return; // Don't auto-refresh in fullscreen edit mode
+    if (isFullscreen) {
+      console.log('⏸️ Auto-refresh paused - in fullscreen edit mode');
+      return; // Don't auto-refresh in fullscreen edit mode
+    }
     if (!departmentId) return;
 
+    console.log('⏰ Setting up auto-refresh interval (60 seconds) for department:', departmentId);
+    
     const intervalId = setInterval(() => {
+      console.log('⏰ Auto-refresh triggered');
       refreshDepartmentData();
     }, 60000); // 60 seconds
 
-    return () => clearInterval(intervalId);
+    return () => {
+      console.log('🛑 Clearing auto-refresh interval');
+      clearInterval(intervalId);
+    };
   }, [isFullscreen, departmentId, refreshDepartmentData]);
+
+  // Detect machine status changes and trigger re-render
+  useEffect(() => {
+    if (!liveMachineData || !Array.isArray(liveMachineData)) return;
+    
+    console.log('🔍 Checking for machine status changes...');
+    
+    const statusChanges = [];
+    
+    liveMachineData.forEach(machine => {
+      const machineId = machine.id || machine.deviceId;
+      const currentStatus = machine.status;
+      const previousStatus = previousMachineStatuses.get(machineId);
+      
+      if (previousStatus && previousStatus !== currentStatus) {
+        statusChanges.push({
+          machineId,
+          machineName: machine.name || machine.deviceName,
+          from: previousStatus,
+          to: currentStatus
+        });
+        console.log(`🔄 Machine ${machine.name || machineId} status changed: ${previousStatus} → ${currentStatus}`);
+      }
+      
+      // Update the status map
+      previousMachineStatuses.set(machineId, currentStatus);
+    });
+    
+    if (statusChanges.length > 0) {
+      console.log(`✅ ${statusChanges.length} machine(s) changed status:`, statusChanges);
+      setPreviousMachineStatuses(new Map(previousMachineStatuses));
+      
+      // Show toast notification for status changes
+      pushToast({
+        kind: 'info',
+        message: `${statusChanges.length} machine(s) status updated`,
+        ts: Date.now()
+      });
+      
+      // Force a re-render of the 3D canvas by updating deptResult
+      // This ensures the visual representation updates immediately
+      setDeptResult(prev => {
+        if (!prev) return prev;
+        return { ...prev, meta: { ...prev.meta, lastStatusUpdate: new Date().toISOString() } };
+      });
+    } else {
+      console.log('✅ No status changes detected');
+    }
+  }, [liveMachineData, pushToast]);
 
   // Fetch hourly OEE summary data for the department
   useEffect(() => {
@@ -2572,6 +2732,9 @@ export default function Department3DLayoutPage() {
             ) : null}
 
             <div className="relative h-full w-full">
+              {/* DepartmentFloor3DViewer receives live machine data via departmentZones prop
+                  This prop is updated when refreshDepartmentData() is called (auto-refresh every 60s or manual refresh button)
+                  Machine status changes (RUNNING->IDLE, etc.) will be reflected in real-time on the 3D canvas */}
               <DepartmentFloor3DViewer
                 modelUrl={
                   draft?.threeD?.floorModelUrl || "/models/floor-model.glb"
