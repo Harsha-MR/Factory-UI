@@ -113,7 +113,14 @@ function DonutGauge({ valuePct }) {
   )
 }
 
-export default function MachineDetailsModal({ machine, context, fetchedAt, onClose }) {
+export default function MachineDetailsModal({
+  machine,
+  context,
+  fetchedAt,
+  onClose,
+  machineOptions = [],
+  onSelectMachine,
+}) {
   const [hourlyData, setHourlyData] = useState(null)
   const [loadingHourlyData, setLoadingHourlyData] = useState(false)
   const [fullMachineData, setFullMachineData] = useState(null)
@@ -447,6 +454,24 @@ export default function MachineDetailsModal({ machine, context, fetchedAt, onClo
           </div>
 
           <div className="flex items-center gap-2">
+            {Array.isArray(machineOptions) &&
+            machineOptions.length > 1 &&
+            typeof onSelectMachine === 'function' ? (
+              <div className="flex items-center gap-2">
+                <span className="whitespace-nowrap text-xs font-medium text-slate-600">Machine</span>
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
+                  value={String(machine?.id || '')}
+                  onChange={(e) => onSelectMachine(e.target.value)}
+                >
+                  {machineOptions.map((m) => (
+                    <option key={String(m.id)} value={String(m.id)}>
+                      {m.name || m.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             {/* <button
               type="button"
               className="rounded-md border bg-white p-2 text-slate-500 hover:bg-slate-50"

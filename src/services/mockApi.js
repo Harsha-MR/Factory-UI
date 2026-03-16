@@ -1,23 +1,16 @@
 import { fetchDepartmentCustomLayoutVersions } from './layoutStorage'
-import { fetchCustomerHierarchy } from './clientApi'
+import { buildMachineRecord, fetchCustomerHierarchy, fetchMachineDetails } from './clientApi'
 
 const NETWORK_MS = 350
 
-// const SEED_URL = '/mock/factoryHierarchy.json'
-const SEED_URL = '/mock/factory_efficiency_data.json'
-
 let seedCache = null
 let seedPromise = null
-let processedDataCache = null // Cache processed data to avoid re-computation
 let departmentSummaryCache = new Map() // Cache department summaries
 
 const IS_DEV = !!import.meta?.env?.DEV
 
 // In-memory "live" copy (this mimics real-world changing state)
 let live = null
-
-// Flag to use real client API data instead of mock
-const USE_CLIENT_API = true
 
 function clamp01(n) {
   if (!Number.isFinite(n)) return 0
@@ -273,65 +266,60 @@ function transformCustomersToFactories(customers) {
   return { factories }
 }
 
-async function loadSeed() {
-  // Use real client API if flag is set
-  if (USE_CLIENT_API) {
-    // In dev mode, always fetch fresh data (don't use cache)
-    if (IS_DEV) {
-      seedCache = null
-      seedPromise = null
-    }
-    
-    if (seedCache && !IS_DEV) return seedCache
-    if (seedPromise) return seedPromise
+async function refreshDepartmentFromLiveApi(factoryId, department) {
+  if (!department || !Array.isArray(department?.zones)) return department
 
-    seedPromise = (async () => {
-      try {
-        console.log('🔄 Fetching customer hierarchy from API...')
-        const customers = await fetchCustomerHierarchy()
-        console.log('✅ Customer data fetched:', customers)
-        // Transform customers to factories structure
-        seedCache = transformCustomersToFactories(customers)
-        console.log('✅ Transformed to factories structure:', seedCache)
-        return seedCache
-      } catch (error) {
-        console.error('❌ Failed to load client API data:', error)
-        // Fallback to mock data if client API fails
-        return loadMockSeed()
+  const nextZones = await Promise.all(
+    (department.zones || []).map(async (zone) => {
+      const nextMachines = await Promise.all(
+        (zone?.machines || []).map(async (machine) => {
+          const device = {
+            deviceId: machine?.deviceId || machine?.id,
+            deviceName: machine?.deviceName || machine?.name,
+            departmentName: department?.name,
+          }
+
+          try {
+            const metrics = await fetchMachineDetails(factoryId, device.deviceId)
+            return buildMachineRecord(device, metrics, factoryId)
+          } catch (error) {
+            console.error(`Failed to refresh live machine ${device.deviceId}:`, error?.message || error)
+            return {
+              ...machine,
+              updatedAt: new Date().toISOString(),
+            }
+          }
+        }),
+      )
+
+      return {
+        ...zone,
+        machines: nextMachines,
       }
-    })()
+    }),
+  )
 
-    try {
-      return await seedPromise
-    } finally {
-      seedPromise = null
-    }
+  return {
+    ...department,
+    zones: nextZones,
+    updatedAt: new Date().toISOString(),
   }
-
-  // Original mock data loading
-  return loadMockSeed()
 }
 
-async function loadMockSeed() {
-  // In dev, the JSON file changes frequently; avoid serving stale cached data.
+async function loadSeed() {
   if (seedCache && !IS_DEV) return seedCache
   if (seedPromise) return seedPromise
 
   seedPromise = (async () => {
-    const res = await fetch(SEED_URL, {
-      headers: { Accept: 'application/json' },
-      cache: IS_DEV ? 'no-store' : 'default',
-    })
-
-    if (!res.ok) {
-      throw new Error(
-        `Failed to load seed data (${res.status} ${res.statusText})`,
-      )
+    try {
+      console.log('Fetching customer hierarchy from live API...')
+      const customers = await fetchCustomerHierarchy(false)
+      seedCache = transformCustomersToFactories(customers)
+      return seedCache
+    } catch (error) {
+      console.error('Failed to load live API data:', error)
+      throw new Error(`Live API load failed: ${error?.message || error}`)
     }
-
-    const json = await res.json()
-    seedCache = coerceSeedToHierarchyShape(json)
-    return seedCache
   })()
 
   try {
@@ -391,7 +379,16 @@ export async function getDepartmentsByPlant(plantId) {
   await delay(NETWORK_MS)
   const found = findPlant(plantId)
   if (!found) return []
-  return found.plant.departments.map((d) => ({
+
+  const refreshedDepartments = await Promise.all(
+    found.plant.departments.map((department) =>
+      refreshDepartmentFromLiveApi(found.factory.id, department),
+    ),
+  )
+
+  found.plant.departments = refreshedDepartments
+
+  return refreshedDepartments.map((d) => ({
     id: d.id,
     name: d.name,
     summary: computeDepartmentSummary(d),
@@ -406,7 +403,13 @@ export async function getDepartmentLayout(departmentId) {
   const found = findDepartment(departmentId)
   if (!found) throw new Error(`Department not found: ${departmentId}`)
 
-  const summary = computeDepartmentSummary(found.department)
+  const refreshedDepartment = await refreshDepartmentFromLiveApi(
+    found.factory.id,
+    found.department,
+  )
+  found.department = refreshedDepartment
+
+  const summary = computeDepartmentSummary(refreshedDepartment)
 
   const versions = await fetchDepartmentCustomLayoutVersions({
     factoryId: found.factory?.id,
@@ -420,9 +423,9 @@ export async function getDepartmentLayout(departmentId) {
     factory: { id: found.factory.id, name: found.factory.name },
     plant: { id: found.plant.id, name: found.plant.name },
     department: {
-      id: found.department.id,
-      name: found.department.name,
-      zones: structuredClone(found.department.zones || []),
+      id: refreshedDepartment.id,
+      name: refreshedDepartment.name,
+      zones: structuredClone(refreshedDepartment.zones || []),
     },
     customLayout,
     summary,
@@ -462,15 +465,21 @@ export async function refreshDepartmentMachines(departmentId) {
   const found = findDepartment(departmentId)
   if (!found) throw new Error(`Department not found: ${departmentId}`)
 
+  const refreshedDepartment = await refreshDepartmentFromLiveApi(
+    found.factory.id,
+    found.department,
+  )
+  found.department = refreshedDepartment
+
   // Compute summary (uses cache when available)
-  const summary = computeDepartmentSummary(found.department)
+  const summary = computeDepartmentSummary(refreshedDepartment)
 
   // Return only the essential data for refresh
   return {
     department: {
-      id: found.department.id,
-      name: found.department.name,
-      zones: structuredClone(found.department.zones || []),
+      id: refreshedDepartment.id,
+      name: refreshedDepartment.name,
+      zones: structuredClone(refreshedDepartment.zones || []),
     },
     summary,
     meta: { 

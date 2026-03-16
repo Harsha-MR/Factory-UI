@@ -88,11 +88,61 @@ function abbreviateMachineName(raw) {
   return prefix
 }
 
+function toSeconds(value, unitHint = 'seconds') {
+  if (value == null || value === '') return NaN
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return NaN
+    const n = Math.max(0, value)
+    if (unitHint === 'minutes') return n * 60
+    if (unitHint === 'hours') return n * 3600
+    return n
+  }
+  const str = String(value).trim()
+  if (!str) return NaN
+  const hhmmss = str.match(/^(\d+):(\d{1,2}):(\d{1,2})$/)
+  if (hhmmss) {
+    const h = Number(hhmmss[1] || 0)
+    const m = Number(hhmmss[2] || 0)
+    const s = Number(hhmmss[3] || 0)
+    if ([h, m, s].some((x) => !Number.isFinite(x) || x < 0)) return NaN
+    return h * 3600 + m * 60 + s
+  }
+  const numeric = Number(str)
+  if (Number.isFinite(numeric)) {
+    const n = Math.max(0, numeric)
+    if (unitHint === 'minutes') return n * 60
+    if (unitHint === 'hours') return n * 3600
+    return n
+  }
+  return NaN
+}
+
+function formatDuration(seconds) {
+  const totalSec = Math.max(0, Math.round(Number(seconds) || 0))
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`
+  return `${m}m`
+}
+
+function machineDowntimeSeconds(machine) {
+  const tm = machine?.timeMetrics || {}
+  const breakdownSec = toSeconds(tm?.breakdownTime, 'seconds')
+  if (Number.isFinite(breakdownSec) && breakdownSec >= 0) return breakdownSec
+  const downSec = toSeconds(tm?.downTime, 'seconds')
+  if (Number.isFinite(downSec) && downSec >= 0) return downSec
+  const offSec = toSeconds(tm?.total_off, 'hours')
+  if (Number.isFinite(offSec) && offSec >= 0) return offSec
+  return 0
+}
+
 function MachineBubble({ machine, onClick }) {
   const ui = statusUi(machine?.status)
   const clickable = typeof onClick === 'function'
   const name = machine?.name || machine?.id || 'Machine'
   const shortName = abbreviateMachineName(name)
+  const downtimeSeconds = machineDowntimeSeconds(machine)
+  const downtimeText = formatDuration(downtimeSeconds)
 
   return (
     <div
@@ -126,8 +176,7 @@ function MachineBubble({ machine, onClick }) {
       <div className="max-w-[4.5rem] truncate text-xs font-semibold text-slate-800">{shortName}</div>
       <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-600">
         <span className={`h-2.5 w-2.5 rounded-full ${ui.dot}`} />
-        <span>{ui.label}</span>
-      
+        <span>Downtime {downtimeText}</span>
       </div>
     </div>
   )

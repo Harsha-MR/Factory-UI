@@ -13,13 +13,7 @@ export default function Dashboard() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const didAutoSelectFactoryRef = useRef(false);
-  const didAutoSelectPlantRef = useRef(false);
-  const didAutoShowDepartmentsRef = useRef(false);
   const departmentsRef = useRef(null);
-
-  const prevFactoryIdRef = useRef(null);
-  const prevPlantIdRef = useRef(null);
 
   const [factories, setFactories] = useState([]);
   const [plants, setPlants] = useState([]);
@@ -37,7 +31,9 @@ export default function Dashboard() {
   );
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
 
-  const [loadingLists, setLoadingLists] = useState(false);
+  const [loadingFactories, setLoadingFactories] = useState(false);
+  const [loadingPlants, setLoadingPlants] = useState(false);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [error, setError] = useState("");
 
   const selectedPlantName = useMemo(() => {
@@ -58,14 +54,10 @@ export default function Dashboard() {
       setFactoryId(desiredFactoryId);
     if (desiredPlantId && desiredPlantId !== plantId)
       setPlantId(desiredPlantId);
-    if (desiredShowDepartments !== showDepartments) {
+    if (desiredShowDepartments !== showDepartments)
       setShowDepartments(desiredShowDepartments);
-      if (desiredShowDepartments) didAutoShowDepartmentsRef.current = true;
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
-
-  // Removed effect that syncs Dashboard state to URL query params.
 
   useEffect(() => {
     let cancelled = false;
@@ -73,131 +65,81 @@ export default function Dashboard() {
     (async () => {
       try {
         setError("");
-        setLoadingLists(true);
+        setLoadingFactories(true);
         const data = await getFactories();
         if (!cancelled) {
           setFactories(data);
-
-          // Default drill-down: Factory 1
-          if (!didAutoSelectFactoryRef.current && !factoryId) {
-            const preferred =
-              data.find((f) => /factory\s*1/i.test(f?.name || "")) ||
-              data.find((f) => String(f?.id || "").toLowerCase() === "f1") ||
-              data.find((f) => String(f?.id || "").endsWith("1")) ||
-              data[0];
-
-            if (preferred?.id) {
-              didAutoSelectFactoryRef.current = true;
-              setFactoryId(preferred.id);
-            }
-          }
         }
       } catch (e) {
         if (!cancelled) setError(e?.message || "Failed to load factories");
       } finally {
-        if (!cancelled) setLoadingLists(false);
+        if (!cancelled) setLoadingFactories(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [factoryId]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    const prevFactoryId = prevFactoryIdRef.current;
-    const isFirstRun = prevFactoryId === null;
-    const didChange = !isFirstRun && prevFactoryId !== factoryId;
+    setPlantId("");
+    setPlants([]);
+    setDepartments([]);
+    setDepartmentsFetchedAt("");
+    setSelectedDepartmentId("");
+    setShowDepartments(false);
 
-    // Only reset dependent state when the factory actually changes.
-    // This keeps query-driven navigation (e.g. browser back) from wiping the plant selection.
-    if (didChange) {
-      setPlantId("");
-      setPlants([]);
-      setDepartments([]);
-      setDepartmentsFetchedAt("");
-      setShowDepartments(false);
-    }
+    if (!factoryId) return undefined;
 
-    prevFactoryIdRef.current = factoryId;
-
-    if (!factoryId) return;
     (async () => {
       try {
         setError("");
-        setLoadingLists(true);
+        setLoadingPlants(true);
         const data = await getPlantsByFactory(factoryId);
         if (!cancelled) {
           setPlants(data);
-
-          // Default drill-down: Plant 1
-          if (!didAutoSelectPlantRef.current && !plantId) {
-            const preferred =
-              data.find((p) => /plant\s*1/i.test(p?.name || "")) ||
-              data.find((p) => String(p?.id || "").toLowerCase() === "p1") ||
-              data.find((p) => String(p?.id || "").endsWith("1")) ||
-              data[0];
-
-            if (preferred?.id) {
-              didAutoSelectPlantRef.current = true;
-              setPlantId(preferred.id);
-            }
-          }
         }
       } catch (e) {
         if (!cancelled) setError(e?.message || "Failed to load plants");
       } finally {
-        if (!cancelled) setLoadingLists(false);
+        if (!cancelled) setLoadingPlants(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [factoryId]);
 
   useEffect(() => {
     let cancelled = false;
 
-    const prevPlantId = prevPlantIdRef.current;
-    const isFirstRun = prevPlantId === null;
-    const didChange = !isFirstRun && prevPlantId !== plantId;
+    setDepartments([]);
+    setDepartmentsFetchedAt("");
+    setSelectedDepartmentId("");
+    setShowDepartments(false);
 
-    // Only reset dependent state when the plant actually changes.
-    if (didChange) {
-      setDepartments([]);
-      setDepartmentsFetchedAt("");
-      setShowDepartments(false);
-    }
+    if (!plantId) return undefined;
 
-    prevPlantIdRef.current = plantId;
-
-    if (!plantId) return;
     (async () => {
       try {
         setError("");
-        setLoadingLists(true);
+        setLoadingDepartments(true);
         const data = await getDepartmentsByPlant(plantId);
         if (!cancelled) {
           setDepartments(data);
           setDepartmentsFetchedAt(new Date().toISOString());
-
-          // Auto-open departments only for initial auto-selection.
-          if (
-            !didAutoShowDepartmentsRef.current &&
-            didAutoSelectPlantRef.current
-          ) {
-            didAutoShowDepartmentsRef.current = true;
+          if (data.length > 0) {
             setShowDepartments(true);
           }
         }
       } catch (e) {
         if (!cancelled) setError(e?.message || "Failed to load departments");
       } finally {
-        if (!cancelled) setLoadingLists(false);
+        if (!cancelled) setLoadingDepartments(false);
       }
     })();
 
@@ -254,14 +196,14 @@ export default function Dashboard() {
             value={factoryId}
             onChange={setFactoryId}
             options={factories}
-            disabled={loadingLists}
+            disabled={loadingFactories}
           />
           <Select
             label="Plant"
             value={plantId}
             onChange={setPlantId}
             options={plants}
-            disabled={!factoryId || loadingLists}
+            disabled={!factoryId || loadingPlants}
           />
 
           <Select
@@ -269,7 +211,7 @@ export default function Dashboard() {
             value={selectedDepartmentId}
             onChange={setSelectedDepartmentId}
             options={departments}
-            disabled={!plantId || loadingLists || departments.length === 0}
+            disabled={!plantId || loadingDepartments || departments.length === 0}
           />
 
           <div className="flex flex-col">
@@ -279,7 +221,7 @@ export default function Dashboard() {
             <button
               className="inline-flex w-fit rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               onClick={onGet}
-              disabled={!plantId || loadingLists}
+              disabled={!plantId || loadingPlants || loadingDepartments}
             >
               Get
             </button>

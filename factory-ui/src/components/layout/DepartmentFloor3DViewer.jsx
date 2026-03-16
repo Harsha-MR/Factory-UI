@@ -861,7 +861,15 @@ export default function DepartmentFloor3DViewer({
   machineStatusVisibility = null,
   planeSize = DEFAULT_PLANE_SIZE,
   fullScreen = false,
+  departmentZones = null,
+  cameraResetTrigger = 0,
+  onCameraReset = null,
+  oeeSummary = null,
 }) {
+  void departmentZones;
+  void onCameraReset;
+  void oeeSummary;
+
   // Preload all models at component mount for better performance
   useEffect(() => {
     const modelUrls = [
@@ -1773,6 +1781,28 @@ export default function DepartmentFloor3DViewer({
     // Delay to ensure smooth transition
     setTimeout(() => setLoading(false), 400);
   }, [cameraPosition, effectiveFloorY]);
+
+  useEffect(() => {
+    if (cameraResetTrigger === 0) return;
+
+    const camera = cameraRef.current;
+    const controls = orbitRef.current;
+    if (!camera || !controls) return;
+
+    const [cx, cy, cz] = cameraPosition;
+    camera.position.set(cx, cy, cz);
+    camera.lookAt(0, effectiveFloorY, 0);
+
+    if (controls.target) {
+      controls.target.set(0, effectiveFloorY, 0);
+    }
+
+    if (typeof controls.update === "function") {
+      controls.update();
+    }
+
+    setCameraPos({ x: cx, y: cy, z: cz });
+  }, [cameraResetTrigger, cameraPosition, effectiveFloorY]);
 
   // In preview mode, prevent the page from scrolling while the user zooms the canvas.
   useEffect(() => {

@@ -2,6 +2,8 @@ import axios from 'axios'
 
 const PART_COUNT_API_URL = import.meta.env.VITE_PART_COUNT_API_URL;
 const PART_COUNT_API_KEY = import.meta.env.VITE_PART_COUNT_API_KEY;
+const DOWNTIME_API_URL = import.meta.env.VITE_DOWNTIME_API_URL;
+const DOWNTIME_API_KEY = import.meta.env.VITE_DOWNTIME_API_KEY;
 
 /**
  * Fetch hourly part count data for a specific machine
@@ -40,6 +42,28 @@ export async function fetchHourlyPartCount(custID, deviceID, dates) {
     return todayData
   } catch (error) {
     console.error('❌ Error fetching hourly part count:', error)
+    throw error
+  }
+}
+
+export async function fetchMachineDowntimeReasons(custID, deviceID, dates) {
+  try {
+    const payload = {
+      custID,
+      deviceID,
+      date: dates,
+    }
+
+    const response = await axios.post(DOWNTIME_API_URL, payload, {
+      headers: {
+        'x-functions-key': DOWNTIME_API_KEY,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    return response?.data ?? null
+  } catch (error) {
+    console.error('Error fetching machine downtime reasons:', error)
     throw error
   }
 }

@@ -6,6 +6,18 @@ const MACHINE_API_BASE_URL = import.meta.env.VITE_MACHINE_API_BASE_URL;
 const CLIENT_API_TOKEN = import.meta.env.VITE_CLIENT_API_TOKEN;
 const MACHINE_API_KEY = import.meta.env.VITE_MACHINE_API_KEY;
 
+function normalizeApiPayload(payload) {
+  if (typeof payload !== 'string') return payload
+  const text = payload.trim()
+  if (!text) return payload
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return payload
+  }
+}
+
 /**
  * Fetch all customers from client API
  */
@@ -17,7 +29,7 @@ export async function fetchCustomers() {
         'Content-Type': 'application/json'
       }
     })
-    return response.data
+    return normalizeApiPayload(response.data)
   } catch (error) {
     console.error('Error fetching customers:', error)
     throw error
@@ -36,7 +48,7 @@ export async function fetchDepartments(custId) {
         'Content-Type': 'application/json'
       }
     })
-    return response.data
+    return normalizeApiPayload(response.data)
   } catch (error) {
     console.error(`Error fetching departments for customer ${custId}:`, error)
     throw error
@@ -57,7 +69,7 @@ export async function fetchMachineDetails(custId, deviceId) {
         'Content-Type': 'application/json'
       }
     })
-    return response.data
+    return normalizeApiPayload(response.data)
   } catch (error) {
     console.error(`Error fetching machine details for device ${deviceId}:`, error)
     throw error
@@ -76,6 +88,95 @@ function mapMachineStatus(statusCode) {
     4: 'OFFLINE', 
   }
   return statusMap[statusCode] || 'UNKNOWN'
+}
+
+export function buildMachineRecord(device = {}, metrics = null, custId = '') {
+  const deviceId = device.deviceId || device.id || ''
+  const deviceName = device.deviceName || device.name || deviceId || 'Unknown Machine'
+  const departmentName = device.departmentName || device.department || ''
+  const baseUpdatedAt = new Date().toISOString()
+
+  const baseRecord = {
+    id: deviceId,
+    name: deviceName,
+    status: 'UNKNOWN',
+    efficiency: 0,
+    deviceId,
+    deviceName,
+    departmentName,
+    custId,
+    updatedAt: baseUpdatedAt,
+    timeMetrics: {
+      plannedProductionTime: 0,
+      runTime: 0,
+      idleTime: 0,
+      breakdownTime: 0,
+      downTime: 0,
+      offTime: 0,
+    },
+    productionMetrics: {
+      totalPartsProduced: 0,
+      goodParts: 0,
+      rejectedParts: 0,
+      idealCycleTime: 0,
+    },
+    oeeMetrics: {
+      availability: 0,
+      performance: 0,
+      quality: 0,
+      oee: 0,
+    },
+  }
+
+  if (!metrics || typeof metrics !== 'object') return baseRecord
+
+  const totalRunningSeconds = Number(metrics.total_running || 0) * 3600
+  const totalIdleSeconds = Number(metrics.total_idle || 0) * 3600
+  const totalOffSeconds = Number(metrics.total_off || 0) * 3600
+  const totalPlannedSeconds = totalRunningSeconds + totalIdleSeconds
+  const totalParts = Number(metrics.Ai_partcount || 0)
+  const qualityPct = Number(metrics.quality || 100)
+  const goodParts = Math.round(totalParts * (qualityPct / 100))
+
+  return {
+    ...baseRecord,
+    status: mapMachineStatus(metrics.status),
+    efficiency: metrics.oee || 0,
+    deviceType: metrics.deviceType,
+    partcountType: metrics.partcountType,
+    operatorName: metrics.operatorName || '',
+    partName: metrics.partName || '',
+    lastUpdatedTime: metrics.LUT,
+    updatedAt: baseUpdatedAt,
+    timeMetrics: {
+      plannedProductionTime: totalPlannedSeconds,
+      runTime: totalRunningSeconds,
+      idleTime: totalIdleSeconds,
+      breakdownTime: totalOffSeconds,
+      downTime: totalOffSeconds,
+      offTime: 0,
+    },
+    productionMetrics: {
+      totalPartsProduced: totalParts,
+      goodParts,
+      rejectedParts: totalParts - goodParts,
+      idealCycleTime: 0,
+    },
+    energyMetrics: {
+      totalEnergy: metrics.total_energy,
+      totalCurrent: metrics.total_current,
+      realPower: metrics.real_power,
+      apparentPower: metrics.apparent_power,
+      powerUnitCost: metrics.powerUnitCost,
+    },
+    oeeMetrics: {
+      availability: metrics.availability || 0,
+      performance: metrics.performance || 0,
+      quality: metrics.quality || 0,
+      oee: metrics.oee || 0,
+    },
+    Shift_List: metrics.Shift_List || [],
+  }
 }
 
 /**
@@ -104,43 +205,7 @@ export async function transformCustomerData(customers, fetchMachineMetrics = fal
       
       // Optionally fetch real-time machine metrics
       const machinesWithMetrics = await Promise.all(deptDevices.map(async (device) => {
-        // Initialize with default structure that UI expects
-        let machineData = {
-          id: device.deviceId,
-          name: device.deviceName,
-          status: 'UNKNOWN',
-          efficiency: 0,
-          deviceId: device.deviceId,
-          deviceName: device.deviceName,
-          departmentName: device.departmentName,
-          updatedAt: new Date().toISOString(),
-          
-          // Default time metrics
-          timeMetrics: {
-            plannedProductionTime: 0,
-            runTime: 0,
-            idleTime: 0,
-            breakdownTime: 0,
-            downTime: 0,
-            offTime: 0,
-          },
-          
-          // Default production metrics
-          productionMetrics: {
-            totalPartsProduced: 0,
-            goodParts: 0,
-            rejectedParts: 0,
-            idealCycleTime: 0,
-          },
-          
-          // Default OEE metrics
-          oeeMetrics: {
-            availability: 0,
-            performance: 0,
-            quality: 0,
-            oee: 0,
-          }
-        }
+        let machineData = buildMachineRecord(device, null, custId)
 
         // Fetch real-time metrics if requested
         if (fetchMachineMetrics) {
@@ -154,65 +219,7 @@ export async function transformCustomerData(customers, fetchMachineMetrics = fal
               performance: metrics.performance,
               quality: metrics.quality
             })
-            
-            // Convert hours to seconds for time metrics
-            const totalRunningSeconds = (metrics.total_running || 0) * 3600
-            const totalIdleSeconds = (metrics.total_idle || 0) * 3600
-            const totalOffSeconds = (metrics.total_off || 0) * 3600
-            const totalPlannedSeconds = totalRunningSeconds + totalIdleSeconds
-            
-            // Calculate parts from quality percentage
-            const totalParts = metrics.Ai_partcount || 0
-            const qualityPct = metrics.quality || 100
-            const goodParts = Math.round(totalParts * (qualityPct / 100))
-            
-            // Update machine data with API metrics
-            machineData = {
-              ...machineData,
-              status: mapMachineStatus(metrics.status),
-              efficiency: metrics.oee || 0,
-              deviceType: metrics.deviceType,
-              partcountType: metrics.partcountType,
-              operatorName: metrics.operatorName || '',
-              partName: metrics.partName || '',
-              lastUpdatedTime: metrics.LUT,
-              updatedAt: new Date().toISOString(),
-              
-              // Time metrics structure expected by UI
-              timeMetrics: {
-                plannedProductionTime: totalPlannedSeconds,
-                runTime: totalRunningSeconds,
-                idleTime: totalIdleSeconds,
-                breakdownTime: totalOffSeconds, // API's total_off represents breakdown/offline time
-                downTime: totalOffSeconds, // Alias for breakdownTime
-                offTime: 0, // Not provided separately by API
-              },
-              
-              // Production metrics structure expected by UI
-              productionMetrics: {
-                totalPartsProduced: totalParts,
-                goodParts: goodParts,
-                rejectedParts: totalParts - goodParts,
-                idealCycleTime: 0, // Not provided by API
-              },
-              
-              // Energy metrics
-              energyMetrics: {
-                totalEnergy: metrics.total_energy,
-                totalCurrent: metrics.total_current,
-                realPower: metrics.real_power,
-                apparentPower: metrics.apparent_power,
-                powerUnitCost: metrics.powerUnitCost,
-              },
-              
-              // Direct OEE values from API (already calculated as percentages)
-              oeeMetrics: {
-                availability: metrics.availability || 0,
-                performance: metrics.performance || 0,
-                quality: metrics.quality || 0,
-                oee: metrics.oee || 0,
-              }
-            }
+            machineData = buildMachineRecord(device, metrics, custId)
           } catch (error) {
             console.error(`Failed to fetch metrics for device ${device.deviceId}:`, error.message)
             console.error('Error details:', error.response?.data || error)
@@ -259,7 +266,7 @@ export async function transformCustomerData(customers, fetchMachineMetrics = fal
  * Fetch and transform customer hierarchy data
  * @param {boolean} fetchMachineMetrics - Whether to fetch real-time machine metrics
  */
-export async function fetchCustomerHierarchy(fetchMachineMetrics = true) {
+export async function fetchCustomerHierarchy(fetchMachineMetrics = false) {
   const customers = await fetchCustomers()
   return await transformCustomerData(customers, fetchMachineMetrics)
 }
@@ -349,7 +356,7 @@ export async function fetchDepartmentHourlyOEE(custId, date, department, shiftNa
         'Content-Type': 'application/json'
       }
     })
-    return response.data
+    return normalizeApiPayload(response.data)
   } catch (error) {
     console.error(`Error fetching hourly OEE for department ${department}:`, error)
     throw error

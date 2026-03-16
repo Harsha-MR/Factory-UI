@@ -1,13 +1,10 @@
 import { fetchDepartmentCustomLayoutVersions } from './layoutStorage'
+import { buildMachineRecord, fetchCustomerHierarchy, fetchMachineDetails } from './clientApi'
 
 const NETWORK_MS = 350
 
-// const SEED_URL = '/mock/factoryHierarchy.json'
-const SEED_URL = '/mock/factory_efficiency_data.json'
-
 let seedCache = null
 let seedPromise = null
-let processedDataCache = null // Cache processed data to avoid re-computation
 let departmentSummaryCache = new Map() // Cache department summaries
 
 const IS_DEV = !!import.meta?.env?.DEV
@@ -243,25 +240,65 @@ function normalizeHierarchy(root) {
   }
 }
 
+async function refreshDepartmentFromLiveApi(factoryId, department) {
+  if (!department || !Array.isArray(department?.zones)) return department
+
+  const nextZones = await Promise.all(
+    (department.zones || []).map(async (zone) => {
+      const nextMachines = await Promise.all(
+        (zone?.machines || []).map(async (machine) => {
+          const device = {
+            deviceId: machine?.deviceId || machine?.id,
+            deviceName: machine?.deviceName || machine?.name,
+            departmentName: department?.name,
+          }
+
+          try {
+            const metrics = await fetchMachineDetails(factoryId, device.deviceId)
+            return buildMachineRecord(device, metrics, factoryId)
+          } catch (error) {
+            console.error(`Failed to refresh live machine ${device.deviceId}:`, error?.message || error)
+            return {
+              ...machine,
+              updatedAt: new Date().toISOString(),
+            }
+          }
+        }),
+      )
+
+      return {
+        ...zone,
+        machines: nextMachines,
+      }
+    }),
+  )
+
+  return {
+    ...department,
+    zones: nextZones,
+    updatedAt: new Date().toISOString(),
+  }
+}
+
 async function loadSeed() {
-  // In dev, the JSON file changes frequently; avoid serving stale cached data.
   if (seedCache && !IS_DEV) return seedCache
   if (seedPromise) return seedPromise
 
   seedPromise = (async () => {
-    const res = await fetch(SEED_URL, {
-      headers: { Accept: 'application/json' },
-      cache: IS_DEV ? 'no-store' : 'default',
-    })
-
-    if (!res.ok) {
-      throw new Error(
-        `Failed to load seed data (${res.status} ${res.statusText})`,
-      )
+    const customers = await fetchCustomerHierarchy(false)
+    seedCache = {
+      factories: customers.map((customer) => ({
+        id: customer.id,
+        name: customer.name,
+        plants: [
+          {
+            id: `${customer.id}-default-plant`,
+            name: customer.plant || 'Default Plant',
+            departments: customer.departments || [],
+          },
+        ],
+      })),
     }
-
-    const json = await res.json()
-    seedCache = coerceSeedToHierarchyShape(json)
     return seedCache
   })()
 
@@ -322,6 +359,9 @@ export async function getDepartmentsByPlant(plantId) {
   await delay(NETWORK_MS)
   const found = findPlant(plantId)
   if (!found) return []
+
+  // Keep dashboard selection responsive.
+  // Fetch full live machine metrics only when a specific department is opened.
   return found.plant.departments.map((d) => ({
     id: d.id,
     name: d.name,
@@ -337,7 +377,13 @@ export async function getDepartmentLayout(departmentId) {
   const found = findDepartment(departmentId)
   if (!found) throw new Error(`Department not found: ${departmentId}`)
 
-  const summary = computeDepartmentSummary(found.department)
+  const refreshedDepartment = await refreshDepartmentFromLiveApi(
+    found.factory.id,
+    found.department,
+  )
+  found.department = refreshedDepartment
+
+  const summary = computeDepartmentSummary(refreshedDepartment)
 
   const versions = await fetchDepartmentCustomLayoutVersions({
     factoryId: found.factory?.id,
@@ -351,13 +397,43 @@ export async function getDepartmentLayout(departmentId) {
     factory: { id: found.factory.id, name: found.factory.name },
     plant: { id: found.plant.id, name: found.plant.name },
     department: {
-      id: found.department.id,
-      name: found.department.name,
-      zones: structuredClone(found.department.zones || []),
+      id: refreshedDepartment.id,
+      name: refreshedDepartment.name,
+      zones: structuredClone(refreshedDepartment.zones || []),
     },
     customLayout,
     summary,
     meta: { simulated: false, fetchedAt: new Date().toISOString() },
+  }
+}
+
+export async function refreshDepartmentMachines(departmentId) {
+  await ensureLive()
+  await delay(150)
+
+  const found = findDepartment(departmentId)
+  if (!found) throw new Error(`Department not found: ${departmentId}`)
+
+  const refreshedDepartment = await refreshDepartmentFromLiveApi(
+    found.factory.id,
+    found.department,
+  )
+  found.department = refreshedDepartment
+
+  const summary = computeDepartmentSummary(refreshedDepartment)
+
+  return {
+    department: {
+      id: refreshedDepartment.id,
+      name: refreshedDepartment.name,
+      zones: structuredClone(refreshedDepartment.zones || []),
+    },
+    summary,
+    meta: {
+      simulated: false,
+      fetchedAt: new Date().toISOString(),
+      optimizedRefresh: true,
+    },
   }
 }
 

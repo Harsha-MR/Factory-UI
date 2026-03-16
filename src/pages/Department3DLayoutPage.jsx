@@ -18,6 +18,7 @@ import {
 } from "../services/mockApi";
 import { fetchDepartmentHourlyOEE } from "../services/clientApi";
 
+import DepartmentFloor2DViewer from "../components/layout/DepartmentFloor2DViewer";
 import DepartmentFloor3DViewer from "../components/layout/DepartmentFloor3DViewer";
 import { createDefaultLayoutForDepartment } from "../components/layout/defaultLayout";
 import {
@@ -296,6 +297,7 @@ export default function Department3DLayoutPage() {
   const [activeTool, setActiveTool] = useState("select");
   const [selectedId, setSelectedId] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [focusedZoneId, setFocusedZoneId] = useState("");
 
   const requestedLayoutView = location.state?.layoutView;
   const handlePointerPositionChange = useCallback((pos) => {
@@ -672,6 +674,11 @@ export default function Department3DLayoutPage() {
             deptResult?.department?.name || `Department ${departmentId}`,
           plant: deptResult?.plant?.name || plantName,
           customerId: deptResult?.factory?.id || "GPBUM",
+          machines: Object.values(machineMetaById || {}).map((x) => ({
+            id: String(x?.id || ""),
+            name: x?.name || String(x?.id || ""),
+            status: x?.status || "UNKNOWN",
+          })),
         },
         fetchedAt: deptResult?.meta?.fetchedAt || "",
       },
@@ -1100,14 +1107,14 @@ export default function Department3DLayoutPage() {
                     Previous
                   </button>
                 </div> */}
-                {/* <button
+                <button
                   type="button"
                   className={neutralBtnClass}
                   onClick={toggleFullscreen}
                   title="Enter fullscreen"
                 >
                   Customize Layout
-                </button> */}
+                </button>
                 <button
                   type="button"
                   className={neutralBtnClass}
@@ -2572,40 +2579,36 @@ export default function Department3DLayoutPage() {
             ) : null}
 
             <div className="relative h-full w-full">
-              <DepartmentFloor3DViewer
-                modelUrl={
-                  draft?.threeD?.floorModelUrl || "/models/floor-model.glb"
-                }
-                scale={floorScale}
-                autoRotate={!!draft?.threeD?.floorModelAutoRotate}
-                elements={draft?.elements || []}
-                showMachineMarkers={showMachineMarkers}
-                showMachineLabels={showMachineLabels}
-                machineMetaById={machineMetaById}
-                departmentZones={deptResult?.department?.zones}
-                onOpenMachineDetails={
-                  !isFullscreen ? onOpenMachineDetails : undefined
-                }
-                machineStatusVisibility={machineStatusVisibility}
-                onPointerPositionChange={
-                  isFullscreen ? handlePointerPositionChange : undefined
-                }
-                fullScreen={isFullscreen}
-                activeTool={viewerActiveTool}
-                selectedId={isFullscreen ? selectedId : ""}
-                cameraResetTrigger={cameraResetTrigger}
-                onCameraReset={handleCameraReset}
-                oeeSummary={oeeSummary}
-                onSelectElement={
-                  isFullscreen
-                    ? (id) => {
-                        setSelectedId(String(id || ""));
-                      }
-                    : undefined
-                }
-                onAddElement={
-                  isFullscreen
-                    ? (type, pos) => {
+              {isFullscreen ? (
+                <DepartmentFloor2DViewer
+                  elements={draft?.elements || []}
+                  showMachineMarkers={showMachineMarkers}
+                  showMachineLabels={showMachineLabels}
+                  machineMetaById={machineMetaById}
+                  machineStatusVisibility={machineStatusVisibility}
+                  onPointerPositionChange={handlePointerPositionChange}
+                  fullScreen
+                  activeTool={viewerActiveTool}
+                  selectedId={selectedId}
+                  focusedZoneId={focusedZoneId}
+                  onFocusZoneChange={(id) => setFocusedZoneId(String(id || ""))}
+                  onSelectElement={(id) => {
+                    setSelectedId(String(id || ""));
+                    const next = (draft?.elements || []).find(
+                      (e) => String(e?.id) === String(id || ""),
+                    );
+                    if (
+                      activeTool === "add:machine" &&
+                      next?.type === ELEMENT_TYPES.ZONE
+                    ) {
+                      setFocusedZoneId(String(next.id));
+                    } else if (!id) {
+                      setFocusedZoneId("");
+                    } else if (activeTool !== "add:machine") {
+                      setActiveTool("select");
+                    }
+                  }}
+                  onAddElement={(type, pos) => {
                       const t = String(type);
                       const newId = nanoid(8);
                       const defaultModelUrl = MODEL_LIBRARY[t]?.[0]?.url;
@@ -2811,46 +2814,59 @@ export default function Department3DLayoutPage() {
                           ts: Date.now(),
                         });
                       }
-                    }
-                  : undefined
-                }
-                onMoveElement={
-                  isFullscreen
-                    ? (id, patch) => {
-                        setDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                elements: (prev.elements || []).map((e) =>
-                                  String(e.id) === String(id)
-                                    ? { ...e, ...patch }
-                                    : e,
-                                ),
-                              }
-                            : prev,
-                        );
-                      }
-                    : undefined
-                }
-                onUpdateElement={
-                  isFullscreen
-                    ? (id, patch) => {
-                        setDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                elements: (prev.elements || []).map((e) =>
-                                  String(e.id) === String(id)
-                                    ? { ...e, ...patch }
-                                    : e,
-                                ),
-                              }
-                            : prev,
-                        );
-                      }
-                    : undefined
-                }
-              />
+                    }}
+                  onMoveElement={(id, patch) => {
+                    setDraft((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            elements: (prev.elements || []).map((e) =>
+                              String(e.id) === String(id)
+                                ? { ...e, ...patch }
+                                : e,
+                            ),
+                          }
+                        : prev,
+                    );
+                  }}
+                  onUpdateElement={(id, patch) => {
+                    setDraft((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            elements: (prev.elements || []).map((e) =>
+                              String(e.id) === String(id)
+                                ? { ...e, ...patch }
+                                : e,
+                            ),
+                          }
+                        : prev,
+                    );
+                  }}
+                />
+              ) : (
+                <DepartmentFloor3DViewer
+                  modelUrl={
+                    draft?.threeD?.floorModelUrl || "/models/floor-model.glb"
+                  }
+                  scale={floorScale}
+                  autoRotate={!!draft?.threeD?.floorModelAutoRotate}
+                  elements={draft?.elements || []}
+                  showMachineMarkers={showMachineMarkers}
+                  showMachineLabels={showMachineLabels}
+                  machineMetaById={machineMetaById}
+                  departmentZones={deptResult?.department?.zones}
+                  onOpenMachineDetails={onOpenMachineDetails}
+                  machineStatusVisibility={machineStatusVisibility}
+                  onPointerPositionChange={undefined}
+                  fullScreen={false}
+                  activeTool="select"
+                  selectedId=""
+                  cameraResetTrigger={cameraResetTrigger}
+                  onCameraReset={handleCameraReset}
+                  oeeSummary={oeeSummary}
+                />
+              )}
               
               {/* Show labels and Reset view controls for non-fullscreen mode */}
               {!isFullscreen && (
